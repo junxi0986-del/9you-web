@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>九游项目跟踪管理平台</title>
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ========== 全局基础样式 ========== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --primary: #2563eb;        /* 主色蓝 */
+  --primary-dark: #1d4ed8;
+  --primary-light: #dbeafe;
+  --bg: #f1f5f9;             /* 页面背景灰 */
+  --card-bg: #ffffff;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --success: #16a34a;        /* 绿：已回本 */
+  --danger: #dc2626;
+  --orange: #ea580c;         /* 橙：进度较慢 */
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+}
+
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; }
+
+/* ==========登录页面样式========== */
+#loginWrap{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.login-card{
+  background:white;
+  padding:32px;
+  border-radius:12px;
+  width:100%;
+  max-width:420px;
+  box-shadow:var(--shadow);
+}
+/* ========== 顶部标题栏 ========== */
+.header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header h1 span { opacity: .85; font-size: 13px; font-weight: 400; margin-left: 8px; }
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ========== 按钮通用样式 ========== */
+.btn {
+  border: none; cursor: pointer; border-radius: 6px;
+  padding: 8px 14px; font-size: 13px; font-weight: 500;
+  transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+.btn-outline:hover { background: var(--primary-light); }
+.btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: #fef2f2; }
+.btn-danger-solid { background: var(--danger); color: #fff; }
+.btn-danger-solid:hover { background: #b91c1c; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--primary-light); color: var(--primary); }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+
+/* ========== 面包屑导航 ========== */
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 16px; font-size: 13px; color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.breadcrumb a { color: var(--primary); text-decoration: none; cursor: pointer; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb .sep { color: var(--border); }
+
+/* ========== 汇总卡片 ========== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.summary-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  border-top: 3px solid var(--primary);
+}
+.summary-card .label { color: var(--text-secondary); font-size: 13px; margin-bottom: 6px; }
+.summary-card .value { font-size: 22px; font-weight: 700; color: var(--text); }
+.summary-card .value small { font-size: 12px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
+.summary-card.accent .value { color: var(--primary); }
+
+/* ========== 项目卡片列表（主页面） ========== */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.project-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  cursor: pointer;
+  transition: box-shadow .2s, transform .2s;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.project-card:hover { box-shadow: 0 6px 20px rgba(37,99,235,.15); transform: translateY(-2px); }
+.project-card .pc-name { font-size: 16px; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+.project-card .pc-remark { color: var(--text-secondary); font-size: 13px; min-height: 20px; word-break: break-all; }
+.project-card .pc-stats {
+  display: flex; gap: 16px; border-top: 1px dashed var(--border); padding-top: 10px;
+}
+.project-card .pc-stats div { flex: 1; }
+.project-card .pc-stats .lbl { font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; }
+.project-card .pc-stats .val { font-size: 15px; font-weight: 600; }
+.project-card .pc-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-top: 4px;
+}
+.project-card .pc-actions { display: flex; gap: 6px; }
+.badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; white-space: nowrap;
+}
+.badge-blue { background: var(--primary-light); color: var(--primary); }
+
+/* ========== 用户表格（详情页） ========== */
+.table-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+}
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  padding: 10px 12px; text-align: left; font-size: 13px;
+  border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle;
+}
+th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; }
+tbody tr:hover { background: #f8fafc; }
+/* 已回本的下级行背景为淡绿色，未回本为白色 */
+tbody tr.row-done { background: #f0fdf4; }
+tbody tr.row-done:hover { background: #dcfce7; }
+td .cell-main { font-weight: 600; }
+td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.money { font-weight: 600; }
+.money.gain { color: var(--success); }
+.money.lose { color: var(--danger); }
+
+/* 进度条（单元格内） */
+.progress-wrap { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.progress-bar {
+  flex: 1; height: 8px; background: var(--primary-light);
+  border-radius: 10px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 10px;
+  background: linear-gradient(90deg, #60a5fa, var(--primary));
+  transition: width .4s ease;
+}
+/* 绿色=已回本；蓝色=进行中(≥30%)；橙色=进度<30% */
+.progress-fill.done { background: linear-gradient(90deg, #4ade80, var(--success)); }
+.progress-fill.slow { background: linear-gradient(90deg, #fdba74, var(--orange)); }
+.progress-text { font-size: 12px; font-weight: 700; min-width: 46px; text-align: right; }
+.progress-text.done { color: var(--success); }
+.progress-text.slow { color: var(--orange); }
+.progress-text.normal { color: var(--primary); }
+
+/* 用户操作按钮组 */
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* 下级列表搜索框 */
+.search-input {
+  padding: 7px 12px; font-size: 13px; border: 1px solid var(--border);
+  border-radius: 6px; outline: none; width: 220px; transition: border-color .15s;
+  color: var(--text); font-family: inherit;
+}
+.search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+/* ========== 空状态 ========== */
+.empty {
+  text-align: center; padding: 50px 20px; color: var(--text-secondary);
+  background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.empty .icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ========== 弹窗 ========== */
+.modal-mask {
+  display: none; position: fixed; inset: 0;
+  background: rgba(15,23,42,.45); z-index: 100;
+  justify-content: center; align-items: center; padding: 16px;
+}
+.modal-mask.show { display: flex; }
+.modal {
+  background: #fff; border-radius: 12px; width: 100%;
+  max-width: 460px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0,0,0,.2);
+  animation: pop .18s ease;
+}
+.modal.wide { max-width: 720px; }
+@keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-head {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-head h3 { font-size: 16px; font-weight: 600; }
+.modal-close {
+  border: none; background: none; font-size: 20px; cursor: pointer;
+  color: var(--text-secondary); line-height: 1; padding: 4px;
+}
+.modal-close:hover { color: var(--danger); }
+.modal-body { padding: 20px; }
+.modal-foot {
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+
+/* ========== 表单 ========== */
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text);
+}
+.form-group label .req { color: var(--danger); margin-left: 2px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 9px 12px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 6px; outline: none;
+  transition: border-color .15s; background: #fff; color: var(--text);
+  font-family: inherit;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-group input:focus, .form-group textarea:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+.form-group input.invalid, .form-group textarea.invalid { border-color: var(--danger); }
+.form-group input[readonly] { background: #f8fafc; }
+.form-tip { font-size: 12px; color: var(--text-secondary); margin-top: 5px; }
+.form-error { font-size: 12px; color: var(--danger); margin-top: 5px; display: none; }
+.form-group.show-error .form-error { display: block; }
+
+/* 台账排序工具条 */
+.ledger-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.ledger-toolbar .info { color: var(--text-secondary); font-size: 13px; }
+
+/* ========== 底部 ========== */
+.footer {
+  margin-top: 26px; text-align: center; color: var(--text-secondary);
+  font-size: 12px; line-height: 2;
+}
+
+/* ========== 消息提示（toast） ========== */
+#toast-box {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.toast {
+  background: #1e293b; color: #fff; padding: 10px 18px; border-radius: 8px;
+  font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  animation: slideDown .25s ease; max-width: 90vw;
+}
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+.toast.warn { background: var(--warning, #d97706); }
+@keyframes slideDown { from { transform: translateY(-12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ========== 页面切换 ========== */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ========== 响应式 ========== */
+@media (max-width: 900px) {
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+  .header { flex-direction: column; align-items: flex-start; }
+  .project-grid { grid-template-columns: 1fr; }
+}
+
+/* ========== 批量操作 ========== */
+.user-table th.chk, .user-table td.chk { display: none; }   /* 非批量模式隐藏勾选列 */
+.user-table.batching th.chk, .user-table.batching td.chk { display: table-cell; }
+.user-table td.chk input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; }
+.user-table tr.row-selected { background: #eff6ff !important; }
+
+/* 批量操作浮动工具条 */
+#batchBar {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 90;
+  display: none; align-items: center; flex-wrap: wrap; justify-content: center; gap: 10px;
+  max-width: calc(100vw - 24px); padding: 10px 14px;
+  background: #1e293b; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+#batchBar.show { display: flex; }
+#batchBar .cnt { color: #fff; font-size: 13px; }
+
+/* ========== 手机端适配（≤600px） ========== */
+@media (max-width: 600px) {
+  /* 输入框字号≥16px，避免 iOS Safari 聚焦时自动放大页面 */
+  .form-group input, .form-group textarea, .search-input { font-size: 16px; }
+
+  .container { padding: 12px 10px 30px; }
+  .header { padding: 14px 16px; border-radius: 8px; }
+  .header h1 { font-size: 17px; }
+  .header h1 span { display: block; margin: 4px 0 0; }  /* 副标题换行显示 */
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; justify-content: center; padding: 8px 4px; }
+
+  .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .summary-card { padding: 12px 14px; }
+  .summary-card .value { font-size: 18px; }
+
+  .project-card { padding: 14px; }
+  .project-card .pc-stats { flex-wrap: wrap; }
+  .project-card .pc-foot { flex-direction: column; align-items: stretch; }
+  .project-card .pc-foot .btn { justify-content: center; }
+
+  .search-input { width: 100%; }                       /* 搜索框占满一行 */
+  .table-card { padding: 10px 12px; }
+  th, td { padding: 8px 10px; font-size: 12px; }
+  .row-actions { flex-wrap: wrap; gap: 4px; }
+  .row-actions .btn { padding: 5px 8px; font-size: 12px; }
+
+  /* 表格保持可读宽度，在手机上横向滑动查看 */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 680px; }
+
+  /* 台账弹窗：手机上改为卡片式布局，完整显示 */
+  .modal.wide { max-width: 100% !important; }
+  .modal.wide .table-wrap { overflow: visible; }
+  .modal.wide .table-wrap table { min-width: 0; }
+  .modal.wide .ledger-toolbar { flex-direction: column; gap: 8px; align-items: stretch; }
+  .modal.wide .ledger-toolbar > div { justify-content: center; }
+  #ledgerBody { display: block; }
+  #ledgerBody tr { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; padding: 2px 12px; }
+  #ledgerBody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; }
+  #ledgerBody td:last-child { border-bottom: none; }
+  #ledgerBody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  #ledgerBody td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  #ledgerBody td::before { content: attr(data-label); }
+  .ledger-modal thead { display: none; }
+
+  /* 下级列表在手机上改为卡片式布局，逐行完整展示所有字段 */
+  .table-wrap table.user-table { min-width: 0; }
+  .user-table thead { display: none; }
+  .user-table tbody { display: block; }
+  .user-table tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
+  .user-table tr.row-done { border-color: #bbf7d0; }
+  .user-table td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  .user-table td:last-child { border-bottom: none; }
+  .user-table td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  /* 姓名 / 进度 / 操作：标签在上、内容在下 */
+  .user-table td.td-block, .user-table td.td-progress, .user-table td.td-actions { display: block; }
+  .user-table td.td-block::before, .user-table td.td-progress::before, .user-table td.td-actions::before { display: block; margin-bottom: 5px; }
+  .user-table .cell-sub { max-width: 100%; white-space: normal; }
+  .user-table td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  /* 批量模式：勾选列在手机上作为卡片内的一行展示 */
+  .user-table.batching td.chk { display: flex; }
+  #batchBar { bottom: 10px; padding: 8px 10px; }
+
+  .modal-foot .btn { flex: 1; justify-content: center; }
+  .breadcrumb { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<!-- 登录界面 -->
+<div id="loginWrap">
+  <div class="login-card">
+    <h2 style="text-align:center;margin-bottom:24px">📊九游项目跟踪平台</h2>
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" id="loginEmail">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPwd">
+    </div>
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
+      <button onclick="openSignupModal()" style="font-size:12px;color:var(--text-secondary);background:none;border:none;cursor:pointer;padding:4px 8px;text-align:center;width:100%">注册账号</button>
+    </div>
+  </div>
+</div>
+
+<!-- 注册弹窗 -->
+<div class="modal-mask" id="signupModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <h3>注册新账号</h3>
+      <button class="modal-close" onclick="closeModal('signupModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>邮箱<span class="req">*</span></label>
+        <input type="email" id="signupEmail" placeholder="请输入邮箱地址">
+        <div class="form-error">请输入有效的邮箱地址</div>
+      </div>
+      <div class="form-group">
+        <label>密码<span class="req">*</span></label>
+        <input type="password" id="signupPwd" placeholder="密码至少 6 位" min="6">
+        <div class="form-error">密码至少需要 6 位</div>
+      </div>
+      <div class="form-group">
+        <label>确认密码<span class="req">*</span></label>
+        <input type="password" id="signupPwd2" placeholder="请再次输入密码">
+        <div class="form-error">两次输入的密码不一致</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('signupModal')">取消</button>
+      <button class="btn btn-primary" onclick="doSignup()">注册</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置密码弹窗（从邮件链接进入时显示） -->
+<div class="modal-mask" id="resetPwdModal" style="display:none">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <h3>设置新密码</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">请输入您的新密码，设置后将自动登录。</p>
+      <div class="form-group">
+        <label>新密码<span class="req">*</span></label>
+        <input type="password" id="resetNewPwd" placeholder="密码至少 6 位" min="6">
+        <div class="form-error">密码至少需要 6 位</div>
+      </div>
+      <div class="form-group">
+        <label>确认新密码<span class="req">*</span></label>
+        <input type="password" id="resetNewPwd2" placeholder="请再次输入新密码">
+        <div class="form-error">两次输入的密码不一致</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="doSetNewPassword()">设置新密码</button>
+    </div>
+  </div>
+</div>
+
+<!-- 主业务页面（登录成功后显示） -->
+<div class="container" id="mainApp" style="display:none">
+  <!-- 顶部标题栏（全局操作） -->
+  <header class="header">
+    <h1 id="headerTitle">📊 九游项目跟踪管理平台</h1>
+    <div class="header-actions">
+      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="exportData()">导出 JSON</button>
+      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="document.getElementById('importFile').click()">导入 JSON</button>
+      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
+      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="supabaseLogout()">退出登录</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+  </header>
+
+  <!-- ==================== 页面一：项目列表（主页面） ==================== -->
+  <section class="page active" id="pageProjectList">
+    <!-- 首页全局汇总：统计所有项目的整体回本情况 -->
+    <div class="summary-grid" id="homeSummary" style="margin-bottom:16px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="font-size:16px;font-weight:600">项目列表</h2>
+      <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
+    </div>
+    <div class="project-grid" id="projectGrid"></div>
+  </section>
+
+  <!-- ==================== 页面二：项目详情（用户列表） ==================== -->
+  <section class="page" id="pageProjectDetail">
+    <!-- 面包屑导航 -->
+    <nav class="breadcrumb">
+      <a onclick="showPage('list')">项目列表</a>
+      <span class="sep">/</span>
+      <b id="crumbProjectName">项目详情</b>
+    </nav>
+
+    <!-- 项目信息卡 -->
+    <div class="table-card" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:18px;font-weight:700" id="detailProjectName">—</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px" id="detailProjectRemark"></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-outline btn-sm" onclick="openProjectModal(currentProjectId)">编辑项目</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProject(currentProjectId)">删除项目</button>
+        <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ 添加下级</button>
+      </div>
+    </div>
+
+    <!-- 汇总报表 -->
+    <div class="summary-grid" id="detailSummary"></div>
+
+    <!-- 用户列表 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:16px;font-weight:600">下级列表 <span style="font-size:12px;color:var(--text-secondary);font-weight:400">共 <b id="userCount">0</b> 人</span></h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" class="search-input" id="userSearch" placeholder="🔍 搜索姓名 / 下级ID / 备注" oninput="renderDetail()">
+        <button class="btn btn-outline btn-sm" id="batchToggleBtn" onclick="toggleBatchMode()">批量操作</button>
+        <button class="btn btn-outline btn-sm" onclick="openBatchUserModal()">批量添加下级</button>
+        <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ 添加下级</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-wrap">
+        <table class="user-table" id="userTable">
+          <thead>
+            <tr>
+              <th class="chk" style="width:40px"><input type="checkbox" id="chkAll" onclick="toggleSelectAll(this.checked)"></th>
+              <th style="width:50px">#</th>
+              <th>下级ID</th>
+              <th>姓名</th>
+              <th>投入本金（元）</th>
+              <th>上车日期</th>
+              <th>累计已收回（元）</th>
+              <th>剩余未回本（元）</th>
+              <th style="min-width:160px">回本进度</th>
+              <th>状态</th>
+              <th style="min-width:230px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部信息 -->
+  <footer class="footer">
+    <div>数据保存在云端Supabase，多设备登录账号自动同步</div>
+  </footer>
+</div>
+
+<!-- ========== 新增/编辑项目弹窗 ========== -->
+<div class="modal-mask" id="projectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="projectModalTitle">新增项目</h3>
+      <button class="modal-close" onclick="closeModal('projectModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pf-id">
+      <div class="form-group">
+        <label>项目名称<span class="req">*</span></label>
+        <input type="text" id="pf-name" placeholder="请输入项目名称" maxlength="50">
+        <div class="form-error">请输入项目名称</div>
+      </div>
+      <div class="form-group">
+        <label>项目备注（可选）</label>
+        <textarea id="pf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('projectModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveProject()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 新增/编辑用户弹窗 ========== -->
+<div class="modal-mask" id="userModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="userModalTitle">添加下级</h3>
+      <button class="modal-close" onclick="closeModal('userModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="uf-id">
+      <input type="hidden" id="uf-projectId">
+      <div class="form-group">
+        <label>下级ID<span class="req">*</span></label>
+        <input type="text" id="uf-uid" placeholder="请输入下级ID（项目内不可重复）" maxlength="30">
+        <div class="form-error">请输入下级ID，且不能与该项目下其他下级重复</div>
+      </div>
+      <div class="form-group">
+        <label>姓名<span class="req">*</span></label>
+        <input type="text" id="uf-name" placeholder="请输入下级姓名" maxlength="30">
+        <div class="form-error">请输入下级姓名</div>
+      </div>
+      <div class="form-group">
+        <label>投入本金（元）<span class="req">*</span></label>
+        <input type="number" id="uf-principal" placeholder="请输入投入本金" min="0.01" step="0.01">
+        <div class="form-error">请输入大于 0 的本金金额</div>
+      </div>
+      <div class="form-group">
+        <label>上车日期<span class="req">*</span></label>
+        <input type="date" id="uf-date">
+        <div class="form-error">请选择不晚于今天的上车日期</div>
+      </div>
+      <div class="form-group">
+        <label>备注（可选）</label>
+        <textarea id="uf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('userModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveUser()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 价格录入弹窗 ========== -->
+<div class="modal-mask" id="priceModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>添加回本金额</h3>
+      <button class="modal-close" onclick="closeModal('priceModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>下级</label>
+        <input type="text" id="pr-userName" readonly>
+        <div class="form-tip" id="pr-earned"></div>
+      </div>
+      <div class="form-group">
+        <label>录入时间<span class="req">*</span></label>
+        <input type="datetime-local" id="pr-date" step="60">
+        <div class="form-tip">默认当前时间，可补录过往时间，精确到分钟，不能晚于现在</div>
+        <div class="form-error">请选择不晚于当前时间的时间</div>
+      </div>
+      <div class="form-group">
+        <label>回本金额（元）<span class="req">*</span></label>
+        <input type="number" id="pr-price" placeholder="请输入回本金额" min="0.01" step="0.01">
+        <div class="form-tip">同一天可多次录入，每次添加单独记录</div>
+        <div class="form-error">请输入大于 0 的回本金额</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('priceModal')">完成</button>
+      <button class="btn btn-primary" onclick="savePrice()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 台账查看弹窗 ========== -->
+<div class="modal-mask" id="ledgerModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3 id="ledgerTitle">查看台账</h3>
+      <button class="modal-close" onclick="closeModal('ledgerModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="ledger-toolbar">
+        <span class="info" id="ledgerInfo"></span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-outline" onclick="setLedgerSort('desc')">日期 ↓ 降序</button>
+          <button class="btn btn-sm btn-outline" onclick="setLedgerSort('asc')">日期 ↑ 升序</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="ledger-modal">
+          <thead>
+            <tr><th style="width:60px">#</th><th>日期</th><th>回本金额（元）</th><th style="width:80px">操作</th></tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('ledgerModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 批量添加回本金额弹窗 ========== -->
+<div class="modal-mask" id="batchPriceModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>批量添加回本金额</h3>
+      <button class="modal-close" onclick="closeModal('batchPriceModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>已选下级</label>
+        <input type="text" id="bp-users" readonly>
+      </div>
+      <div class="form-group">
+        <label>录入时间<span class="req">*</span></label>
+        <input type="datetime-local" id="bp-date" step="60">
+        <div class="form-tip">默认当前时间，不能晚于现在</div>
+        <div class="form-error">请选择不晚于当前时间的时间</div>
+      </div>
+      <div class="form-group">
+        <label>回本金额（元）<span class="req">*</span></label>
+        <input type="number" id="bp-price" placeholder="请输入回本金额" min="0.01" step="0.01">
+        <div class="form-tip">每位选中的下级都会各自添加一笔相同金额的记录</div>
+        <div class="form-error">请输入大于 0 的回本金额</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('batchPriceModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveBatchPrice()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 批量添加下级弹窗 ========== -->
+<div class="modal-mask" id="batchUserModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>批量添加下级</h3>
+      <button class="modal-close" onclick="closeModal('batchUserModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>下级信息（每行一位）<span class="req">*</span></label>
+        <textarea id="bu-text" rows="8" placeholder="张三, 10000, 2026-01-15, ID001, 老客户&#10;李四, 8000"></textarea>
+        <div class="form-tip">格式：姓名, 本金, 上车日期, 下级ID, 备注 —— 仅姓名和本金必填；日期可省略（默认今天）且不能晚于今天；下级ID留空将自动生成且不可重复</div>
+        <div class="form-error" id="bu-error"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('batchUserModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveBatchUsers()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认操作弹窗（二次确认） -->
+<div class="modal-mask" id="confirmModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3 id="confirmTitle">确认操作</h3><button class="modal-close" onclick="closeModal('confirmModal')">×</button></div>
+    <div class="modal-body"><p id="confirmMsg" style="line-height:1.7"></p></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('confirmModal')">取消</button>
+      <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批量操作浮动工具条 -->
+<div id="batchBar">
+  <span class="cnt">已选 <b id="batchCount">0</b> 人</span>
+  <button class="btn btn-sm btn-primary" onclick="openBatchPriceModal()">批量添加回本金额</button>
+  <button class="btn btn-sm btn-danger-solid" onclick="batchDeleteUsers()">批量删除</button>
+  <button class="btn btn-sm btn-ghost" style="color:#cbd5e1" onclick="toggleBatchMode()">退出批量</button>
+</div>
+
+<div id="toast-box"></div>
+
+<script>
+// ===================== Supabase配置（你的账号参数） =====================
+const SUPABASE_URL = "https://qqkbdtpvkvqecbtspnix.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_IH7vHCObbJpsFyJkGLZsuA_mgkRaFq5";
+// 无感登录：自动刷新令牌 + 持久化会话，用户刷新/重开浏览器自动登录
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,      // 令牌过期前自动刷新，用户无感知
+    persistSession: true,        // 会话持久化到 localStorage，刷新不丢失
+    detectSessionInUrl: true,    // 自动从 URL 提取登录回调（OAuth/重置密码等）
+    storage: window.localStorage, // 明确使用 localStorage 存储
+    storageKey: 'sb-auth-token'   // 存储键名
+  }
+});
+
+//全局数据
+let projects = [];
+let currentUserId = null;
+let currentProjectId = null;
+let ledgerUserId = null;
+let ledgerSort = 'desc';
+let confirmCallback = null;
+
+// 登录/注册错误信息中文化（模糊匹配，确保命中）
+function authError(msg){
+  const rules = [
+    [/invalid login credentials/i, "邮箱或密码错误"],
+    [/invalid format/i, "邮箱格式不正确，请输入有效的邮箱地址"],
+    [/at least 6 characters/i, "密码至少需要 6 位"],
+    [/already registered/i, "该邮箱已注册，请直接登录"],
+    [/signups not allowed/i, "当前项目未开放注册"],
+    [/rate limit/i, "操作过于频繁，请稍后再试"],
+    [/email not confirmed/i, "邮箱未验证，请先到邮箱完成验证"],
+  ];
+  for (const [re, cn] of rules) if (re.test(msg)) return cn;
+  return msg;
+}
+
+// ============登录相关函数============
+async function supabaseSignIn(){
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPwd").value;
+  if(!email || !password) return toast("请输入邮箱和密码","warn");
+  const {data,error} = await sb.auth.signInWithPassword({email,password});
+  if(error) return toast("登录失败："+authError(error.message),"error");
+  currentUserId = data.user.id;
+  await loadCloudData();
+  showMainApp();
+  toast("登录成功","success");
+}
+async function supabaseSignUp(){
+  // 已废弃：改为弹窗注册，保留函数避免 onclick 报错
+}
+// 打开注册弹窗
+function openSignupModal(){
+  setError('signupEmail', false); setError('signupPwd', false); setError('signupPwd2', false);
+  document.getElementById('signupEmail').value = '';
+  document.getElementById('signupPwd').value = '';
+  document.getElementById('signupPwd2').value = '';
+  openModal('signupModal');
+  document.getElementById('signupEmail').focus();
+}
+// 执行注册
+async function doSignup(){
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPwd').value;
+  const password2 = document.getElementById('signupPwd2').value;
+  // 表单验证
+  let ok = true;
+  ok = setError('signupEmail', !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) && ok;
+  ok = setError('signupPwd', password.length < 6) && ok;
+  ok = setError('signupPwd2', password !== password2) && ok;
+  if(!ok) return;
+  const {data,error} = await sb.auth.signUp({email,password});
+  if(error) return toast("注册失败："+authError(error.message),"error");
+  // 部分项目开启了邮箱验证：未直接建立会话时提示先验证再登录
+  if(!data.session){
+    closeModal('signupModal');
+    return toast("注册成功，请先到邮箱完成验证后再登录","success");
+  }
+  currentUserId = data.user.id;
+  await saveCloudData();
+  closeModal('signupModal');
+  showMainApp();
+  toast("注册成功","success");
+}
+async function supabaseLogout(){
+  await sb.auth.signOut();
+  currentUserId = null;
+  projects = [];  // 清空本地数据，避免泄露给下一位用户
+  hideMainApp();
+  toast("已退出登录","success");
+}
+//检测页面刷新后登录状态
+// ========== 无感登录：监听会话状态变化 ==========
+// 令牌自动刷新成功 / 会话恢复时，无缝进入主界面，用户无需重新登录
+let authReady = false;  // 标记首次 checkAuth 是否已完成，避免 onAuthStateChange 重复触发
+sb.auth.onAuthStateChange(async (event, session) => {
+  // TOKEN_REFRESHED：令牌自动刷新成功，用户无感知，无需操作
+  // SIGNED_IN：会话恢复或登录成功（首次 checkAuth 已处理登录后的跳转，这里仅处理刷新场景）
+  if(event === 'SIGNED_IN' && authReady && session && !currentUserId){
+    currentUserId = session.user.id;
+    await loadCloudData();
+    showMainApp();
+  }
+  // 令牌刷新失败 / 被踢下线：静默退出到登录页
+  if(event === 'SIGNED_OUT' && authReady){
+    currentUserId = null;
+    projects = [];
+    hideMainApp();
+  }
+});
+
+async function checkAuth(){
+  // 检测密码重置流程：URL hash 中含 type=recovery
+  const hash = window.location.hash;
+  if(hash.includes('type=recovery')){
+    // Supabase SDK 会自动从 hash 恢复会话，等待一下再获取用户
+    const { data: { user } } = await sb.auth.getUser();
+    if(user){
+      currentUserId = user.id;
+      // 显示设置新密码弹窗（不直接进主界面）
+      document.getElementById('loginWrap').style.display = 'none';
+      document.getElementById('resetPwdModal').style.display = 'flex';
+      // 清除 URL hash，避免刷新重复触发
+      history.replaceState(null, '', window.location.pathname);
+      authReady = true;
+      return;
+    }
+  }
+  const {data:{user}} = await sb.auth.getUser();
+  if(user){
+    currentUserId = user.id;
+    await loadCloudData();
+    showMainApp();
+  } else {
+    // 未登录：如果之前失败过3次，恢复显示验证码
+    if(parseInt(sessionStorage.getItem('loginFailCount') || '0') >= 3){
+      document.getElementById('loginCaptchaGroup').style.display = '';
+      drawCaptcha('loginCaptchaCanvas');
+    }
+  }
+  authReady = true;  // 标记首次检测完成，后续 onAuthStateChange 可正常响应
+}
+// 设置新密码（从重置邮件链接进入后）
+async function doSetNewPassword(){
+  const pwd = document.getElementById('resetNewPwd').value;
+  const pwd2 = document.getElementById('resetNewPwd2').value;
+  let ok = true;
+  ok = setError('resetNewPwd', pwd.length < 6) && ok;
+  ok = setError('resetNewPwd2', pwd !== pwd2) && ok;
+  if(!ok) return;
+  const { data, error } = await sb.auth.updateUser({ password: pwd });
+  if(error) return toast("设置失败："+authError(error.message),"error");
+  // 密码更新成功，加载数据进入主界面
+  currentUserId = data.user.id;
+  await loadCloudData();
+  document.getElementById('resetPwdModal').style.display = 'none';
+  showMainApp();
+  toast("密码已重置，欢迎回来","success");
+}
+function showMainApp(){
+  document.getElementById("loginWrap").style.display = "none";
+  document.getElementById("mainApp").style.display = "block";
+  renderProjectGrid();
+}
+function hideMainApp(){
+  document.getElementById("loginWrap").style.display = "flex";
+  document.getElementById("mainApp").style.display = "none";
+}
+
+// =========云端读写函数（替代localStorage）=========
+// silent 为 true 时不弹"已同步"提示（由操作本身的成功提示代替，避免双重弹窗）
+async function saveCloudData(silent = false){
+  const jsonStr = JSON.stringify(projects);
+  const {error} = await sb
+    .from("user_data")
+    .upsert([{user_id:currentUserId,content:jsonStr}]);
+  if(error) toast("云端保存失败:"+error.message,"error");
+  else if(!silent) toast("✅数据已同步云端","success");
+}
+async function loadCloudData(){
+  const {data,error} = await sb
+    .from("user_data")
+    .select("content")
+    .eq("user_id", currentUserId)   // 只读取当前登录用户的数据行
+    .single();
+  if(error && error.code !== 'PGRST116'){
+    toast("读取云端失败","error");
+    return;
+  }
+  if(data && data.content){
+    projects = JSON.parse(data.content);
+  }else{
+    projects = [];
+  }
+}
+
+/* ---------- 工具函数 ---------- */
+const todayStr = () => new Date().toISOString().slice(0, 10);
+// 当前本地时间，格式 YYYY-MM-DDTHH:MM（用于 datetime-local 输入与比较）
+function nowLocal() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+// 台账时间展示：YYYY-MM-DD HH:MM（兼容旧的纯日期记录）
+function fmtDateTime(s) { return s ? s.replace('T', ' ') : '—'; }
+const fmtMoney = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const getProject = id => projects.find(p => p.id === id);
+const getUser = (proj, uid) => proj ? proj.users.find(u => u.id === uid) : null;
+
+// 计算用户累计收益（其所有价格记录之和）
+function calcEarned(u) { return u.prices.reduce((s, r) => s + Number(r.price), 0); }
+
+// 计算剩余未回本金额（最低为 0）
+function calcRemain(u) { return Math.max(0, Number(u.principal) - calcEarned(u)); }
+
+// 回本进度（0~100）
+function calcProgress(u) {
+  if (!u.principal) return 0;
+  return Math.min(100, calcEarned(u) / Number(u.principal) * 100);
+}
+
+// 根据进度返回进度条样式类：绿=已回本，蓝=进行中(≥30%)，橙=进度较慢(<30%)
+function progressClass(p, done) {
+  if (done) return 'done';
+  return p >= 30 ? '' : 'slow';
+}
+
+// 消息提示
+function toast(msg, type = '') {
+  const box = document.getElementById('toast-box');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// 通用弹窗开关
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// 点击遮罩关闭弹窗
+document.querySelectorAll('.modal-mask').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+// 回车快捷确认：弹窗打开时按回车等同于点击"保存/确认"按钮，无需鼠标操作
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const t = e.target;
+  // 文本域内回车用于换行，不触发确认
+  if (t && t.tagName === 'TEXTAREA') return;
+  const shown = id => document.getElementById(id).classList.contains('show');
+  if (shown('projectModal')) { e.preventDefault(); saveProject(); }
+  else if (shown('userModal')) { e.preventDefault(); saveUser(); }
+  else if (shown('priceModal')) { e.preventDefault(); savePrice(); }
+  else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
+  else if (shown('batchUserModal')) { e.preventDefault(); saveBatchUsers(); }
+  else if (shown('signupModal')) { e.preventDefault(); doSignup(); }
+  else if (document.getElementById('resetPwdModal').style.display === 'flex') { e.preventDefault(); doSetNewPassword(); }
+  else if (shown('confirmModal')) { e.preventDefault(); document.getElementById('confirmOkBtn').click(); }
+  else if (t && (t.id === 'loginEmail' || t.id === 'loginPwd')) { e.preventDefault(); supabaseSignIn(); }  // 登录框回车直接登录
+  else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
+});
+
+// 二次确认框
+function confirmAction(title, msg, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  confirmCallback = cb;
+  openModal('confirmModal');
+}
+document.getElementById('confirmOkBtn').onclick = () => {
+  closeModal('confirmModal');
+  if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+};
+
+// 表单校验辅助：显示/清除某输入框错误
+function setError(inputId, hasError) {
+  const input = document.getElementById(inputId);
+  input.classList.toggle('invalid', hasError);
+  input.closest('.form-group').classList.toggle('show-error', hasError);
+  return !hasError;
+}
+
+/* ---------- 页面切换 ---------- */
+function showPage(page) {
+  document.getElementById('pageProjectList').classList.toggle('active', page === 'list');
+  document.getElementById('pageProjectDetail').classList.toggle('active', page === 'detail');
+  if (page === 'list') {
+    currentProjectId = null;
+    batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 返回列表时退出批量模式
+    renderProjectGrid();
+  } else {
+    renderDetail();
+  }
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 主页面：项目列表渲染 ---------- */
+function renderProjectGrid() {
+  const grid = document.getElementById('projectGrid');
+  document.getElementById('headerTitle').innerHTML = '📊 九游项目跟踪管理平台';
+  grid.innerHTML = '';
+
+  // ---- 首页全局汇总：跨所有项目统计 ----
+  const allUsers = projects.flatMap(p => p.users);
+  const gUserCount = allUsers.length;
+  const gPrincipal = allUsers.reduce((s, u) => s + Number(u.principal), 0);
+  const gEarned = allUsers.reduce((s, u) => s + calcEarned(u), 0);
+  const gAvgProgress = gUserCount ? allUsers.reduce((s, u) => s + calcProgress(u), 0) / gUserCount : 0;
+  const gDone = allUsers.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+  document.getElementById('homeSummary').innerHTML = `
+    <div class="summary-card"><div class="label">下级总人数</div><div class="value">${gUserCount}<small>人</small></div></div>
+    <div class="summary-card"><div class="label">总投入本金</div><div class="value">${fmtMoney(gPrincipal)}<small>元</small></div></div>
+    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value">${fmtMoney(gEarned)}<small>元</small></div></div>
+    <div class="summary-card"><div class="label">平均回本进度</div><div class="value">${gAvgProgress.toFixed(1)}<small>%</small></div></div>
+    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span style="color:var(--success)">${gDone}</span><small>人 / </small>${gUserCount - gDone}<small>人</small></div></div>`;
+
+  if (projects.length === 0) {
+    grid.innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <div class="icon">📁</div>
+        <div>暂无项目，点击右上角「＋ 新增项目」开始记录</div>
+      </div>`;
+    return;
+  }
+
+  projects.forEach(p => {
+    // 项目卡片展示该项目的汇总概况
+    const userCount = p.users.length;
+    const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
+    const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+    // 还差多少元回本：所有下级剩余未回本金额之和（最低为 0）
+    const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
+    // 利润金额：所有下级累计收益超出本金的部分
+    const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
+
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.onclick = () => enterProject(p.id);
+    card.innerHTML = `
+      <div class="pc-name">📁 ${escapeHtml(p.name)}
+        ${userCount ? `<span class="badge badge-blue">${doneCount}/${userCount} 已回本</span>` : ''}
+      </div>
+      <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
+      <div class="pc-stats">
+        <div><div class="lbl">下级数量</div><div class="val">${userCount} 人</div></div>
+        <div><div class="lbl">总本金</div><div class="val">${fmtMoney(totalPrincipal)}</div></div>
+        <div><div class="lbl">还差回本</div><div class="val" style="color:${totalRemain > 0 ? 'var(--danger)' : 'var(--success)'}">${totalRemain > 0
+          ? fmtMoney(totalRemain) + ' 元'
+          : (totalProfit > 0 ? '利润 +' + fmtMoney(totalProfit) + ' 元' : '已回本')}</div></div>
+      </div>
+      <div class="pc-foot" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-primary" onclick="enterProject('${p.id}')">进入管理</button>
+        <div class="pc-actions">
+          <button class="btn btn-sm btn-outline" onclick="openProjectModal('${p.id}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">删除</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// HTML 转义，防止备注等内容破坏页面结构
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// 进入项目详情页
+function enterProject(id) {
+  const p = getProject(id);
+  if (!p) return;
+  currentProjectId = id;
+  document.getElementById('userSearch').value = '';  // 进入项目时清空搜索
+  batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 重置批量操作状态
+  showPage('detail');
+}
+
+/* ---------- 详情页渲染 ---------- */
+function renderDetail() {
+  const p = getProject(currentProjectId);
+  if (!p) { showPage('list'); return; }
+
+  document.getElementById('headerTitle').innerHTML = `📁 ${escapeHtml(p.name)}<span>项目详情</span>`;
+  document.getElementById('crumbProjectName').textContent = p.name;
+  document.getElementById('detailProjectName').textContent = p.name;
+  document.getElementById('detailProjectRemark').textContent = p.remark || '暂无备注';
+
+  // 汇总报表：总用户数 / 总本金 / 总收益 / 平均回本进度
+  const userCount = p.users.length;
+  const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
+  const totalEarned = p.users.reduce((s, u) => s + calcEarned(u), 0);
+  const avgProgress = userCount ? p.users.reduce((s, u) => s + calcProgress(u), 0) / userCount : 0;
+
+  // 已回本 / 未回本人数统计
+  const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+
+  document.getElementById('detailSummary').innerHTML = `
+    <div class="summary-card"><div class="label">下级总人数</div><div class="value">${userCount}<small>人</small></div></div>
+    <div class="summary-card"><div class="label">总投入本金</div><div class="value">${fmtMoney(totalPrincipal)}<small>元</small></div></div>
+    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value">${fmtMoney(totalEarned)}<small>元</small></div></div>
+    <div class="summary-card"><div class="label">平均回本进度</div><div class="value">${avgProgress.toFixed(1)}<small>%</small></div></div>
+    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span style="color:var(--success)">${doneCount}</span><small>人 / </small>${userCount - doneCount}<small>人</small></div></div>`;
+
+  document.getElementById('userCount').textContent = userCount;
+
+  // 批量模式：显示/隐藏勾选列
+  document.getElementById('userTable').classList.toggle('batching', batchMode);
+
+  // 用户列表表格
+  const tbody = document.getElementById('userTableBody');
+  if (p.users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-secondary);padding:36px">暂无下级，点击「＋ 添加下级」开始记录</td></tr>';
+    return;
+  }
+
+  // 搜索过滤（匹配姓名 / 下级ID / 备注，不区分大小写）
+  const kw = document.getElementById('userSearch').value.trim().toLowerCase();
+  const list = kw
+    ? p.users.filter(u =>
+        u.name.toLowerCase().includes(kw) ||
+        u.id.toLowerCase().includes(kw) ||
+        (u.remark || '').toLowerCase().includes(kw))
+    : p.users;
+
+  // 搜索时显示「筛选数 / 总数」
+  document.getElementById('userCount').textContent = kw ? `${list.length} / ${userCount}` : userCount;
+
+  // 同步全选框状态（全选 / 部分选中 / 未选）
+  const allSel = list.length > 0 && list.every(u => selectedUserIds.has(u.id));
+  const chkAll = document.getElementById('chkAll');
+  chkAll.checked = allSel;
+  chkAll.indeterminate = !allSel && list.some(u => selectedUserIds.has(u.id));
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-secondary);padding:36px">没有符合搜索条件的下级</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map((u, idx) => {
+    const earned = calcEarned(u);
+    const remain = calcRemain(u);
+    const progress = calcProgress(u);
+    const isDone = Number(u.principal) > 0 && earned >= Number(u.principal);
+    const pc = progressClass(progress, isDone);
+
+    return `
+      <tr class="${isDone ? 'row-done' : ''} ${selectedUserIds.has(u.id) ? 'row-selected' : ''}">
+        <td class="chk" data-label="选择"><input type="checkbox" ${selectedUserIds.has(u.id) ? 'checked' : ''} onclick="toggleSelect('${u.id}', this.checked)"></td>
+        <td data-label="序号">${idx + 1}</td>
+        <td data-label="下级ID" style="font-size:12px;color:var(--text-secondary)">${escapeHtml(u.id)}</td>
+        <td data-label="姓名" class="td-block">
+          <div class="cell-main">${escapeHtml(u.name)}</div>
+          ${u.remark ? `<div class="cell-sub" title="${escapeHtml(u.remark)}">📝 ${escapeHtml(u.remark)}</div>` : ''}
+        </td>
+        <td data-label="投入本金">${fmtMoney(u.principal)}</td>
+        <td data-label="上车日期">${u.startDate || '—'}</td>
+        <td data-label="累计已收回" class="money gain">${fmtMoney(earned)}</td>
+        <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${fmtMoney(remain)}${isDone ? ' <span class="badge" style="background:#dcfce7;color:var(--success)">已回本</span>' : ''}</td>
+        <td data-label="回本进度" class="td-progress">
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill ${pc}" style="width:${progress}%"></div></div>
+            <span class="progress-text ${pc === '' ? 'normal' : pc}">${progress.toFixed(1)}%</span>
+          </div>
+        </td>
+        <td data-label="状态">${isDone ? '<span class="badge" style="background:#dcfce7;color:var(--success)">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
+        <td data-label="操作" class="td-actions">
+          <div class="row-actions">
+            <button class="btn btn-sm btn-primary" onclick="openPriceModal('${u.id}')">添加回本金额</button>
+            <button class="btn btn-sm btn-outline" onclick="openLedger('${u.id}')">查看台账</button>
+            <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.id}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">删除</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+/* ---------- 新增 / 编辑项目 ---------- */
+function openProjectModal(id) {
+  setError('pf-name', false);
+  if (id) {
+    const p = getProject(id);
+    if (!p) return;
+    document.getElementById('projectModalTitle').textContent = '编辑项目';
+    document.getElementById('pf-id').value = p.id;
+    document.getElementById('pf-name').value = p.name;
+    document.getElementById('pf-remark').value = p.remark || '';
+  } else {
+    document.getElementById('projectModalTitle').textContent = '新增项目';
+    document.getElementById('pf-id').value = '';
+    document.getElementById('pf-name').value = '';
+    document.getElementById('pf-remark').value = '';
+  }
+  openModal('projectModal');
+  document.getElementById('pf-name').focus();
+}
+
+async function saveProject() {
+  const id = document.getElementById('pf-id').value;
+  const name = document.getElementById('pf-name').value.trim();
+  const remark = document.getElementById('pf-remark').value.trim();
+
+  // 表单验证：项目名称必填
+  if (!setError('pf-name', !name)) return;
+
+  if (id) {
+    const p = getProject(id);
+    p.name = name; p.remark = remark;
+    toast('项目已更新', 'success');
+  } else {
+    projects.push({ id: uid(), name, remark, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] });
+    toast('项目已新增', 'success');
+  }
+  await saveCloudData(true);
+  closeModal('projectModal');
+  // 详情页编辑时同步刷新详情；主页面刷新列表
+  if (currentProjectId) renderDetail(); else renderProjectGrid();
+}
+
+// 删除项目（连同其下所有用户及价格记录）
+function deleteProject(id) {
+  const p = getProject(id);
+  if (!p) return;
+  const userCount = p.users.length;
+  const priceCount = p.users.reduce((s, u) => s + u.prices.length, 0);
+  confirmAction('删除项目', `确定删除项目「${p.name}」吗？该项目下 ${userCount} 个下级、共 ${priceCount} 条回本记录将一并清除，此操作不可恢复！`, async () => {
+    projects = projects.filter(x => x.id !== id);
+    await saveCloudData(true);
+    // 若当前正处于该项目详情页，则返回主页面
+    if (currentProjectId === id) showPage('list'); else renderProjectGrid();
+    toast('项目已删除', 'success');
+  });
+}
+
+/* ---------- 新增 / 编辑下级 ---------- */
+function openUserModal(id) {
+  setError('uf-uid', false); setError('uf-name', false);
+  setError('uf-principal', false); setError('uf-date', false);
+  document.getElementById('uf-projectId').value = currentProjectId;
+  if (id) {
+    const p = getProject(currentProjectId);
+    const u = getUser(p, id);
+    if (!u) return;
+    document.getElementById('userModalTitle').textContent = '编辑下级';
+    document.getElementById('uf-id').value = u.id;
+    document.getElementById('uf-uid').value = u.id;
+    document.getElementById('uf-name').value = u.name;
+    document.getElementById('uf-principal').value = u.principal;
+    document.getElementById('uf-date').value = u.startDate || '';
+    document.getElementById('uf-remark').value = u.remark || '';
+  } else {
+    document.getElementById('userModalTitle').textContent = '添加下级';
+    document.getElementById('uf-id').value = '';
+    document.getElementById('uf-uid').value = '';
+    document.getElementById('uf-name').value = '';
+    document.getElementById('uf-principal').value = '';
+    document.getElementById('uf-date').value = todayStr();
+    document.getElementById('uf-remark').value = '';
+  }
+  openModal('userModal');
+  document.getElementById('uf-uid').focus();
+}
+
+async function saveUser() {
+  const projectId = document.getElementById('uf-projectId').value;
+  const p = getProject(projectId);
+  if (!p) return;
+  const oldId = document.getElementById('uf-id').value;
+  const newId = document.getElementById('uf-uid').value.trim();
+  const name = document.getElementById('uf-name').value.trim();
+  const principal = parseFloat(document.getElementById('uf-principal').value);
+  const date = document.getElementById('uf-date').value;
+  const remark = document.getElementById('uf-remark').value.trim();
+
+  // 表单验证：ID必填且项目内唯一、姓名必填、本金为正数、日期不晚于今天
+  let ok = true;
+  ok = setError('uf-uid', !newId || p.users.some(u => u.id === newId && u.id !== oldId)) && ok;
+  ok = setError('uf-name', !name) && ok;
+  ok = setError('uf-principal', !(principal > 0)) && ok;
+  ok = setError('uf-date', !date || date > todayStr()) && ok;
+  if (!ok) return;
+
+  if (oldId) {
+    // 编辑：若修改了下级ID，同步更新
+    const u = getUser(p, oldId);
+    u.id = newId; u.name = name; u.principal = principal; u.startDate = date; u.remark = remark;
+    toast('下级信息已更新', 'success');
+  } else {
+    p.users.push({ id: newId, name, principal, startDate: date, remark, prices: [] });
+    toast('下级已添加', 'success');
+  }
+  await saveCloudData(true);
+  closeModal('userModal');
+  renderDetail();
+}
+
+// 删除下级（连同其所有价格记录）
+function deleteUser(id) {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  const u = getUser(p, id);
+  if (!u) return;
+  confirmAction('删除下级', `确定删除下级「${u.name}」（ID：${u.id}）吗？其名下 ${u.prices.length} 条回本记录将一并清除，此操作不可恢复！`, async () => {
+    p.users = p.users.filter(x => x.id !== id);
+    selectedUserIds.delete(id);
+    await saveCloudData(true);
+    renderDetail();
+    updateBatchUI();
+    toast('下级已删除', 'success');
+  });
+}
+
+/* ---------- 添加回本金额（可连续添加） ---------- */
+function openPriceModal(id) {
+  const p = getProject(currentProjectId);
+  const u = getUser(p, id);
+  if (!u) return;
+  setError('pr-date', false); setError('pr-price', false);
+  document.getElementById('pr-userName').value = `${u.name}（ID：${u.id}）`;
+  document.getElementById('pr-userName').dataset.uid = u.id;
+  document.getElementById('pr-date').value = nowLocal();
+  document.getElementById('pr-price').value = '';
+  updatePriceTip(u);
+  openModal('priceModal');
+  document.getElementById('pr-price').focus();
+}
+
+// 弹窗内实时显示该下级累计已收回金额
+function updatePriceTip(u) {
+  document.getElementById('pr-earned').textContent =
+    `累计已收回：${fmtMoney(calcEarned(u))} 元 ｜ 剩余未回本：${fmtMoney(calcRemain(u))} 元`;
+}
+
+async function savePrice() {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  const uidVal = document.getElementById('pr-userName').dataset.uid;
+  const u = getUser(p, uidVal);
+  if (!u) return;
+  const date = document.getElementById('pr-date').value;
+  const price = parseFloat(document.getElementById('pr-price').value);
+
+  // 表单验证：时间必填且不晚于当前时间，金额必须为正数
+  let ok = true;
+  ok = setError('pr-date', !date || date > nowLocal()) && ok;
+  ok = setError('pr-price', !(price > 0)) && ok;
+  if (!ok) return;
+
+  // 每次添加都单独记录一条，供台账逐笔查看
+  u.prices.push({ id: uid(), date, price });
+  const dayTotal = u.prices
+    .filter(r => r.date.slice(0, 10) === date.slice(0, 10))  // 按天统计当日累计
+    .reduce((s, r) => s + Number(r.price), 0);
+  await saveCloudData(true);
+  renderDetail();
+  updatePriceTip(u);
+  toast(`回本金额已添加，当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
+  // 连续添加：清空金额并聚焦，可直接继续录入
+  document.getElementById('pr-price').value = '';
+  document.getElementById('pr-price').focus();
+}
+
+/* ---------- 台账 ---------- */
+function openLedger(id) {
+  ledgerUserId = id;
+  ledgerSort = 'desc';
+  const p = getProject(currentProjectId);
+  const u = getUser(p, id);
+  document.getElementById('ledgerTitle').textContent = `回本台账 - ${u.name}`;
+  renderLedger();
+  openModal('ledgerModal');
+}
+
+function setLedgerSort(sort) { ledgerSort = sort; renderLedger(); }
+
+function renderLedger() {
+  const p = getProject(currentProjectId);
+  const u = getUser(p, ledgerUserId);
+  if (!u) return;
+  const records = [...u.prices].sort((a, b) =>
+    ledgerSort === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  const total = calcEarned(u);
+  document.getElementById('ledgerInfo').textContent =
+    `共 ${records.length} 笔 ｜ 累计已收回 ${fmtMoney(total)} 元 ｜ 剩余未回本 ${fmtMoney(calcRemain(u))} 元`;
+  document.getElementById('ledgerBody').innerHTML = records.length === 0
+    ? '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);padding:24px">暂无记录，点击「添加回本金额」开始录入</td></tr>'
+    : records.map((r, i) => `
+      <tr>
+        <td data-label="序号">${i + 1}</td>
+        <td data-label="日期">${fmtDateTime(r.date)}</td>
+        <td data-label="回本金额">${fmtMoney(r.price)} 元</td>
+        <td data-label="操作"><button class="btn btn-sm btn-danger" onclick="deletePrice('${r.id}')">删除</button></td>
+      </tr>`).join('');
+}
+
+// 删除单条价格记录
+function deletePrice(priceId) {
+  const p = getProject(currentProjectId);
+  const u = getUser(p, ledgerUserId);
+  if (!u) return;
+  const r = u.prices.find(x => x.id === priceId);
+  if (!r) return;
+  confirmAction('删除记录', `确定删除 ${u.name} 在 ${fmtDateTime(r.date)} 的回本金额记录（${fmtMoney(r.price)} 元）吗？`, async () => {
+    u.prices = u.prices.filter(x => x.id !== priceId);
+    await saveCloudData(true);
+    renderLedger();
+    renderDetail();
+    toast('记录已删除', 'success');
+  });
+}
+
+/* ---------- 批量操作 ---------- */
+let batchMode = false;                 // 是否处于批量操作模式
+const selectedUserIds = new Set();     // 已勾选的下级ID
+
+// 进入 / 退出批量操作模式
+function toggleBatchMode() {
+  batchMode = !batchMode;
+  selectedUserIds.clear();
+  updateBatchUI();
+  if (currentProjectId) renderDetail();
+}
+
+// 勾选 / 取消勾选单个下级
+function toggleSelect(id, checked) {
+  checked ? selectedUserIds.add(id) : selectedUserIds.delete(id);
+  updateBatchUI();
+  renderDetail();
+}
+
+// 全选 / 全不选（仅针对当前搜索结果中的下级）
+function toggleSelectAll(checked) {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  const kw = document.getElementById('userSearch').value.trim().toLowerCase();
+  const list = kw
+    ? p.users.filter(u =>
+        u.name.toLowerCase().includes(kw) ||
+        u.id.toLowerCase().includes(kw) ||
+        (u.remark || '').toLowerCase().includes(kw))
+    : p.users;
+  list.forEach(u => checked ? selectedUserIds.add(u.id) : selectedUserIds.delete(u.id));
+  renderDetail();
+}
+
+// 更新批量工具条与切换按钮状态
+function updateBatchUI() {
+  const btn = document.getElementById('batchToggleBtn');
+  if (btn) {
+    btn.textContent = batchMode ? '退出批量' : '批量操作';
+    btn.classList.toggle('btn-danger', batchMode);
+    btn.classList.toggle('btn-outline', !batchMode);
+  }
+  document.getElementById('batchCount').textContent = selectedUserIds.size;
+  document.getElementById('batchBar').classList.toggle('show', batchMode && selectedUserIds.size > 0);
+}
+
+/* ---------- 批量添加回本金额 ---------- */
+function openBatchPriceModal() {
+  if (!selectedUserIds.size) { toast('请先勾选要操作的下级', 'warn'); return; }
+  const p = getProject(currentProjectId);
+  document.getElementById('bp-users').value =
+    p.users.filter(u => selectedUserIds.has(u.id)).map(u => u.name).join('、');
+  setError('bp-date', false); setError('bp-price', false);
+  document.getElementById('bp-date').value = nowLocal();
+  document.getElementById('bp-price').value = '';
+  openModal('batchPriceModal');
+  document.getElementById('bp-price').focus();
+}
+
+async function saveBatchPrice() {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  const date = document.getElementById('bp-date').value;
+  const price = parseFloat(document.getElementById('bp-price').value);
+
+  // 表单验证：时间不晚于当前，金额必须为正数
+  let ok = true;
+  ok = setError('bp-date', !date || date > nowLocal()) && ok;
+  ok = setError('bp-price', !(price > 0)) && ok;
+  if (!ok) return;
+
+  // 为每位选中的下级单独添加一条记录
+  let n = 0;
+  p.users.forEach(u => {
+    if (selectedUserIds.has(u.id)) { u.prices.push({ id: uid(), date, price }); n++; }
+  });
+  await saveCloudData(true);
+  closeModal('batchPriceModal');
+  renderDetail();
+  toast(`已为 ${n} 位下级各添加一笔回本金额`, 'success');
+}
+
+/* ---------- 批量删除下级 ---------- */
+function batchDeleteUsers() {
+  const p = getProject(currentProjectId);
+  if (!p || !selectedUserIds.size) return;
+  const targets = p.users.filter(u => selectedUserIds.has(u.id));
+  const priceCount = targets.reduce((s, u) => s + u.prices.length, 0);
+  confirmAction('批量删除下级', `确定删除选中的 ${targets.length} 位下级吗？其名下共 ${priceCount} 条回本记录将一并清除，此操作不可恢复！`, async () => {
+    p.users = p.users.filter(u => !selectedUserIds.has(u.id));
+    selectedUserIds.clear();
+    await saveCloudData(true);
+    renderDetail();
+    updateBatchUI();
+    toast(`已删除 ${targets.length} 位下级`, 'success');
+  });
+}
+
+/* ---------- 批量添加下级 ---------- */
+function openBatchUserModal() {
+  setError('bu-text', false);
+  document.getElementById('bu-text').value = '';
+  openModal('batchUserModal');
+  document.getElementById('bu-text').focus();
+}
+
+async function saveBatchUsers() {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+
+  // 按行解析：姓名, 本金, 上车日期, 下级ID, 备注（后三项可省略）
+  const lines = document.getElementById('bu-text').value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) { setError('bu-text', true); document.getElementById('bu-error').textContent = '请至少输入一行下级信息'; return; }
+
+  const today = todayStr();
+  const parsed = [];
+  const errors = [];
+
+  lines.forEach((line, i) => {
+    const parts = line.split(/[,，\t]/).map(s => s.trim());
+    const name = parts[0];
+    const principal = parseFloat(parts[1]);
+    const date = parts[2] || today;        // 日期可省略，默认今天
+    const sid = parts[3] || uid();         // 下级ID可省略，自动生成
+    const remark = parts.slice(4).join('，');
+    if (!name) errors.push(`第 ${i + 1} 行：缺少姓名`);
+    else if (!(principal > 0)) errors.push(`第 ${i + 1} 行：本金必须是大于 0 的数字`);
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) errors.push(`第 ${i + 1} 行：上车日期格式应为 YYYY-MM-DD 且不晚于今天`);
+    else if (p.users.some(u => u.id === sid) || parsed.some(x => x.id === sid)) errors.push(`第 ${i + 1} 行：下级ID「${sid}」重复`);
+    else parsed.push({ id: sid, name, principal, startDate: date, remark, prices: [] });
+  });
+
+  // 存在错误则全部不保存，逐行提示
+  if (errors.length) {
+    setError('bu-text', true);
+    document.getElementById('bu-error').innerHTML = errors.map(escapeHtml).join('<br>');
+    return;
+  }
+
+  parsed.forEach(u => p.users.push(u));
+  await saveCloudData(true);
+  closeModal('batchUserModal');
+  renderDetail();
+  toast(`成功添加 ${parsed.length} 位下级`, 'success');
+}
+
+/* ---------- 数据备份：导出 / 导入 / 清空 ---------- */
+// 导出所有数据为 JSON 文件
+function exportData() {
+  const blob = new Blob([JSON.stringify(projects, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `九游项目跟踪管理平台备份_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('备份文件已导出', 'success');
+}
+
+// 导入 JSON 文件恢复数据
+function importData(event) {
+  const file = event.target.files[0];
+  event.target.value = '';  // 允许重复选择同一文件
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let data = JSON.parse(reader.result);
+      // 兼容多种格式：直接数组 / {projects:[...]} 包裹 / {data:[...]}
+      if (!Array.isArray(data)) {
+        if (Array.isArray(data.projects)) data = data.projects;
+        else if (Array.isArray(data.data)) data = data.data;
+        else throw new Error('格式不正确');
+      }
+      // 格式归一化：兼容旧版（本金/日期/价格直接在项目上）和新版（三层结构）
+      data = data.map(p => {
+        // 新版已有 users 数组 → 直接使用，补全缺失字段
+        if (Array.isArray(p.users) && p.users.length > 0) {
+          return {
+            id: p.id || uid(),
+            name: p.name || '未命名项目',
+            remark: p.remark || '',
+            createdAt: p.createdAt || '',
+            users: p.users.map(u => ({
+              id: u.id || uid(),
+              name: u.name || '未命名',
+              principal: Number(u.principal) || 0,
+              startDate: u.startDate || '',
+              remark: u.remark || '',
+              prices: Array.isArray(u.prices) ? u.prices.map(r => ({
+                id: r.id || uid(),
+                date: r.date || '',
+                price: Number(r.price) || 0
+              })) : []
+            }))
+          };
+        }
+        // 旧版：本金/日期/价格直接在项目上 → 转为新版，创建一个默认下级
+        return {
+          id: p.id || uid(),
+          name: p.name || '未命名项目',
+          remark: p.remark || '',
+          createdAt: p.createdAt || '',
+          users: [{
+            id: uid(),
+            name: p.name || '默认下级',
+            principal: Number(p.principal) || 0,
+            startDate: p.startDate || '',
+            remark: '从旧版导入',
+            prices: Array.isArray(p.prices) ? p.prices.map(r => ({
+              id: r.id || uid(),
+              date: r.date || '',
+              price: Number(r.price) || 0
+            })) : []
+          }]
+        };
+      });
+      confirmAction('导入数据', `将导入 ${data.length} 个项目并覆盖当前所有数据，确定继续吗？`, async () => {
+        projects = data;
+        await saveCloudData(true);
+        if (currentProjectId) renderDetail(); else renderProjectGrid();
+        toast('数据导入成功', 'success');
+      });
+    } catch (e) {
+      toast('导入失败：' + (e.message || '文件不是有效的备份数据'), 'error');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+// 清空所有数据
+function clearAllData() {
+  confirmAction('清空所有数据', '确定清空所有项目和下级数据吗？此操作不可恢复，建议先导出 JSON 备份！', async () => {
+    projects = [];
+    await saveCloudData(true);
+    showPage('list');
+    toast('所有数据已清空', 'success');
+  });
+}
+
+// 启动：检测登录状态（刷新后自动恢复会话）
+checkAuth();
+</script>
+</body>
+</html>
