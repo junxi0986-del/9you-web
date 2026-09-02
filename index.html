@@ -476,12 +476,9 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   <header class="header">
     <h1 id="headerTitle"><img src="logo.jpg" class="header-logo" alt="logo">九游项目跟踪管理平台</h1>
     <div class="header-actions">
-      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="exportData()">导出 JSON</button>
-      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="document.getElementById('importFile').click()">导入 JSON</button>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="supabaseLogout()">退出登录</button>
     </div>
-    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
   </header>
 
   <!-- ==================== 页面一：项目列表（主页面） ==================== -->
@@ -786,6 +783,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 let projects = [];
 let currentUserId = null;
 let currentProjectId = null;
+let detailAnimate = false;             // 是否为详情页汇总数字播放滚动动画（仅进入项目时播放）
 let ledgerUserId = null;
 let ledgerSort = 'desc';
 let confirmCallback = null;
@@ -1084,11 +1082,12 @@ function renderProjectGrid() {
   const gAvgProgress = gUserCount ? allUsers.reduce((s, u) => s + calcProgress(u), 0) / gUserCount : 0;
   const gDone = allUsers.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
   document.getElementById('homeSummary').innerHTML = `
-    <div class="summary-card"><div class="label">下级总人数</div><div class="value">${gUserCount}<small>人</small></div></div>
-    <div class="summary-card"><div class="label">总投入本金</div><div class="value">${fmtMoney(gPrincipal)}<small>元</small></div></div>
-    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value">${fmtMoney(gEarned)}<small>元</small></div></div>
-    <div class="summary-card"><div class="label">平均回本进度</div><div class="value">${gAvgProgress.toFixed(1)}<small>%</small></div></div>
-    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span style="color:var(--success)">${gDone}</span><small>人 / </small>${gUserCount - gDone}<small>人</small></div></div>`;
+    <div class="summary-card"><div class="label">下级总人数</div><div class="value"><span class="count-up" data-target="${gUserCount}" data-decimals="0">0</span><small>人</small></div></div>
+    <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card"><div class="label">平均回本进度</div><div class="value"><span class="count-up" data-target="${gAvgProgress}" data-decimals="1">0</span><small>%</small></div></div>
+    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDone}" data-decimals="0">0</span><small>人 / </small><span class="count-up" data-target="${gUserCount - gDone}" data-decimals="0">0</span><small>人</small></div></div>`;
+  animateCountUps();
 
   if (projects.length === 0) {
     grid.innerHTML = `
@@ -1135,6 +1134,28 @@ function renderProjectGrid() {
   });
 }
 
+// 统计数字滚动动画：从 0 缓动滚动到目标值（约 0.9 秒，ease-out）
+// container：指定要查找 .count-up 元素的容器选择器，默认首页汇总区
+function animateCountUps(container = '#homeSummary') {
+  document.querySelectorAll(container + ' .count-up').forEach(el => {
+    const target = Number(el.dataset.target) || 0;
+    const decimals = Number(el.dataset.decimals) || 0;
+    const duration = 900;
+    const start = performance.now();
+    // 格式化：2 位小数用金额格式（千分位），整数用千分位，其余直接 toFixed
+    const format = v => decimals === 2 ? fmtMoney(v)
+      : decimals === 0 ? Math.round(v).toLocaleString('zh-CN')
+      : v.toFixed(decimals);
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);  // ease-out：先快后慢
+      el.textContent = format(target * eased);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
 // HTML 转义，防止备注等内容破坏页面结构
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1145,6 +1166,7 @@ function enterProject(id) {
   const p = getProject(id);
   if (!p) return;
   currentProjectId = id;
+  detailAnimate = true;  // 进入项目时为汇总数字播放滚动动画
   document.getElementById('userSearch').value = '';  // 进入项目时清空搜索
   batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 重置批量操作状态
   showPage('detail');
@@ -1170,11 +1192,13 @@ function renderDetail() {
   const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
 
   document.getElementById('detailSummary').innerHTML = `
-    <div class="summary-card"><div class="label">下级总人数</div><div class="value">${userCount}<small>人</small></div></div>
-    <div class="summary-card"><div class="label">总投入本金</div><div class="value">${fmtMoney(totalPrincipal)}<small>元</small></div></div>
-    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value">${fmtMoney(totalEarned)}<small>元</small></div></div>
-    <div class="summary-card"><div class="label">平均回本进度</div><div class="value">${avgProgress.toFixed(1)}<small>%</small></div></div>
-    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span style="color:var(--success)">${doneCount}</span><small>人 / </small>${userCount - doneCount}<small>人</small></div></div>`;
+    <div class="summary-card"><div class="label">下级总人数</div><div class="value"><span class="count-up" data-target="${userCount}" data-decimals="0">${userCount.toLocaleString('zh-CN')}</span><small>人</small></div></div>
+    <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${totalPrincipal}" data-decimals="2">${fmtMoney(totalPrincipal)}</span><small>元</small></div></div>
+    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${totalEarned}" data-decimals="2">${fmtMoney(totalEarned)}</span><small>元</small></div></div>
+    <div class="summary-card"><div class="label">平均回本进度</div><div class="value"><span class="count-up" data-target="${avgProgress}" data-decimals="1">${avgProgress.toFixed(1)}</span><small>%</small></div></div>
+    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${doneCount}" data-decimals="0">${doneCount.toLocaleString('zh-CN')}</span><small>人 / </small><span class="count-up" data-target="${userCount - doneCount}" data-decimals="0">${(userCount - doneCount).toLocaleString('zh-CN')}</span><small>人</small></div></div>`;
+  // 仅进入项目时播放滚动动画，搜索等重渲染直接显示最终值
+  if (detailAnimate) { detailAnimate = false; animateCountUps('#detailSummary'); }
 
   document.getElementById('userCount').textContent = userCount;
 
@@ -1630,92 +1654,10 @@ async function saveBatchUsers() {
   toast(`成功添加 ${parsed.length} 位下级`, 'success');
 }
 
-/* ---------- 数据备份：导出 / 导入 / 清空 ---------- */
-// 导出所有数据为 JSON 文件
-function exportData() {
-  const blob = new Blob([JSON.stringify(projects, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `九游项目跟踪管理平台备份_${todayStr()}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('备份文件已导出', 'success');
-}
-
-// 导入 JSON 文件恢复数据
-function importData(event) {
-  const file = event.target.files[0];
-  event.target.value = '';  // 允许重复选择同一文件
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      let data = JSON.parse(reader.result);
-      // 兼容多种格式：直接数组 / {projects:[...]} 包裹 / {data:[...]}
-      if (!Array.isArray(data)) {
-        if (Array.isArray(data.projects)) data = data.projects;
-        else if (Array.isArray(data.data)) data = data.data;
-        else throw new Error('格式不正确');
-      }
-      // 格式归一化：兼容旧版（本金/日期/价格直接在项目上）和新版（三层结构）
-      data = data.map(p => {
-        // 新版已有 users 数组 → 直接使用，补全缺失字段
-        if (Array.isArray(p.users) && p.users.length > 0) {
-          return {
-            id: p.id || uid(),
-            name: p.name || '未命名项目',
-            remark: p.remark || '',
-            createdAt: p.createdAt || '',
-            users: p.users.map(u => ({
-              id: u.id || uid(),
-              name: u.name || '未命名',
-              principal: Number(u.principal) || 0,
-              startDate: u.startDate || '',
-              remark: u.remark || '',
-              prices: Array.isArray(u.prices) ? u.prices.map(r => ({
-                id: r.id || uid(),
-                date: r.date || '',
-                price: Number(r.price) || 0
-              })) : []
-            }))
-          };
-        }
-        // 旧版：本金/日期/价格直接在项目上 → 转为新版，创建一个默认下级
-        return {
-          id: p.id || uid(),
-          name: p.name || '未命名项目',
-          remark: p.remark || '',
-          createdAt: p.createdAt || '',
-          users: [{
-            id: uid(),
-            name: p.name || '默认下级',
-            principal: Number(p.principal) || 0,
-            startDate: p.startDate || '',
-            remark: '从旧版导入',
-            prices: Array.isArray(p.prices) ? p.prices.map(r => ({
-              id: r.id || uid(),
-              date: r.date || '',
-              price: Number(r.price) || 0
-            })) : []
-          }]
-        };
-      });
-      confirmAction('导入数据', `将导入 ${data.length} 个项目并覆盖当前所有数据，确定继续吗？`, async () => {
-        projects = data;
-        await saveCloudData(true);
-        if (currentProjectId) renderDetail(); else renderProjectGrid();
-        toast('数据导入成功', 'success');
-      });
-    } catch (e) {
-      toast('导入失败：' + (e.message || '文件不是有效的备份数据'), 'error');
-    }
-  };
-  reader.readAsText(file, 'utf-8');
-}
-
+/* ---------- 数据备份：清空 ---------- */
 // 清空所有数据
 function clearAllData() {
-  confirmAction('清空所有数据', '确定清空所有项目和下级数据吗？此操作不可恢复，建议先导出 JSON 备份！', async () => {
+  confirmAction('清空所有数据', '确定清空所有项目和下级数据吗？此操作不可恢复！', async () => {
     projects = [];
     await saveCloudData(true);
     showPage('list');
