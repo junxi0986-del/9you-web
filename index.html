@@ -404,68 +404,15 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
       <input type="email" id="loginEmail">
     </div>
     <div class="form-group">
-      <label>密码</label>
-      <input type="password" id="loginPwd">
+      <label>验证码</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="loginCode" placeholder="数字验证码" inputmode="numeric" maxlength="10" style="flex:1">
+        <button class="btn btn-outline" id="sendCodeBtn" style="white-space:nowrap" onclick="sendLoginCode()">发送验证码</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
-      <button onclick="openSignupModal()" style="font-size:12px;color:var(--text-secondary);background:none;border:none;cursor:pointer;padding:4px 8px;text-align:center;width:100%">注册账号</button>
-    </div>
-  </div>
-</div>
-
-<!-- 注册弹窗 -->
-<div class="modal-mask" id="signupModal">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-head">
-      <h3>注册新账号</h3>
-      <button class="modal-close" onclick="closeModal('signupModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>邮箱<span class="req">*</span></label>
-        <input type="email" id="signupEmail" placeholder="请输入邮箱地址">
-        <div class="form-error">请输入有效的邮箱地址</div>
-      </div>
-      <div class="form-group">
-        <label>密码<span class="req">*</span></label>
-        <input type="password" id="signupPwd" placeholder="密码至少 6 位" min="6">
-        <div class="form-error">密码至少需要 6 位</div>
-      </div>
-      <div class="form-group">
-        <label>确认密码<span class="req">*</span></label>
-        <input type="password" id="signupPwd2" placeholder="请再次输入密码">
-        <div class="form-error">两次输入的密码不一致</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('signupModal')">取消</button>
-      <button class="btn btn-primary" onclick="doSignup()">注册</button>
-    </div>
-  </div>
-</div>
-
-<!-- 重置密码弹窗（从邮件链接进入时显示） -->
-<div class="modal-mask" id="resetPwdModal" style="display:none">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-head">
-      <h3>设置新密码</h3>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">请输入您的新密码，设置后将自动登录。</p>
-      <div class="form-group">
-        <label>新密码<span class="req">*</span></label>
-        <input type="password" id="resetNewPwd" placeholder="密码至少 6 位" min="6">
-        <div class="form-error">密码至少需要 6 位</div>
-      </div>
-      <div class="form-group">
-        <label>确认新密码<span class="req">*</span></label>
-        <input type="password" id="resetNewPwd2" placeholder="请再次输入新密码">
-        <div class="form-error">两次输入的密码不一致</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" onclick="doSetNewPassword()">设置新密码</button>
     </div>
   </div>
 </div>
@@ -791,65 +738,46 @@ let confirmCallback = null;
 // 登录/注册错误信息中文化（模糊匹配，确保命中）
 function authError(msg){
   const rules = [
-    [/invalid login credentials/i, "邮箱或密码错误"],
+    [/invalid login credentials/i, "验证码错误或已过期，请重新获取"],
+    [/token has expired/i, "验证码已过期，请重新发送"],
+    [/confirm(?:ation)?(?:\s+token)?\s+invalid/i, "验证码不正确，请检查后重新输入"],
     [/invalid format/i, "邮箱格式不正确，请输入有效的邮箱地址"],
-    [/at least 6 characters/i, "密码至少需要 6 位"],
-    [/already registered/i, "该邮箱已注册，请直接登录"],
     [/signups not allowed/i, "当前项目未开放注册"],
     [/rate limit/i, "操作过于频繁，请稍后再试"],
-    [/email not confirmed/i, "邮箱未验证，请先到邮箱完成验证"],
   ];
   for (const [re, cn] of rules) if (re.test(msg)) return cn;
   return msg;
 }
 
 // ============登录相关函数============
+// 发送邮箱验证码：未注册的邮箱自动创建账号（shouldCreateUser）
+async function sendLoginCode(){
+  const email = document.getElementById("loginEmail").value.trim();
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast("请输入有效的邮箱地址","warn");
+  const btn = document.getElementById('sendCodeBtn');
+  const {error} = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if(error) return toast("发送失败："+authError(error.message),"error");
+  toast("验证码已发送，请查收邮箱","success");
+  // 60 秒倒计时，防止频繁发送
+  let seconds = 60;
+  btn.disabled = true;
+  const timer = setInterval(() => {
+    btn.textContent = `${seconds--} 秒后重发`;
+    if(seconds < 0){ clearInterval(timer); btn.disabled = false; btn.textContent = '发送验证码'; }
+  }, 1000);
+}
+// 验证码校验登录
 async function supabaseSignIn(){
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPwd").value;
-  if(!email || !password) return toast("请输入邮箱和密码","warn");
-  const {data,error} = await sb.auth.signInWithPassword({email,password});
+  const email = document.getElementById("loginEmail").value.trim();
+  const token = document.getElementById("loginCode").value.trim();
+  if(!email) return toast("请输入邮箱","warn");
+  if(!token) return toast("请输入邮箱收到的验证码","warn");
+  const {data,error} = await sb.auth.verifyOtp({ email, token, type: 'email' });
   if(error) return toast("登录失败："+authError(error.message),"error");
   currentUserId = data.user.id;
   await loadCloudData();
   showMainApp();
   toast("登录成功","success");
-}
-async function supabaseSignUp(){
-  // 已废弃：改为弹窗注册，保留函数避免 onclick 报错
-}
-// 打开注册弹窗
-function openSignupModal(){
-  setError('signupEmail', false); setError('signupPwd', false); setError('signupPwd2', false);
-  document.getElementById('signupEmail').value = '';
-  document.getElementById('signupPwd').value = '';
-  document.getElementById('signupPwd2').value = '';
-  openModal('signupModal');
-  document.getElementById('signupEmail').focus();
-}
-// 执行注册
-async function doSignup(){
-  const email = document.getElementById('signupEmail').value.trim();
-  const password = document.getElementById('signupPwd').value;
-  const password2 = document.getElementById('signupPwd2').value;
-  // 表单验证
-  let ok = true;
-  ok = setError('signupEmail', !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) && ok;
-  ok = setError('signupPwd', password.length < 6) && ok;
-  ok = setError('signupPwd2', password !== password2) && ok;
-  if(!ok) return;
-  const {data,error} = await sb.auth.signUp({email,password});
-  if(error) return toast("注册失败："+authError(error.message),"error");
-  // 部分项目开启了邮箱验证：未直接建立会话时提示先验证再登录
-  if(!data.session){
-    closeModal('signupModal');
-    return toast("注册成功，请先到邮箱完成验证后再登录","success");
-  }
-  currentUserId = data.user.id;
-  await saveCloudData();
-  closeModal('signupModal');
-  showMainApp();
-  toast("注册成功","success");
 }
 async function supabaseLogout(){
   await sb.auth.signOut();
@@ -879,52 +807,13 @@ sb.auth.onAuthStateChange(async (event, session) => {
 });
 
 async function checkAuth(){
-  // 检测密码重置流程：URL hash 中含 type=recovery
-  const hash = window.location.hash;
-  if(hash.includes('type=recovery')){
-    // Supabase SDK 会自动从 hash 恢复会话，等待一下再获取用户
-    const { data: { user } } = await sb.auth.getUser();
-    if(user){
-      currentUserId = user.id;
-      // 显示设置新密码弹窗（不直接进主界面）
-      document.getElementById('loginWrap').style.display = 'none';
-      document.getElementById('resetPwdModal').style.display = 'flex';
-      // 清除 URL hash，避免刷新重复触发
-      history.replaceState(null, '', window.location.pathname);
-      authReady = true;
-      return;
-    }
-  }
   const {data:{user}} = await sb.auth.getUser();
   if(user){
     currentUserId = user.id;
     await loadCloudData();
     showMainApp();
-  } else {
-    // 未登录：如果之前失败过3次，恢复显示验证码
-    if(parseInt(sessionStorage.getItem('loginFailCount') || '0') >= 3){
-      document.getElementById('loginCaptchaGroup').style.display = '';
-      drawCaptcha('loginCaptchaCanvas');
-    }
   }
   authReady = true;  // 标记首次检测完成，后续 onAuthStateChange 可正常响应
-}
-// 设置新密码（从重置邮件链接进入后）
-async function doSetNewPassword(){
-  const pwd = document.getElementById('resetNewPwd').value;
-  const pwd2 = document.getElementById('resetNewPwd2').value;
-  let ok = true;
-  ok = setError('resetNewPwd', pwd.length < 6) && ok;
-  ok = setError('resetNewPwd2', pwd !== pwd2) && ok;
-  if(!ok) return;
-  const { data, error } = await sb.auth.updateUser({ password: pwd });
-  if(error) return toast("设置失败："+authError(error.message),"error");
-  // 密码更新成功，加载数据进入主界面
-  currentUserId = data.user.id;
-  await loadCloudData();
-  document.getElementById('resetPwdModal').style.display = 'none';
-  showMainApp();
-  toast("密码已重置，欢迎回来","success");
 }
 function showMainApp(){
   document.getElementById("loginWrap").style.display = "none";
@@ -1027,10 +916,8 @@ document.addEventListener('keydown', e => {
   else if (shown('priceModal')) { e.preventDefault(); savePrice(); }
   else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
   else if (shown('batchUserModal')) { e.preventDefault(); saveBatchUsers(); }
-  else if (shown('signupModal')) { e.preventDefault(); doSignup(); }
-  else if (document.getElementById('resetPwdModal').style.display === 'flex') { e.preventDefault(); doSetNewPassword(); }
   else if (shown('confirmModal')) { e.preventDefault(); document.getElementById('confirmOkBtn').click(); }
-  else if (t && (t.id === 'loginEmail' || t.id === 'loginPwd')) { e.preventDefault(); supabaseSignIn(); }  // 登录框回车直接登录
+  else if (t && (t.id === 'loginEmail' || t.id === 'loginCode')) { e.preventDefault(); t.id === 'loginEmail' ? sendLoginCode() : supabaseSignIn(); }  // 登录框：邮箱回车发验证码，验证码回车直接登录
   else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
 });
 
