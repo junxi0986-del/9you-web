@@ -2203,11 +2203,13 @@ function renderHomeTop() {
   } else {
     mb.style.display = 'none';
   }
-  // 公告滚动横幅：最近 3 条，格式「标题：正文」，单条总长不超过 20 字
+  // 公告滚动横幅：最近 3 条，格式「标题：正文」，长度按屏幕宽度自适应
   const banner = document.getElementById('annBanner');
   if (announcements.length) {
     banner.style.display = 'flex';
-    const clip = s => s.length > 20 ? s.slice(0, 19) + '…' : s;
+    // 按屏幕宽度自适应：约16px一个汉字，小屏至少20字，大屏最多60字
+    const maxLen = Math.min(60, Math.max(20, Math.floor(window.innerWidth / 16)));
+    const clip = s => s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
     document.getElementById('annTrack').textContent =
       announcements.slice(0, 3).map(a => `📢 ${clip(a.title + '：' + (a.content || ''))}`).join('　　　　');
   } else {
@@ -2232,10 +2234,9 @@ function openMarketModal() {
 
 /* ---------- 公告展示 ---------- */
 // 公告条目 HTML（点击展开正文；withOps 为 true 时附带编辑/删除按钮）
-// 列表标题行按「标题：正文」显示，总长不超过 20 字，点击展开查看全文
+// 列表标题行按「标题：正文」显示，超长由 CSS 自动按容器宽度省略，点击展开查看全文
 function annItemHtml(a, withOps) {
-  const clip = s => s.length > 20 ? s.slice(0, 19) + '…' : s;
-  const summary = clip(a.title + '：' + (a.content || ''));
+  const summary = a.title + '：' + (a.content || '');
   return `
     <div class="ann-item" ${withOps ? '' : 'onclick="this.classList.toggle(\'open\')"'}>
       <div class="a-title">
