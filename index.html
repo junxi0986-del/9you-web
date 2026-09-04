@@ -2719,8 +2719,10 @@ async function chat_open() {
   chatState.projectId = CHAT_GLOBAL_ID;
   document.getElementById('chatName').textContent = '💬 平台群聊';
   document.getElementById('chatMemberCount').textContent = '成员 — 人';
-  document.getElementById('chatMsgs').innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
-  document.getElementById('chatLoadMore').style.display = 'none';
+  // 清空消息区时必须同时重建 chatLoadMore（它是 chatMsgs 的子元素，否则下一行访问会报 null）
+  document.getElementById('chatMsgs').innerHTML =
+    '<div class="chat-load" id="chatLoadMore" style="display:none"><button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button></div>' +
+    '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
   document.getElementById('chatPage').style.display = 'flex';
   document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
