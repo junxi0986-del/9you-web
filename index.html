@@ -553,7 +553,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div class="tab-switch tab-switch-desktop">
         <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
-        <button id="tabBtnNotice" onclick="location.href='announcements.html'">📢 公告</button>
+        <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
@@ -569,7 +569,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <span class="tag" style="background:var(--success)">市场价</span>
         <div class="ann-viewport"><span class="ann-track" id="marketTrack" style="animation-duration:24s"></span></div>
       </div>
-      <div class="ann-banner" id="annBanner" style="display:none" onclick="location.href='announcements.html'" title="点击进入公告页">
+      <div class="ann-banner" id="annBanner" style="display:none" onclick="openAnnListModal()" title="点击查看最新公告">
         <span class="tag">公告</span>
         <div class="ann-viewport"><span class="ann-track" id="annTrack"></span></div>
       </div>
@@ -668,7 +668,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <nav class="bottom-nav">
       <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
-      <button id="bnavNotice" onclick="location.href='announcements.html'"><span class="ic">📢</span><span>公告</span></button>
+      <button id="bnavNotice" onclick="switchListTab('notice')"><span class="ic">📢</span><span>公告</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
