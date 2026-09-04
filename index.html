@@ -2264,7 +2264,7 @@ function openAnnListModal() {
 
 /* ---------- 公告管理（我的Tab，仅管理员） ---------- */
 function openAnnModal(id) {
-  if (!isAdmin) return;
+  if (!isAdmin) return toast('仅管理员可发布公告（当前登录：' + (currentUserEmail || '未登录') + '）', 'warn');
   setError('annf-title', false);
   if (id) {
     const a = announcements.find(x => x.id === id);
