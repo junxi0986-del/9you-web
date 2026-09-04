@@ -431,6 +431,18 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   #ledgerBody td::before { content: attr(data-label); }
   .ledger-modal thead { display: none; }
 
+  /* 历史市场价弹窗：手机端卡片式布局，每条记录完整展示、无需横向滑动 */
+  #marketModal .table-wrap { overflow: visible; }
+  #marketModal .table-wrap table { min-width: 0; }
+  #marketModal thead { display: none; }
+  #marketModal tbody { display: block; }
+  #marketModal tbody tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
+  #marketModal tbody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  #marketModal tbody td:last-child { border-bottom: none; }
+  #marketModal tbody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  #marketModal tbody td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  #marketModal tbody td[colspan]::before { display: none; }
+
   /* 账户列表在手机上改为卡片式布局，逐行完整展示所有字段 */
   .table-wrap table.user-table { min-width: 0; }
   .user-table thead { display: none; }
