@@ -980,7 +980,12 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div class="modal-body"><p id="confirmMsg" style="line-height:1.7"></p></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('confirmModal')">取消</button>
- !-- ========== 发布/编辑公告弹窗（仅管理员） ========== -->
+      <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 发布/编辑公告弹窗（仅管理员） ========== -->
 <div class="modal-mask" id="annModal">
   <div class="modal">
     <div class="modal-head">
@@ -1041,11 +1046,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('annListModal');switchListTab('notice')">查看全部公告</button>
       <button class="btn btn-primary" onclick="closeModal('annListModal')">关闭</button>
-    </div>
-  </div>
-</div>
-
-<     <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
     </div>
   </div>
 </div>
