@@ -9,7 +9,7 @@
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-市场价Tab版');</script>
+<script>console.log('[九游平台] 代码版本 20260904-群聊版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -37,6 +37,12 @@
   --done-bg-strong: #dcfce7;  /* 已回本行悬停 / 徽章背景 */
   --selected-bg: #eff6ff;     /* 批量勾选行背景 */
   --danger-soft: #fef2f2;     /* 危险按钮悬停背景 */
+  /* 群聊气泡配色（浅色模式） */
+  --chat-bubble-me: #2563eb;      /* 自己的气泡：品牌蓝 */
+  --chat-bubble-me-text: #ffffff;
+  --chat-bubble-other: #ffffff;   /* 他人的气泡：白色 */
+  --chat-bubble-other-text: #1e293b;
+  --chat-system-bg: #e2e8f0;      /* 系统消息背景 */
 }
 
 /* ========== 深色模式主题（html.dark-mode 覆盖变量，切换立即生效） ========== */
@@ -57,7 +63,49 @@ html.dark-mode {
   --selected-bg: rgba(59,130,246,.18);
   --danger-soft: rgba(220,38,38,.15);
   --shadow: 0 1px 3px rgba(0,0,0,.45), 0 4px 12px rgba(0,0,0,.35);
+  /* 群聊气泡配色（深色模式） */
+  --chat-bubble-me: #1e40af;      /* 自己的气泡：深蓝 */
+  --chat-bubble-me-text: #e2e8f0;
+  --chat-bubble-other: #334155;   /* 他人的气泡：深灰 */
+  --chat-bubble-other-text: #e2e8f0;
+  --chat-system-bg: #1e293b;      /* 系统消息背景 */
 }
+
+/* ========== 项目群聊样式（浅色/深色模式自适应，见 --chat-* 变量） ========== */
+.chat-page { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; background: var(--bg); }
+.chat-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card-bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.chat-back { border: none; background: transparent; color: var(--text); font-size: 22px; cursor: pointer; padding: 4px 10px; min-height: 44px; }
+.chat-top-info { flex: 1; min-width: 0; }
+.chat-top-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-top-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+.chat-notif { border: none; background: transparent; font-size: 20px; cursor: pointer; padding: 6px; min-height: 44px; min-width: 44px; }
+.chat-notif.off { filter: grayscale(1); opacity: .5; }
+.chat-msgs { flex: 1; overflow-y: auto; padding: 14px 12px 10px; -webkit-overflow-scrolling: touch; }
+.chat-load { text-align: center; padding: 6px 0 12px; }
+.chat-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: flex-start; }
+.chat-row.me { flex-direction: row-reverse; }
+.chat-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 18px; }
+.chat-col { max-width: 76%; display: flex; flex-direction: column; }
+.chat-row.me .chat-col { align-items: flex-end; }
+.chat-sender { font-size: 12px; color: var(--text-secondary); margin: 0 4px 3px; }
+.chat-bubble { padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; background: var(--chat-bubble-other); color: var(--chat-bubble-other-text); border-top-left-radius: 4px; box-shadow: var(--shadow); }
+.chat-row.me .chat-bubble { background: var(--chat-bubble-me); color: var(--chat-bubble-me-text); border-top-left-radius: 12px; border-top-right-radius: 4px; }
+.chat-bubble.pending { opacity: .55; }
+.chat-bubble img.chat-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; cursor: zoom-in; }
+.chat-time { font-size: 11px; color: var(--text-secondary); margin: 3px 4px 0; }
+.chat-sys { text-align: center; margin: 10px 0; }
+.chat-sys span { display: inline-block; background: var(--chat-system-bg); color: var(--text-secondary); font-size: 12px; padding: 4px 12px; border-radius: 12px; }
+.chat-newtip { position: fixed; right: 16px; bottom: 84px; z-index: 3001; border: none; background: var(--primary); color: #fff; padding: 8px 14px; border-radius: 18px; font-size: 13px; cursor: pointer; box-shadow: var(--shadow); }
+.chat-inputbar { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: var(--card-bg); border-top: 1px solid var(--border); flex-shrink: 0; }
+.chat-plus { border: none; background: transparent; font-size: 22px; cursor: pointer; padding: 6px 8px; min-height: 44px; }
+.chat-text { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px; background: var(--input-bg); color: var(--text); font-size: 14px; font-family: inherit; padding: 10px 12px; line-height: 1.4; max-height: 96px; outline: none; }
+.chat-send { border: none; background: var(--primary); color: #fff; font-size: 14px; font-weight: 600; padding: 0 18px; border-radius: 10px; cursor: pointer; min-height: 44px; flex-shrink: 0; }
+.chat-send:hover { background: var(--primary-dark); }
+.chat-imgviewer { position: fixed; inset: 0; z-index: 4000; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.chat-imgviewer img { max-width: 94vw; max-height: 94vh; border-radius: 6px; }
+.chat-uploading { position: fixed; inset: 0; z-index: 4000; background: rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+.chat-uploading .spin { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: chat-spin .8s linear infinite; }
+@keyframes chat-spin { to { transform: rotate(360deg); } }
 
 /* 主题切换平滑过渡 */
 body, .login-card, .summary-card, .project-card, .table-card, .modal,
@@ -1098,6 +1146,44 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 
 <div id="toast-box"></div>
 
+<!-- ========== 项目群聊页（全屏视图，公共项目全员可聊） ========== -->
+<div id="chatPage" class="chat-page" style="display:none">
+  <!-- 顶部导航栏：返回 + 群名 + 成员数 + 通知开关 -->
+  <div class="chat-top">
+    <button class="chat-back" onclick="chat_close()">←</button>
+    <div class="chat-top-info">
+      <div class="chat-top-name" id="chatName">群聊</div>
+      <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
+    </div>
+    <button class="chat-notif" id="chatNotifBtn" onclick="chat_toggleNotif()" title="桌面通知">🔔</button>
+  </div>
+
+  <!-- 消息列表 -->
+  <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
+    <div class="chat-load" id="chatLoadMore" style="display:none">
+      <button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button>
+    </div>
+  </div>
+
+  <!-- 新消息提示按钮（未滚动到底部且有新消息时显示） -->
+  <button class="chat-newtip" id="chatNewTip" style="display:none" onclick="chat_scrollBottom(true)">↓ 新消息</button>
+
+  <!-- 底部输入区 -->
+  <div class="chat-inputbar">
+    <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
+    <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
+    <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
+  </div>
+</div>
+
+<!-- 图片查看器（点击聊天图片放大） -->
+<div id="chatImgViewer" class="chat-imgviewer" style="display:none" onclick="this.style.display='none'">
+  <img id="chatImgViewerImg" src="" alt="图片查看">
+</div>
+<!-- 上传中遮罩 -->
+<div id="chatUploading" class="chat-uploading" style="display:none"><div class="spin"></div><div>图片上传中…</div></div>
+
 <script>
 // ===================== Supabase配置（你的账号参数） =====================
 const SUPABASE_URL = "https://qqkbdtpvkvqecbtspnix.supabase.co";
@@ -1787,6 +1873,7 @@ function renderPublicProjects() {
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
       <div class="pc-foot" onclick="event.stopPropagation()">
         <button class="btn btn-sm btn-primary" onclick="copyPublicProject('${p.id}')" ${isAdmin ? 'style="display:none"' : ''}>⧉ 复制到我的项目</button>
+        <button class="btn btn-sm btn-outline" onclick="chat_open('${p.id}')">💬 群聊</button>
         <div class="pc-actions" ${isAdmin ? '' : 'style="display:none"'}>
           <button class="btn btn-sm btn-outline" onclick="openPublicProjectModal('${p.id}')">编辑</button>
           <button class="btn btn-sm btn-danger" onclick="deletePublicProject('${p.id}')">删除</button>
@@ -2568,6 +2655,345 @@ function clearAllData() {
     showPage('list');
     toast('所有数据已清空', 'success');
   });
+}
+
+/* ===================== 项目群聊（公共项目全员群聊） =====================
+   数据表：chat_messages（消息）/ chat_members（成员），Storage：chat_images（图片）
+   实时：Supabase Realtime postgres_changes；图片上传前端压缩至 800px/0.7 */
+const chatState = {
+  projectId: null,       // 当前群聊所属公共项目 ID
+  channel: null,         // Realtime 订阅通道
+  messages: [],          // 已加载消息（按时间正序）
+  oldestAt: null,        // 当前最早一条消息时间（分页游标）
+  loadedAll: false,      // 历史消息是否已全部加载
+  loadingMore: false,    // 分页加载中标记
+  memberCount: 0,        // 成员总数
+  titleTimer: null       // 标题闪烁定时器
+};
+
+// 群聊显示名：邮箱前缀
+function chat_displayName() { return (currentUserEmail || '用户').split('@')[0]; }
+
+// 进入群聊：打开全屏视图、加入成员、加载最近50条、订阅实时消息
+async function chat_open(projectId) {
+  const p = publicProjects.find(x => x.id === projectId);
+  if (!p) return;
+  chatState.projectId = projectId;
+  document.getElementById('chatName').textContent = `💬 ${p.name}`;
+  document.getElementById('chatMemberCount').textContent = '成员 — 人';
+  document.getElementById('chatMsgs').innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
+  document.getElementById('chatLoadMore').style.display = 'none';
+  document.getElementById('chatPage').style.display = 'flex';
+  document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
+  chat_stopTitleFlash();
+  await chat_join();
+  await chat_loadInitial();
+  chat_subscribe();
+  document.getElementById('chatText').focus();
+}
+
+// 关闭群聊：退订实时通道、恢复页面
+function chat_close() {
+  if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
+  chatState.projectId = null;
+  chatState.messages = [];
+  document.getElementById('chatPage').style.display = 'none';
+  document.body.style.overflow = '';
+  chat_stopTitleFlash();
+}
+
+// 加入成员表；首次加入时发送系统消息「XXX 进入了群聊」
+async function chat_join() {
+  try {
+    const pid = chatState.projectId;
+    const { data: existing } = await sb.from('chat_members').select('user_email').eq('project_id', pid).eq('user_email', currentUserEmail).maybeSingle();
+    const { error } = await sb.from('chat_members').upsert({
+      project_id: pid, user_email: currentUserEmail, user_name: chat_displayName(), joined_at: new Date().toISOString()
+    }, { onConflict: 'project_id,user_email' });
+    if (error) console.warn('[群聊] 加入失败：', error.message);
+    if (!existing) {
+      await sb.from('chat_messages').insert({
+        id: uid(), project_id: pid, user_email: currentUserEmail, user_name: chat_displayName(),
+        msg_type: 'system', body: `[${chat_displayName()}] 进入了群聊`
+      });
+    }
+  } catch (e) { console.warn('[群聊] join 异常：', e); }
+}
+
+// 加载最近 50 条消息（倒序取后正序渲染），滚动到底部
+async function chat_loadInitial() {
+  const { data, error } = await sb.from('chat_messages')
+    .select('*').eq('project_id', chatState.projectId)
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) {
+    document.getElementById('chatMsgs').innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载失败：${escapeHtml(error.message)}<br><small>请确认已执行群聊数据库初始化 SQL</small></div>`;
+    return;
+  }
+  chatState.messages = (data || []).reverse();
+  chatState.oldestAt = chatState.messages.length ? chatState.messages[0].created_at : null;
+  chatState.loadedAll = (data || []).length < 50;
+  chat_renderAll();
+  chat_scrollBottom(false);
+}
+
+// 向上分页加载更早的消息（每次 20 条）
+async function chat_loadMore() {
+  if (chatState.loadingMore || chatState.loadedAll || !chatState.oldestAt) return;
+  chatState.loadingMore = true;
+  document.getElementById('chatLoadMore').style.display = '';
+  document.getElementById('chatLoadMore').querySelector('button').textContent = '加载中…';
+  const { data, error } = await sb.from('chat_messages')
+    .select('*').eq('project_id', chatState.projectId)
+    .lt('created_at', chatState.oldestAt)
+    .order('created_at', { ascending: false }).limit(20);
+  chatState.loadingMore = false;
+  if (error || !data || data.length === 0) {
+    document.getElementById('chatLoadMore').style.display = 'none';
+    if (!error) chatState.loadedAll = true;
+    return;
+  }
+  const older = data.reverse();
+  chatState.messages = older.concat(chatState.messages);
+  chatState.oldestAt = chatState.messages[0].created_at;
+  chatState.loadedAll = data.length < 20;
+  // 保持当前滚动位置：先记录高度，前插后再恢复
+  const box = document.getElementById('chatMsgs');
+  const prevHeight = box.scrollHeight, prevTop = box.scrollTop;
+  chat_renderAll();
+  box.scrollTop = box.scrollHeight - prevHeight + prevTop;
+  document.getElementById('chatLoadMore').style.display = chatState.loadedAll ? 'none' : '';
+  document.getElementById('chatLoadMore').querySelector('button').textContent = '加载更早的消息';
+}
+
+// 订阅 Realtime：新消息 + 成员变动（实时成员数）
+function chat_subscribe() {
+  chatState.channel = sb.channel('chat-' + chatState.projectId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.' + chatState.projectId },
+      payload => chat_onIncoming(payload.new))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: 'project_id=eq.' + chatState.projectId },
+      () => chat_refreshMembers())
+    .subscribe(status => { if (status === 'SUBSCRIBED') chat_refreshMembers(); });
+}
+
+// 刷新成员数量显示
+async function chat_refreshMembers() {
+  const { count } = await sb.from('chat_members').select('user_email', { count: 'exact', head: true }).eq('project_id', chatState.projectId);
+  chatState.memberCount = count || 0;
+  document.getElementById('chatMemberCount').textContent = `成员 ${chatState.memberCount} 人`;
+}
+
+// 收到新消息：去重后渲染 + 滚动/通知
+function chat_onIncoming(msg) {
+  if (chatState.messages.some(m => m.id === msg.id)) return;  // 自己乐观更新的消息去重
+  chatState.messages.push(msg);
+  chat_append(msg);
+  const box = document.getElementById('chatMsgs');
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  const isMine = msg.user_email === currentUserEmail;
+  if (nearBottom || isMine) {
+    chat_scrollBottom(false);
+  } else {
+    document.getElementById('chatNewTip').style.display = '';
+  }
+  // 系统消息不通知；非本人消息且聊天页不可见时标题闪烁 + 桌面通知
+  if (msg.msg_type !== 'system' && !isMine) chat_notify(msg);
+}
+
+// 渲染单条消息（追加到列表末尾）
+function chat_append(msg) {
+  const box = document.getElementById('chatMsgs');
+  if (msg.msg_type === 'system') {
+    box.insertAdjacentHTML('beforeend', `<div class="chat-sys"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`);
+    return;
+  }
+  const mine = msg.user_email === currentUserEmail;
+  const name = msg.user_name || (msg.user_email || '').split('@')[0];
+  const initial = (name || '?').charAt(0).toUpperCase();
+  const content = msg.msg_type === 'image' && msg.image_url
+    ? `<img class="chat-thumb" src="${escapeHtml(msg.image_url)}" onclick="chat_viewImage(this.src)" loading="lazy" alt="图片">`
+    : escapeHtml(msg.body || '');
+  box.insertAdjacentHTML('beforeend', `
+    <div class="chat-row ${mine ? 'me' : ''}" data-id="${msg.id}">
+      <div class="chat-avatar">${escapeHtml(initial)}</div>
+      <div class="chat-col">
+        ${mine ? '' : `<div class="chat-sender">${escapeHtml(name)}</div>`}
+        <div class="chat-bubble ${msg.pending ? 'pending' : ''}">${content}</div>
+        <div class="chat-time">${chat_fmtTime(msg.created_at)}${msg.pending ? ' · 发送中' : ''}</div>
+      </div>
+    </div>`);
+}
+
+// 全量重渲染（初始/分页加载时）
+function chat_renderAll() {
+  const box = document.getElementById('chatMsgs');
+  box.innerHTML = '<div class="chat-load" id="chatLoadMore" style="display:none"><button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button></div>';
+  chatState.messages.forEach(m => chat_append(m));
+  document.getElementById('chatLoadMore').style.display = chatState.loadedAll ? 'none' : '';
+}
+
+// 发送文字消息（乐观更新 → 写库 → 去重）
+async function chat_send() {
+  const input = document.getElementById('chatText');
+  const text = input.value.trim();
+  if (!text || !chatState.projectId) return;
+  input.value = ''; chat_autoGrow(input);
+  const msg = {
+    id: uid(), project_id: chatState.projectId, user_email: currentUserEmail, user_name: chat_displayName(),
+    msg_type: 'text', body: text, image_url: '', created_at: new Date().toISOString(), pending: true
+  };
+  chatState.messages.push(msg);
+  chat_append(msg);
+  chat_scrollBottom(false);
+  const { error } = await sb.from('chat_messages').insert({
+    id: msg.id, project_id: msg.project_id, user_email: msg.user_email, user_name: msg.user_name,
+    msg_type: 'text', body: text, image_url: ''
+  });
+  if (error) {
+    toast('消息发送失败：' + error.message, 'error');
+    const el = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-bubble`);
+    if (el) { el.classList.remove('pending'); el.style.opacity = .4; }
+    const t = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-time`);
+    if (t) t.textContent += ' · 发送失败';
+  }
+}
+
+// 选择图片 → 压缩 → 上传 Storage → 发送图片消息
+async function chat_pickImage(inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = '';
+  if (!file || !chatState.projectId) return;
+  document.getElementById('chatUploading').style.display = 'flex';
+  try {
+    const blob = await chat_compressImage(file);
+    const path = `chat_images/${chatState.projectId}/${Date.now()}.jpg`;
+    const { error: upErr } = await sb.storage.from('chat_images').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (upErr) throw upErr;
+    const { data: urlData } = sb.storage.from('chat_images').getPublicUrl(path);
+    const url = urlData && urlData.publicUrl;
+    if (!url) throw new Error('获取图片地址失败');
+    const msg = {
+      id: uid(), project_id: chatState.projectId, user_email: currentUserEmail, user_name: chat_displayName(),
+      msg_type: 'image', body: '', image_url: url, created_at: new Date().toISOString(), pending: true
+    };
+    chatState.messages.push(msg);
+    chat_append(msg);
+    chat_scrollBottom(false);
+    const { error } = await sb.from('chat_messages').insert({
+      id: msg.id, project_id: msg.project_id, user_email: msg.user_email, user_name: msg.user_name,
+      msg_type: 'image', body: '', image_url: url
+    });
+    if (error) toast('图片消息发送失败：' + error.message, 'error');
+  } catch (e) {
+    toast('图片上传失败：' + (e.message || e), 'error');
+  } finally {
+    document.getElementById('chatUploading').style.display = 'none';
+  }
+}
+
+// 图片压缩：最长边不超 800px，JPEG 质量 0.7
+function chat_compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 800;
+      let { width, height } = img;
+      if (width > max || height > max) {
+        const ratio = Math.min(max / width, max / height);
+        width = Math.round(width * ratio); height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('图片压缩失败')), 'image/jpeg', 0.7);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('图片读取失败')); };
+    img.src = url;
+  });
+}
+
+// 滚动监听：接近顶部自动加载更早消息
+function chat_onScroll() {
+  const box = document.getElementById('chatMsgs');
+  if (box.scrollTop < 60) chat_loadMore();
+}
+
+// 滚动到底部；force=true 时隐藏「新消息」提示
+function chat_scrollBottom(force) {
+  const box = document.getElementById('chatMsgs');
+  box.scrollTop = box.scrollHeight;
+  if (force) document.getElementById('chatNewTip').style.display = 'none';
+}
+
+// 新消息通知：标题闪烁 + 桌面通知（已授权且页面不可见时）
+function chat_notify(msg) {
+  if (document.hidden || document.getElementById('chatPage').style.display === 'none') {
+    chat_startTitleFlash();
+    if (chatState.notifOn && window.Notification && Notification.permission === 'granted' && document.hidden) {
+      try {
+        const n = new Notification('九游平台 · 新消息', { body: `${msg.user_name || msg.user_email}：${msg.msg_type === 'image' ? '[图片]' : (msg.body || '').slice(0, 60)}` });
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch (e) {}
+    }
+  }
+}
+
+// 桌面通知开关（首次点击请求授权）
+function chat_toggleNotif() {
+  const btn = document.getElementById('chatNotifBtn');
+  if (!window.Notification) return toast('当前浏览器不支持桌面通知', 'warn');
+  if (Notification.permission === 'granted') {
+    chatState.notifOn = !chatState.notifOn;
+    btn.classList.toggle('off', !chatState.notifOn);
+    toast(chatState.notifOn ? '桌面通知已开启' : '桌面通知已关闭', 'success');
+  } else {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') { chatState.notifOn = true; btn.classList.remove('off'); toast('桌面通知已开启', 'success'); }
+      else toast('通知授权被拒绝，可在浏览器设置中修改', 'warn');
+    });
+  }
+}
+
+// 标题闪烁提示
+function chat_startTitleFlash() {
+  if (chatState.titleTimer) return;
+  const base = '九游项目跟踪管理平台';
+  let on = false;
+  chatState.titleTimer = setInterval(() => {
+    document.title = (on = !on) ? '💬 新消息 · 九游平台' : base;
+  }, 1000);
+}
+function chat_stopTitleFlash() {
+  if (chatState.titleTimer) { clearInterval(chatState.titleTimer); chatState.titleTimer = null; }
+  document.title = '九游项目跟踪管理平台';
+}
+
+// 图片放大查看
+function chat_viewImage(src) {
+  document.getElementById('chatImgViewerImg').src = src;
+  document.getElementById('chatImgViewer').style.display = 'flex';
+}
+
+// 输入框自动增高（最多约 4 行）
+function chat_autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 96) + 'px';
+}
+
+// Enter 发送 / Shift+Enter 换行
+function chat_onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chat_send(); }
+}
+
+// 消息时间显示 HH:MM（历史消息带 月-日）
+function chat_fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (d.toDateString() === now.toDateString()) return hm;
+  return `${d.getMonth() + 1}-${d.getDate()} ${hm}`;
 }
 
 // 启动：检测登录状态（刷新后自动恢复会话）
