@@ -583,6 +583,8 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 .ann-banner:hover .ann-track { animation-play-state: paused; }
 @keyframes annScroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+/* 群聊内公告横幅：复用首页横幅样式，贴顶栏显示 */
+.chat-ann-banner { margin: 8px 10px 0; flex-shrink: 0; }
 
 /* ========== 公告条目（公告Tab / 弹窗 / 管理列表共用） ========== */
 .ann-item {
@@ -737,6 +739,12 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
           </div>
           <button class="btn btn-outline" id="themeBtn" onclick="toggleTheme()">🌙 切换到深色模式</button>
         </div>
+        <!-- 用户名：同步为群聊昵称（localStorage + cookie 双保险 + 云端 chat_members） -->
+        <div class="form-group" style="margin-top:12px;margin-bottom:10px">
+          <label>用户名（群聊昵称）</label>
+          <input type="text" id="myNameInput" maxlength="20" placeholder="群聊中显示的名称">
+        </div>
+        <button class="btn btn-outline" style="width:100%" onclick="saveMyName()">保存用户名</button>
       </div>
 
       <!-- 消息通知设置：桌面弹窗通知（iOS 风格开关，偏好存 localStorage） -->
@@ -799,6 +807,17 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
               <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
               <tbody id="marketMgrBody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- 群聊管理（仅管理员）：清空全部群聊天记录 -->
+        <div class="table-card">
+          <div class="me-row">
+            <div style="min-width:0">
+              <h2 style="font-size:16px;font-weight:600">💬 群聊管理</h2>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">清空全部群聊天记录，对所有成员生效且不可恢复</div>
+            </div>
+            <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
           </div>
         </div>
       </div>
@@ -1191,6 +1210,12 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div class="chat-top-name" id="chatName">群聊</div>
       <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
     </div>
+  </div>
+
+  <!-- 公告滚动横幅：复用首页公告数据，点击跳转公告页 -->
+  <div class="ann-banner chat-ann-banner" id="chatAnnBanner" style="display:none" onclick="chat_gotoNotice()" title="点击进入公告页">
+    <span class="tag">公告</span>
+    <div class="ann-viewport"><div class="ann-track" id="chatAnnTrack"></div></div>
   </div>
 
   <!-- 消息列表 -->
@@ -1586,6 +1611,7 @@ function switchListTab(tab) {
   listTab = tab;
   updateListTabUI();
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
+  renderHomeTop();  // 切换页签时同步顶部横幅显隐（公告页隐藏公告横幅）
   window.scrollTo(0, 0);
 }
 function updateListTabUI() {
@@ -2473,9 +2499,9 @@ function renderHomeTop() {
   } else {
     mb.style.display = 'none';
   }
-  // 公告滚动横幅：最近 3 条，格式「标题：正文」，长度按屏幕宽度自适应
+  // 公告滚动横幅：最近 3 条，格式「标题：正文」，长度按屏幕宽度自适应；公告页内隐藏（内容重复）
   const banner = document.getElementById('annBanner');
-  if (announcements.length) {
+  if (announcements.length && listTab !== 'notice') {
     banner.style.display = 'flex';
     // 按屏幕宽度自适应：约16px一个汉字，小屏至少20字，大屏最多60字
     const maxLen = Math.min(60, Math.max(20, Math.floor(window.innerWidth / 16)));
@@ -2530,10 +2556,11 @@ function renderMarketPage() {
 }
 
 /* ---------- 公告展示 ---------- */
-// 公告条目 HTML（标题行只显示标题，正文默认收起、点击展开查看；withOps 为 true 时附带编辑/删除按钮）
-function annItemHtml(a, withOps) {
+// 公告条目 HTML（withOps 为 true 时附带编辑/删除按钮；expanded 为 true 时正文默认展开，点击可折叠）
+function annItemHtml(a, withOps, expanded) {
+  const openCls = expanded ? ' open' : '';
   return `
-    <div class="ann-item" ${withOps ? '' : 'onclick="this.classList.toggle(\'open\')"'}>
+    <div class="ann-item${openCls}" ${!withOps ? 'onclick="this.classList.toggle(\'open\')"' : ''}>
       <div class="a-title">
         <span class="a-name" ${withOps ? `onclick="this.closest('.ann-item').classList.toggle('open')"` : ''}>📢 ${escapeHtml(a.title)}</span>
         <span style="display:flex;align-items:center;gap:8px">
@@ -2547,12 +2574,12 @@ function annItemHtml(a, withOps) {
       <div class="a-content">${escapeHtml(a.content || '（无正文）')}</div>
     </div>`;
 }
-// 公告Tab：全部公告列表（点击展开）
+// 公告Tab：全部公告列表（正文默认展开，点击折叠为仅标题）
 function renderNoticeTab() {
   const box = document.getElementById('noticeList');
   box.innerHTML = announcements.length === 0
     ? `<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>`
-    : announcements.slice(0, 50).map(a => annItemHtml(a, false)).join('');
+    : announcements.slice(0, 50).map(a => annItemHtml(a, false, true)).join('');
 }
 
 /* ---------- 公告管理（我的Tab，仅管理员） ---------- */
@@ -2681,6 +2708,8 @@ function renderMeAdmin() {
   document.getElementById('meRole').innerHTML = isAdmin
     ? '<span class="badge" style="background:#f59e0b;color:#fff">管理员</span>'
     : '普通用户';
+  const myName = document.getElementById('myNameInput');
+  if (myName) myName.value = chat_displayName();  // 用户名输入框回显当前群聊昵称
   document.getElementById('meAdminTools').style.display = isAdmin ? '' : 'none';
   applyThemeUI();
   renderAnnMgr();
@@ -2688,6 +2717,26 @@ function renderMeAdmin() {
   // 管理员录入默认日期为今天
   const mfDate = document.getElementById('mf-date');
   if (isAdmin && !mfDate.value) mfDate.value = todayStr();
+}
+
+// 我的Tab：保存用户名并同步为群聊昵称（localStorage + cookie 双保险 + 云端 chat_members）
+async function saveMyName() {
+  if (!currentUserEmail) return;
+  const input = document.getElementById('myNameInput');
+  const name = (input.value || '').trim();
+  if (!name) return toast('请输入用户名', 'warn');
+  if (name.length > 20) return toast('用户名最长20个字', 'warn');
+  chat_saveNick(name);
+  try {
+    await sb.from('chat_members').upsert({
+      project_id: CHAT_GLOBAL_ID, user_email: currentUserEmail,
+      user_name: name, joined_at: new Date().toISOString()
+    }, { onConflict: 'project_id,user_email' });
+    toast('用户名已保存，群聊昵称已同步', 'success');
+  } catch (e) {
+    toast('用户名已保存本机，云端同步失败', 'warn');
+  }
+  input.value = name;
 }
 
 /* ---------- 数据备份：清空 ---------- */
@@ -2717,8 +2766,19 @@ const chatState = {
   titleTimer: null       // 标题闪烁定时器
 };
 
-// 群聊显示名：邮箱前缀
-function chat_displayName() { return localStorage.getItem('chat_nick') || (currentUserEmail || '用户').split('@')[0]; }
+// 群聊显示名：localStorage → cookie（存储被浏览器阻止时降级）→ 邮箱前缀
+function chat_displayName() {
+  let n = null;
+  try { n = localStorage.getItem('chat_nick'); } catch (e) {}
+  if (!n) { try { const m = document.cookie.match(/(?:^|;\s*)chat_nick=([^;]+)/); if (m) n = decodeURIComponent(m[1]); } catch (e) {} }
+  return n || (currentUserEmail || '用户').split('@')[0];
+}
+
+// 保存群昵称：localStorage + cookie 双保险（防跟踪防护拦截 localStorage 导致刷新丢失）
+function chat_saveNick(name) {
+  try { localStorage.setItem('chat_nick', name); } catch (e) {}
+  try { document.cookie = 'chat_nick=' + encodeURIComponent(name) + ';max-age=31536000;path=/;SameSite=Lax'; } catch (e) {}
+}
 
 // 更改自己的群昵称（存 localStorage + 同步 chat_members 表）
 async function chat_changeNick() {
@@ -2727,7 +2787,7 @@ async function chat_changeNick() {
   const name = (prompt('请输入你的群昵称（最长20字）：', cur) || '').trim();
   if (!name || name === cur) return;
   if (name.length > 20) return toast('昵称最长20个字', 'warn');
-  localStorage.setItem('chat_nick', name);
+  chat_saveNick(name);
   try {
     await sb.from('chat_members').upsert({
       project_id: CHAT_GLOBAL_ID, user_email: currentUserEmail,
@@ -2737,12 +2797,13 @@ async function chat_changeNick() {
   } catch (e) {
     toast('昵称已保存到本机，云端同步失败', 'warn');
   }
+  renderMeAdmin();  // 同步「我的」Tab 用户名输入框显示
 }
 
 // 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
 function chat_ensureDom() {
   const ids = ['chatPage', 'chatName', 'chatMemberCount', 'chatMsgs', 'chatLoadMore', 'chatNewTip',
-    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNickBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
+    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNickBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading', 'chatAnnBanner', 'chatAnnTrack'];
   if (ids.every(id => document.getElementById(id))) return;
   // 移除可能残缺的旧节点，避免重复 id
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
@@ -2755,6 +2816,10 @@ function chat_ensureDom() {
         <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
       </div>
       <button class="chat-notif" id="chatNickBtn" onclick="chat_changeNick()" title="修改我的群昵称">✏️</button>
+    </div>
+    <div class="ann-banner chat-ann-banner" id="chatAnnBanner" style="display:none" onclick="chat_gotoNotice()" title="点击进入公告页">
+      <span class="tag">公告</span>
+      <div class="ann-viewport"><div class="ann-track" id="chatAnnTrack"></div></div>
     </div>
     <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
       <div class="chat-load" id="chatLoadMore" style="display:none">
@@ -2799,6 +2864,7 @@ async function chat_open() {
     if (n) n.classList.remove('active');
   });
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add('active'); });
+  chat_renderAnnBanner();  // 群聊公告横幅（复用首页公告数据）
   await chat_join();
   await chat_loadInitial();
   chat_subscribe();
@@ -2818,6 +2884,47 @@ function chat_close() {
   document.body.style.overflow = '';
   chat_stopTitleFlash();
   updateListTabUI();  // 恢复导航栏到当前页签高亮
+}
+
+// 群聊公告横幅：复用首页公告数据（最近3条，长度按屏幕宽度自适应）
+function chat_renderAnnBanner() {
+  const banner = document.getElementById('chatAnnBanner');
+  if (!banner) return;
+  if (!announcements.length) { banner.style.display = 'none'; return; }
+  const maxLen = Math.min(60, Math.max(20, Math.floor(window.innerWidth / 16)));
+  const clip = s => s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
+  document.getElementById('chatAnnTrack').textContent =
+    announcements.slice(0, 3).map(a => `📢 ${clip(a.title + '：' + (a.content || ''))}`).join('　　　　');
+  banner.style.display = 'flex';
+}
+
+// 点击群聊公告横幅：退出群聊并跳转公告页
+function chat_gotoNotice() {
+  chat_close();
+  switchListTab('notice');
+}
+
+// 管理员清空群聊天记录（我的Tab入口）：删除全部群消息，全员实时清空（需 DELETE RLS 策略）
+function chat_clearAll() {
+  if (!isAdmin) return toast('仅管理员可清空群聊天记录', 'warn');
+  confirmAction('清空群聊天记录', '确定清空群聊的全部消息吗？所有成员的聊天记录都会被删除，此操作不可恢复！', async () => {
+    const { error } = await sb.from('chat_messages').delete().eq('project_id', CHAT_GLOBAL_ID);
+    if (error) return toast('清空失败：' + error.message, 'error');
+    // 若聊天页正打开，同步清空本地界面
+    chatState.messages = [];
+    chatState.oldestAt = null;
+    chatState.loadedAll = true;
+    if (chatState.projectId) chat_renderAll();
+    toast('群聊天记录已清空', 'success');
+  });
+}
+
+// 收到消息删除事件（管理员清空等）：从本地移除对应消息
+function chat_onDeleted(id) {
+  if (!id) return;
+  chatState.messages = chatState.messages.filter(m => m.id !== id);
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if (el) el.remove();
 }
 
 // 加入成员表；首次加入时发送系统消息「XXX 进入了群聊」
@@ -2890,6 +2997,8 @@ function chat_subscribe() {
       payload => chat_onIncoming(payload.new))
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.' + chatState.projectId },
       payload => chat_onUpdated(payload.new))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.' + chatState.projectId },
+      payload => chat_onDeleted(payload.old && payload.old.id))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: 'project_id=eq.' + chatState.projectId },
       () => chat_refreshMembers())
     .subscribe(status => { if (status === 'SUBSCRIBED') chat_refreshMembers(); });
@@ -3065,8 +3174,9 @@ function chat_markSent(msg) {
   if (!row) return;
   const b = row.querySelector('.chat-bubble');
   if (b) b.classList.remove('pending');
+  // 重写时间行时需带上撤回按钮（否则刚发送的消息无法撤回）
   const t = row.querySelector('.chat-time');
-  if (t) t.textContent = chat_fmtTime(msg.created_at);
+  if (t) t.innerHTML = `${chat_fmtTime(msg.created_at)}${chat_canRecall(msg) ? `<span class="recall-btn" onclick="chat_recall('${msg.id}')">撤回</span>` : ''}`;
 }
 
 // 可撤回判断：自己发送的、非系统、已落库、2分钟内的消息
@@ -3098,7 +3208,7 @@ async function chat_recall(id) {
 // 把某条消息行替换为撤回系统提示（本地撤回与收到他人撤回事件共用）
 function chat_renderRecalled(msg) {
   const el = document.querySelector(`.chat-row[data-id="${msg.id}"]`);
-  if (el) el.outerHTML = `<div class="chat-sys"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`;
+  if (el) el.outerHTML = `<div class="chat-sys" data-id="${msg.id}"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`;
 }
 
 // 收到消息更新事件（他人撤回同步）：替换本地状态与渲染
