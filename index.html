@@ -6,9 +6,10 @@
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
 <!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
-<script>try{var t=localStorage.getItem('jy_theme');if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+<!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
+<script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-公告市场价版');</script>
+<script>console.log('[九游平台] 代码版本 20260904-主题修复版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -2175,7 +2176,18 @@ async function saveBatchUsers() {
   toast(`成功添加 ${parsed.length} 位账户`, 'success');
 }
 
-/* ---------- 深色模式切换（手动偏好存 localStorage；未手动设置时跟随系统） ---------- */
+/* ---------- 深色模式切换（手动偏好存 localStorage，失败时降级 cookie；未手动设置时跟随系统） ---------- */
+function readThemePref() {
+  try { const v = localStorage.getItem('jy_theme'); if (v) return v; } catch (e) {}
+  try { const m = document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/); if (m) return m[1]; } catch (e) {}
+  return null;
+}
+function saveThemePref(v) {
+  let ok = false;
+  try { localStorage.setItem('jy_theme', v); ok = true; } catch (e) {}
+  try { document.cookie = 'jy_theme=' + v + ';max-age=31536000;path=/;SameSite=Lax'; ok = true; } catch (e) {}
+  return ok;
+}
 function applyThemeUI() {
   const dark = document.documentElement.classList.contains('dark-mode');
   const btn = document.getElementById('themeBtn');
@@ -2184,13 +2196,14 @@ function applyThemeUI() {
 function toggleTheme() {
   const dark = !document.documentElement.classList.contains('dark-mode');
   document.documentElement.classList.toggle('dark-mode', dark);
-  try { localStorage.setItem('jy_theme', dark ? 'dark' : 'light'); } catch (e) {}
+  const saved = saveThemePref(dark ? 'dark' : 'light');
+  if (!saved) toast('浏览器已阻止本地存储，主题偏好可能无法保存', 'warn');
   applyThemeUI();
 }
 // 未手动设置过偏好时，实时跟随系统深色模式变化
 try {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    if (localStorage.getItem('jy_theme')) return;   // 用户手动选择过，尊重手动偏好
+    if (readThemePref()) return;   // 用户手动选择过，尊重手动偏好
     document.documentElement.classList.toggle('dark-mode', e.matches);
     applyThemeUI();
   });
