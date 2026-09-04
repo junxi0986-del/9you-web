@@ -110,6 +110,9 @@ html.dark-mode {
   .ios-switch input:checked + .ios-slider { background: var(--primary); }
   .ios-switch input:checked + .ios-slider::before { transform: translateX(22px); }
   .ios-switch input:disabled + .ios-slider { opacity: .45; cursor: not-allowed; }
+  /* 消息撤回：自己的消息2分钟内可撤回（桌面hover显示按钮，移动端长按气泡） */
+  .recall-btn { display: none; margin-left: 6px; color: #ef4444; cursor: pointer; font-size: 11px; }
+  .chat-row.me:hover .recall-btn { display: inline; }
 .chat-bubble img.chat-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; cursor: zoom-in; }
 .chat-time { font-size: 11px; color: var(--text-secondary); margin: 3px 4px 0; }
 .chat-sys { text-align: center; margin: 10px 0; }
@@ -1592,6 +1595,8 @@ function updateListTabUI() {
     const bnav = document.getElementById('bnav' + t.charAt(0).toUpperCase() + t.slice(1));
     if (bnav) bnav.classList.toggle('active', listTab === t);
   });
+  // 群聊按钮不在 tabs 数组内，切换页签时必须手动清除其高亮（否则退出群聊后仍显示选中）
+  ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
 }
 
 /* ---------- 主页面：项目列表渲染 ---------- */
@@ -2882,6 +2887,8 @@ function chat_subscribe() {
   chatState.channel = sb.channel('chat-' + chatState.projectId)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.' + chatState.projectId },
       payload => chat_onIncoming(payload.new))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.' + chatState.projectId },
+      payload => chat_onUpdated(payload.new))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: 'project_id=eq.' + chatState.projectId },
       () => chat_refreshMembers())
     .subscribe(status => { if (status === 'SUBSCRIBED') chat_refreshMembers(); });
@@ -2948,6 +2955,8 @@ function chat_append(msg) {
   const isAdminMsg = ADMIN_EMAILS.includes(msg.user_email);  // 管理员金色区分
   // 他人消息包含 @所有人 时红色高亮
   const mentionAll = !mine && msg.body && msg.body.includes('@所有人');
+  // 自己的未撤销消息2分钟内可撤回（渲染撤回按钮；移动端另有长按气泡撤回）
+  const recallable = chat_canRecall(msg);
   const content = msg.msg_type === 'image' && msg.image_url
     ? `<img class="chat-thumb" src="${escapeHtml(msg.image_url)}" onclick="chat_viewImage(this.src)" loading="lazy" alt="图片">`
     : escapeHtml(msg.body || '');
@@ -2957,7 +2966,7 @@ function chat_append(msg) {
       <div class="chat-col">
         ${mine ? '' : `<div class="chat-sender ${isAdminMsg ? 'chat-admin-name' : ''}">${escapeHtml(name)}${isAdminMsg ? ' 👑' : ''}</div>`}
         <div class="chat-bubble ${msg.pending ? 'pending' : ''} ${mentionAll ? 'mention-all' : ''}">${content}</div>
-        <div class="chat-time">${chat_fmtTime(msg.created_at)}${msg.pending ? ' · 发送中' : ''}</div>
+        <div class="chat-time">${chat_fmtTime(msg.created_at)}${msg.pending ? ' · 发送中' : ''}${recallable ? `<span class="recall-btn" onclick="chat_recall('${msg.id}')">撤回</span>` : ''}</div>
       </div>
     </div>`);
 }
@@ -2990,6 +2999,26 @@ function chat_mention(name) {
   document.addEventListener('click', e => {
     if (longFired && e.target.closest && e.target.closest('.chat-avatar')) { longFired = false; e.stopPropagation(); e.preventDefault(); }
   }, true);
+})();
+
+// 长按自己的气泡撤回消息（移动端，事件委托）
+(function () {
+  let timer = null;
+  const box = () => document.getElementById('chatMsgs');
+  document.addEventListener('touchstart', e => {
+    const bubble = e.target.closest && e.target.closest('.chat-bubble');
+    if (!bubble || !box() || !box().contains(bubble)) return;
+    const row = bubble.closest('.chat-row');
+    const msg = row && chatState.messages.find(m => m.id === row.dataset.id);
+    if (!msg || !chat_canRecall(msg)) return;
+    timer = setTimeout(() => { timer = null; chat_recall(msg.id); }, 500);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(ev =>
+    document.addEventListener(ev, () => { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true }));
+  // 触屏设备长按气泡时屏蔽系统默认菜单/选择，避免干扰撤回
+  document.addEventListener('contextmenu', e => {
+    if (timer !== null && e.target.closest && e.target.closest('.chat-bubble')) e.preventDefault();
+  });
 })();
 
 // 全量重渲染（初始/分页加载时）
@@ -3037,6 +3066,47 @@ function chat_markSent(msg) {
   if (b) b.classList.remove('pending');
   const t = row.querySelector('.chat-time');
   if (t) t.textContent = chat_fmtTime(msg.created_at);
+}
+
+// 可撤回判断：自己发送的、非系统、已落库、2分钟内的消息
+function chat_canRecall(msg) {
+  return !!msg && msg.user_email === currentUserEmail && !msg.pending
+    && msg.msg_type !== 'system'
+    && (Date.now() - new Date(msg.created_at).getTime() < 120000);
+}
+
+// 撤回消息：软删除——把原消息更新为系统提示「[name] 撤回了一条消息」，全员实时可见、刷新后保留
+async function chat_recall(id) {
+  const msg = chatState.messages.find(m => m.id === id);
+  if (!msg || !chat_canRecall(msg)) return;
+  if (!confirm('撤回这条消息？')) return;
+  const notice = `[${chat_displayName()}] 撤回了一条消息`;
+  const recalled = { ...msg, msg_type: 'system', body: notice, image_url: '' };
+  chatState.messages = chatState.messages.map(m => m.id === id ? recalled : m);
+  chat_renderRecalled(recalled);
+  const { error } = await sb.from('chat_messages')
+    .update({ msg_type: 'system', body: notice, image_url: '' })
+    .eq('id', id);
+  if (error) {
+    toast('撤回失败：' + error.message, 'error');
+    chatState.messages = chatState.messages.map(m => m.id === id ? msg : m);
+    chat_renderAll();  // 回滚恢复原消息
+  }
+}
+
+// 把某条消息行替换为撤回系统提示（本地撤回与收到他人撤回事件共用）
+function chat_renderRecalled(msg) {
+  const el = document.querySelector(`.chat-row[data-id="${msg.id}"]`);
+  if (el) el.outerHTML = `<div class="chat-sys"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`;
+}
+
+// 收到消息更新事件（他人撤回同步）：替换本地状态与渲染
+function chat_onUpdated(msg) {
+  if (!msg || msg.msg_type !== 'system') return;
+  const idx = chatState.messages.findIndex(m => m.id === msg.id);
+  if (idx === -1) return;                       // 不在已加载范围（如历史更早消息），忽略
+  chatState.messages[idx] = msg;
+  chat_renderRecalled(msg);
 }
 
 // 选择图片 → 压缩 → 上传 Storage → 发送图片消息
