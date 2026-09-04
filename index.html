@@ -2485,9 +2485,9 @@ function sellAccount(uidVal) {
 
 /* ---------- 首页顶部：市场价滚动条 + 公告横幅 ---------- */
 function renderHomeTop() {
-  // 市场价滚动条：展示最新一天的所有条目（玩购鸭 ¥1.25/1个　XX ¥xx/xx）
+  // 市场价滚动条：展示最新一天的所有条目（玩购鸭 ¥1.25/1个　XX ¥xx/xx）；市场价页内隐藏（内容重复）
   const mb = document.getElementById('marketBanner');
-  if (marketPrices.length) {
+  if (marketPrices.length && listTab !== 'market') {
     mb.style.display = 'flex';
     const latestDate = marketPrices[0].price_date;
     const label = latestDate === todayStr() ? '今日市场价' : `市场价（${latestDate}）`;
