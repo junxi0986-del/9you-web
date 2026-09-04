@@ -9,7 +9,7 @@
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-群聊版');</script>
+<script>console.log('[九游平台] 代码版本 20260904-平台群聊版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -449,9 +449,9 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   /* 手机端：隐藏顶部切换，改用底部导航栏 */
   .tab-switch-desktop { display: none !important; }
   .header-left .welcome-email { margin-left: 0; max-width: 100%; }
-  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--card-bg); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
-  .bottom-nav button { flex: 1; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 2px; font-size: 11px; color: var(--text-secondary); border-radius: 8px; transition: all .15s; }
-  .bottom-nav button .ic { font-size: 18px; line-height: 1; }
+  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--card-bg); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .bottom-nav button { flex: 1; min-width: 0; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 2px; font-size: 10px; color: var(--text-secondary); border-radius: 8px; transition: all .15s; }
+  .bottom-nav button .ic { font-size: 17px; line-height: 1; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; background: var(--primary-light); }
 
   .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -638,6 +638,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
         <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
+        <button id="tabBtnChat" onclick="chat_open()">💬 群聊</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
@@ -774,6 +775,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
       <button id="bnavNotice" onclick="switchListTab('notice')"><span class="ic">📢</span><span>公告</span></button>
       <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
+      <button id="bnavChat" onclick="chat_open()"><span class="ic">💬</span><span>群聊</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
@@ -1873,7 +1875,6 @@ function renderPublicProjects() {
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
       <div class="pc-foot" onclick="event.stopPropagation()">
         <button class="btn btn-sm btn-primary" onclick="copyPublicProject('${p.id}')" ${isAdmin ? 'style="display:none"' : ''}>⧉ 复制到我的项目</button>
-        <button class="btn btn-sm btn-outline" onclick="chat_open('${p.id}')">💬 群聊</button>
         <div class="pc-actions" ${isAdmin ? '' : 'style="display:none"'}>
           <button class="btn btn-sm btn-outline" onclick="openPublicProjectModal('${p.id}')">编辑</button>
           <button class="btn btn-sm btn-danger" onclick="deletePublicProject('${p.id}')">删除</button>
@@ -2657,11 +2658,13 @@ function clearAllData() {
   });
 }
 
-/* ===================== 项目群聊（公共项目全员群聊） =====================
+/* ===================== 平台群聊（导航栏入口，全站一个大群） =====================
    数据表：chat_messages（消息）/ chat_members（成员），Storage：chat_images（图片）
-   实时：Supabase Realtime postgres_changes；图片上传前端压缩至 800px/0.7 */
+   实时：Supabase Realtime postgres_changes；图片上传前端压缩至 800px/0.7
+   所有人共用固定 project_id='global'，无需按项目分群 */
+const CHAT_GLOBAL_ID = 'global';
 const chatState = {
-  projectId: null,       // 当前群聊所属公共项目 ID
+  projectId: null,       // 当前群聊 ID（固定为 CHAT_GLOBAL_ID）
   channel: null,         // Realtime 订阅通道
   messages: [],          // 已加载消息（按时间正序）
   oldestAt: null,        // 当前最早一条消息时间（分页游标）
@@ -2675,24 +2678,29 @@ const chatState = {
 function chat_displayName() { return (currentUserEmail || '用户').split('@')[0]; }
 
 // 进入群聊：打开全屏视图、加入成员、加载最近50条、订阅实时消息
-async function chat_open(projectId) {
-  const p = publicProjects.find(x => x.id === projectId);
-  if (!p) return;
-  chatState.projectId = projectId;
-  document.getElementById('chatName').textContent = `💬 ${p.name}`;
+async function chat_open() {
+  chatState.projectId = CHAT_GLOBAL_ID;
+  document.getElementById('chatName').textContent = '💬 平台群聊';
   document.getElementById('chatMemberCount').textContent = '成员 — 人';
   document.getElementById('chatMsgs').innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
   document.getElementById('chatLoadMore').style.display = 'none';
   document.getElementById('chatPage').style.display = 'flex';
   document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
+  // 导航栏高亮群聊入口
+  ['Public', 'Mine', 'Notice', 'Market', 'Me'].forEach(k => {
+    const b = document.getElementById('tabBtn' + k), n = document.getElementById('bnav' + k);
+    if (b) b.classList.remove('active');
+    if (n) n.classList.remove('active');
+  });
+  ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add('active'); });
   await chat_join();
   await chat_loadInitial();
   chat_subscribe();
   document.getElementById('chatText').focus();
 }
 
-// 关闭群聊：退订实时通道、恢复页面
+// 关闭群聊：退订实时通道、恢复页面与导航栏高亮
 function chat_close() {
   if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
   chatState.projectId = null;
@@ -2700,6 +2708,7 @@ function chat_close() {
   document.getElementById('chatPage').style.display = 'none';
   document.body.style.overflow = '';
   chat_stopTitleFlash();
+  updateListTabUI();  // 恢复导航栏到当前页签高亮
 }
 
 // 加入成员表；首次加入时发送系统消息「XXX 进入了群聊」
