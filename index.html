@@ -2203,12 +2203,13 @@ function renderHomeTop() {
   } else {
     mb.style.display = 'none';
   }
-  // 公告滚动横幅：最近 3 条标题循环滚动
+  // 公告滚动横幅：最近 3 条，格式「标题：正文」，单条总长不超过 20 字
   const banner = document.getElementById('annBanner');
   if (announcements.length) {
     banner.style.display = 'flex';
+    const clip = s => s.length > 20 ? s.slice(0, 19) + '…' : s;
     document.getElementById('annTrack').textContent =
-      announcements.slice(0, 3).map(a => `📢 ${a.title}`).join('　　　　');
+      announcements.slice(0, 3).map(a => `📢 ${clip(a.title + '：' + (a.content || ''))}`).join('　　　　');
   } else {
     banner.style.display = 'none';
   }
