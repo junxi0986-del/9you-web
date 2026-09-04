@@ -132,10 +132,10 @@ body {
 .btn:active { transform: scale(.97); }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }
-.btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+.btn-outline { background: var(--card-bg); color: var(--primary); border: 1px solid var(--primary); }
 .btn-outline:hover { background: var(--primary-light); }
-.btn-danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
-.btn-danger:hover { background: #fef2f2; }
+.btn-danger { background: var(--card-bg); color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: var(--danger-soft); }
 .btn-danger-solid { background: var(--danger); color: #fff; }
 .btn-danger-solid:hover { background: #b91c1c; }
 .btn-ghost { background: transparent; color: var(--text-secondary); }
@@ -275,7 +275,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 .modal-mask.show { display: flex; }
 .modal {
-  background: #fff; border-radius: 12px; width: 100%;
+  background: var(--card-bg); color: var(--text); border-radius: 12px; width: 100%;
   max-width: 460px; max-height: 90vh; overflow-y: auto;
   box-shadow: 0 20px 50px rgba(0,0,0,.2);
   animation: pop .18s ease;
@@ -315,7 +315,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1);
 }
 .form-group input.invalid, .form-group textarea.invalid { border-color: var(--danger); }
-.form-group input[readonly] { background: #f8fafc; }
+.form-group input[readonly] { background: var(--input-bg); color: var(--text-secondary); }
 .form-tip { font-size: 12px; color: var(--text-secondary); margin-top: 5px; }
 .form-error { font-size: 12px; color: var(--danger); margin-top: 5px; display: none; }
 .form-group.show-error .form-error { display: block; }
@@ -392,7 +392,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   /* 手机端：隐藏顶部切换，改用底部导航栏 */
   .tab-switch-desktop { display: none !important; }
   .header-left .welcome-email { margin-left: 0; max-width: 100%; }
-  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: #fff; border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
+  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--card-bg); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
   .bottom-nav button { flex: 1; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 2px; font-size: 11px; color: var(--text-secondary); border-radius: 8px; transition: all .15s; }
   .bottom-nav button .ic { font-size: 18px; line-height: 1; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; background: var(--primary-light); }
@@ -584,7 +584,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <span class="tag" style="background:var(--success)">市场价</span>
         <div class="ann-viewport"><span class="ann-track" id="marketTrack" style="animation-duration:24s"></span></div>
       </div>
-      <div class="ann-banner" id="annBanner" style="display:none" onclick="openAnnListModal()" title="点击查看最新公告">
+      <div class="ann-banner" id="annBanner" style="display:none" onclick="switchListTab('notice')" title="点击进入公告页">
         <span class="tag">公告</span>
         <div class="ann-viewport"><span class="ann-track" id="annTrack"></span></div>
       </div>
@@ -1044,23 +1044,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('marketModal')">关闭</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== 最新公告查看弹窗（横幅点击展开） ========== -->
-<div class="modal-mask" id="annListModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>📢 最新公告</h3>
-      <button class="modal-close" onclick="closeModal('annListModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div id="annListBody"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('annListModal');switchListTab('notice')">查看全部公告</button>
-      <button class="btn btn-primary" onclick="closeModal('annListModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -2293,13 +2276,6 @@ function renderNoticeTab() {
   box.innerHTML = announcements.length === 0
     ? `<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>`
     : announcements.slice(0, 50).map(a => annItemHtml(a, false)).join('');
-}
-// 横幅点击：查看最近 3 条公告
-function openAnnListModal() {
-  document.getElementById('annListBody').innerHTML = announcements.length === 0
-    ? '<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>'
-    : announcements.slice(0, 3).map(a => annItemHtml(a, false)).join('');
-  openModal('annListModal');
 }
 
 /* ---------- 公告管理（我的Tab，仅管理员） ---------- */
