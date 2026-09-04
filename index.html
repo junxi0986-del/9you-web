@@ -9,7 +9,7 @@
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-平台群聊版');</script>
+<script>console.log('[九游平台] 代码版本 20260904-群聊修复版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -2677,9 +2677,13 @@ const chatState = {
 // 群聊显示名：邮箱前缀
 function chat_displayName() { return (currentUserEmail || '用户').split('@')[0]; }
 
-// 兜底：确保聊天页 DOM 存在（静态 HTML 缺失时动态注入，避免元素为 null 报错）
+// 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
 function chat_ensureDom() {
-  if (document.getElementById('chatPage')) return;
+  const ids = ['chatPage', 'chatName', 'chatMemberCount', 'chatMsgs', 'chatLoadMore', 'chatNewTip',
+    'chatText', 'chatFile', 'chatSendBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
+  if (ids.every(id => document.getElementById(id))) return;
+  // 移除可能残缺的旧节点，避免重复 id
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
   document.body.insertAdjacentHTML('beforeend', `
   <div id="chatPage" class="chat-page" style="display:none">
     <div class="chat-top">
