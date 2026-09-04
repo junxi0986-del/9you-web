@@ -1482,8 +1482,10 @@ function renderProjectGrid() {
   const gUserCount = allUsers.length;
   const gPrincipal = allUsers.reduce((s, u) => s + Number(u.principal), 0);
   const gEarned = allUsers.reduce((s, u) => s + calcEarned(u), 0);
-  const gAvgProgress = gUserCount ? allUsers.reduce((s, u) => s + calcProgress(u), 0) / gUserCount : 0;
   const gDone = allUsers.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+  // 距回本金额：所有账户剩余未回本之和；全部回本后该卡显示总利润
+  const gRemain = allUsers.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
+  const gProfit = allUsers.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
   // 今日回本金额：所有账户今天（本地日期）添加的回本记录之和
   const today = nowLocal().slice(0, 10);
   const gTodayEarned = allUsers.reduce((s, u) =>
@@ -1493,7 +1495,9 @@ function renderProjectGrid() {
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card"><div class="label">今日回本金额</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
-    <div class="summary-card"><div class="label">平均回本进度</div><div class="value"><span class="count-up" data-target="${gAvgProgress}" data-decimals="1">0</span><small>%</small></div></div>
+    ${gRemain > 0
+      ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
+      : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
     <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDone}" data-decimals="0">0</span><small>人 / </small><span class="count-up" data-target="${gUserCount - gDone}" data-decimals="0">0</span><small>人</small></div></div>`;
   animateCountUps();
 
@@ -1595,11 +1599,13 @@ function renderDetail() {
   document.getElementById('detailProjectName').textContent = p.name;
   document.getElementById('detailProjectRemark').textContent = p.remark || '暂无备注';
 
-  // 汇总报表：总用户数 / 总本金 / 总收益 / 平均回本进度
+  // 汇总报表：总用户数 / 总本金 / 总收益 / 距回本或利润
   const userCount = p.users.length;
   const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
   const totalEarned = p.users.reduce((s, u) => s + calcEarned(u), 0);
-  const avgProgress = userCount ? p.users.reduce((s, u) => s + calcProgress(u), 0) / userCount : 0;
+  // 距回本金额：所有账户剩余未回本之和；全部回本后该卡显示总利润
+  const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
+  const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
 
   // 已回本 / 未回本人数统计
   const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
@@ -1608,7 +1614,9 @@ function renderDetail() {
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${userCount}" data-decimals="0">${userCount.toLocaleString('zh-CN')}</span><small>人</small></div></div>
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${totalPrincipal}" data-decimals="2">${fmtMoney(totalPrincipal)}</span><small>元</small></div></div>
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${totalEarned}" data-decimals="2">${fmtMoney(totalEarned)}</span><small>元</small></div></div>
-    <div class="summary-card"><div class="label">平均回本进度</div><div class="value"><span class="count-up" data-target="${avgProgress}" data-decimals="1">${avgProgress.toFixed(1)}</span><small>%</small></div></div>
+    ${totalRemain > 0
+      ? `<div class="summary-card"><div class="label">距回本</div><div class="value" style="color:var(--danger)">${fmtMoney(totalRemain)}<small>元</small></div></div>`
+      : `<div class="summary-card"><div class="label">利润</div><div class="value" style="color:var(--success)">${fmtMoney(totalProfit)}<small>元</small></div></div>`}
     <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${doneCount}" data-decimals="0">${doneCount.toLocaleString('zh-CN')}</span><small>人 / </small><span class="count-up" data-target="${userCount - doneCount}" data-decimals="0">${(userCount - doneCount).toLocaleString('zh-CN')}</span><small>人</small></div></div>`;
   // 仅进入项目时播放滚动动画，搜索等重渲染直接显示最终值
   if (detailAnimate) { detailAnimate = false; animateCountUps('#detailSummary'); }
