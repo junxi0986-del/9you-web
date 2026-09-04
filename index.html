@@ -2902,7 +2902,20 @@ async function chat_send() {
     if (el) { el.classList.remove('pending'); el.style.opacity = .4; }
     const t = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-time`);
     if (t) t.textContent += ' · 发送失败';
+  } else {
+    chat_markSent(msg);
   }
+}
+
+// 发送成功：移除「发送中」状态（自己的消息 realtime 回传时会被 id 去重跳过，需在此处更新 UI）
+function chat_markSent(msg) {
+  msg.pending = false;
+  const row = document.querySelector(`.chat-row[data-id="${msg.id}"]`);
+  if (!row) return;
+  const b = row.querySelector('.chat-bubble');
+  if (b) b.classList.remove('pending');
+  const t = row.querySelector('.chat-time');
+  if (t) t.textContent = chat_fmtTime(msg.created_at);
 }
 
 // 选择图片 → 压缩 → 上传 Storage → 发送图片消息
@@ -2931,6 +2944,7 @@ async function chat_pickImage(inputEl) {
       msg_type: 'image', body: '', image_url: url
     });
     if (error) toast('图片消息发送失败：' + error.message, 'error');
+    else chat_markSent(msg);
   } catch (e) {
     toast('图片上传失败：' + (e.message || e), 'error');
   } finally {
