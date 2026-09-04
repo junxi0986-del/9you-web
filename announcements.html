@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公告 - 九游项目跟踪管理平台</title>
+<link rel="icon" type="image/jpeg" href="logo.jpg">
+<script>try{if(localStorage.getItem('jy_theme')==='dark')document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #f1f5f9; --card-bg: #ffffff; --border: #e2e8f0; --text: #1e293b; --text-2: #64748b;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --danger: #dc2626; --success: #059669; --warn: #d97706;
+  --input-bg: #ffffff;
+}
+html.dark-mode {
+  --bg: #0f172a; --card-bg: #1e293b; --border: #334155; --text: #e2e8f0; --text-2: #94a3b8;
+  --primary: #3b82f6; --primary-dark: #60a5fa; --input-bg: #2d3a4f;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text);
+  min-height: 100vh; transition: all 0.3s ease;
+}
+.header {
+  background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff;
+  padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;
+  position: sticky; top: 0; z-index: 50;
+}
+.header .logo-wrap { display: flex; align-items: center; gap: 10px; }
+.header img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #fff; }
+.header h1 { font-size: 18px; font-weight: 600; }
+.header .actions { display: flex; align-items: center; gap: 10px; }
+.header .welcome { font-size: 12px; opacity: .9; }
+.container { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+.card {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px; margin-bottom: 16px; transition: all 0.3s ease;
+}
+.card h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.btn {
+  border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; cursor: pointer;
+  font-family: inherit; min-height: 40px; transition: all 0.2s ease;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-ghost { background: rgba(255,255,255,.15); color: #fff; }
+.btn-sm { padding: 5px 10px; min-height: 30px; font-size: 12px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; font-weight: 600; }
+.form-group input, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: inherit; background: var(--input-bg); color: var(--text);
+}
+.form-group textarea { resize: vertical; min-height: 90px; }
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); }
+.ann-item { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; background: var(--bg); }
+.ann-item .t { font-size: 15px; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ann-item .c { font-size: 13px; color: var(--text-2); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.ann-item .time { font-size: 11px; color: var(--text-2); opacity: .8; }
+.ann-item .ops { display: flex; gap: 6px; flex: none; }
+.empty { text-align: center; padding: 40px 0; color: var(--text-2); }
+.empty .icon { font-size: 40px; margin-bottom: 8px; }
+.toast {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 200;
+  background: #1e293b; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px;
+}
+.toast.success { background: var(--success); } .toast.error { background: var(--danger); } .toast.warn { background: var(--warn); }
+@media (max-width: 600px) {
+  .container { padding: 14px 12px 40px; }
+  .header { padding: 12px 14px; }
+  .header .welcome { display: none; }
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 34px; }
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo-wrap">
+    <img src="logo.jpg" alt="logo">
+    <h1>📢 平台公告</h1>
+  </div>
+  <div class="actions">
+    <span class="welcome" id="welcomeEmail"></span>
+    <a class="btn btn-ghost" href="index.html" style="text-decoration:none">← 返回平台</a>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">退出</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- 管理员发布/编辑区（内联表单，无弹窗） -->
+  <div class="card" id="adminCard" style="display:none">
+    <h2>📣 发布公告</h2>
+    <input type="hidden" id="ann-id">
+    <div class="form-group">
+      <label>公告标题 *</label>
+      <input type="text" id="ann-title" maxlength="60" placeholder="请输入公告标题">
+    </div>
+    <div class="form-group">
+      <label>公告正文（可选）</label>
+      <textarea id="ann-content" maxlength="1000" placeholder="公告详细内容"></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="annSaveBtn" onclick="saveAnn()">发布公告</button>
+      <button class="btn btn-outline" id="annCancelBtn" style="display:none" onclick="cancelEdit()">取消编辑</button>
+    </div>
+  </div>
+
+  <!-- 公告列表 -->
+  <div class="card">
+    <h2>📋 全部公告 <span style="font-size:12px;color:var(--text-2);font-weight:400" id="annCount"></span></h2>
+    <div id="annList"><div class="empty"><div class="icon">📢</div><div>加载中...</div></div></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://qqkbdtpvkvqecbtspnix.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_IH7vHCObbJpsFyJkGLZsuA_mgkRaFq5";
+const ADMIN_EMAILS = ['3088238757@qq.com'];   // 管理员白名单（与 index.html 保持一致）
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { autoRefreshToken: true, persistSession: true }
+});
+
+let email = '', admin = false, list = [];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function toast(msg, type = '') {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast ' + type; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+function fmtTime(ts) {
+  try { return new Date(ts).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return ''; }
+}
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { location.href = 'index.html'; return; }   // 未登录回登录页
+  email = (session.user.email || '').toLowerCase();
+  admin = ADMIN_EMAILS.includes(email);
+  $('welcomeEmail').textContent = '欢迎 ' + email;
+  if (admin) $('adminCard').style.display = '';
+  await loadList();
+}
+
+async function loadList() {
+  const { data, error } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+  if (error) {
+    $('annList').innerHTML = '<div class="empty"><div class="icon">⚠️</div><div>加载失败：' + esc(error.message) + '</div></div>';
+    return;
+  }
+  list = data || [];
+  $('annCount').textContent = list.length ? '共 ' + list.length + ' 条' : '';
+  $('annList').innerHTML = list.length === 0
+    ? '<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>'
+    : list.map(a => `
+      <div class="ann-item">
+        <div class="t">
+          <span>${esc(a.title)}</span>
+          ${admin ? `<span class="ops">
+            <button class="btn btn-outline btn-sm" onclick="fillEdit('${a.id}')">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="delAnn('${a.id}')">删除</button>
+          </span>` : ''}
+        </div>
+        ${a.content ? `<div class="c">${esc(a.content)}</div>` : ''}
+        <div class="time" style="margin-top:6px">🕐 ${fmtTime(a.created_at)}</div>
+      </div>`).join('');
+}
+
+// 发布 / 更新（按 ann-id 是否存在区分）
+async function saveAnn() {
+  const id = $('ann-id').value;
+  const title = $('ann-title').value.trim();
+  const content = $('ann-content').value.trim();
+  if (!title) return toast('请输入公告标题', 'warn');
+  $('annSaveBtn').disabled = true;
+  const { error } = await sb.from('announcements').upsert({ id: id || uid(), title, content });
+  $('annSaveBtn').disabled = false;
+  if (error) return toast('保存失败：' + error.message, 'error');
+  $('ann-id').value = ''; $('ann-title').value = ''; $('ann-content').value = '';
+  $('annSaveBtn').textContent = '发布公告'; $('annCancelBtn').style.display = 'none';
+  await loadList();
+  toast(id ? '公告已更新' : '公告已发布', 'success');
+}
+
+// 编辑：回填到顶部表单
+function fillEdit(id) {
+  const a = list.find(x => x.id === id);
+  if (!a) return;
+  $('ann-id').value = a.id;
+  $('ann-title').value = a.title;
+  $('ann-content').value = a.content || '';
+  $('annSaveBtn').textContent = '保存修改';
+  $('annCancelBtn').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  $('ann-id').value = ''; $('ann-title').value = ''; $('ann-content').value = '';
+  $('annSaveBtn').textContent = '发布公告'; $('annCancelBtn').style.display = 'none';
+}
+
+function delAnn(id) {
+  if (!confirm('确定删除这条公告吗？')) return;
+  sb.from('announcements').delete().eq('id', id).then(async ({ error }) => {
+    if (error) return toast('删除失败：' + error.message, 'error');
+    if ($('ann-id').value === id) cancelEdit();
+    await loadList();
+    toast('公告已删除', 'success');
+  });
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  location.href = 'index.html';
+}
+
+init();
+</script>
+</body>
+</html>
