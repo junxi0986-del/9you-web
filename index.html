@@ -102,6 +102,14 @@ html.dark-mode {
   .tab-switch button.chat-unread { color: #ef4444 !important; background: rgba(239,68,68,.12) !important; animation: chatUnreadPulse 1.1s ease-in-out infinite; }
   .bottom-nav button.chat-unread { color: #ef4444 !important; }
   .bottom-nav button.chat-unread .ic { animation: chatUnreadPulse 1.1s ease-in-out infinite; }
+  /* iOS 风格滑动开关：消息通知设置（颜色随主题变量） */
+  .ios-switch { position: relative; display: inline-block; width: 50px; height: 28px; flex-shrink: 0; }
+  .ios-switch input { opacity: 0; width: 0; height: 0; }
+  .ios-slider { position: absolute; inset: 0; background: var(--border); border-radius: 28px; cursor: pointer; transition: all .3s ease; }
+  .ios-slider::before { content: ''; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: all .3s ease; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .ios-switch input:checked + .ios-slider { background: var(--primary); }
+  .ios-switch input:checked + .ios-slider::before { transform: translateX(22px); }
+  .ios-switch input:disabled + .ios-slider { opacity: .45; cursor: not-allowed; }
 .chat-bubble img.chat-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; cursor: zoom-in; }
 .chat-time { font-size: 11px; color: var(--text-secondary); margin: 3px 4px 0; }
 .chat-sys { text-align: center; margin: 10px 0; }
@@ -728,6 +736,20 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         </div>
       </div>
 
+      <!-- 消息通知设置：桌面弹窗通知（iOS 风格开关，偏好存 localStorage） -->
+      <div class="table-card" style="margin-bottom:14px">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">🔔 消息通知设置</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="notifStatus">—</div>
+          </div>
+          <label class="ios-switch">
+            <input type="checkbox" id="notifSwitch" onchange="notif_toggle(this)">
+            <span class="ios-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- 管理员后台：公告管理 + 市场价管理（仅管理员可见） -->
       <div id="meAdminTools" style="display:none">
         <div class="table-card" style="margin-bottom:14px">
@@ -1336,6 +1358,7 @@ function showMainApp(){
   renderMeAdmin();
   renderProjectGrid();
   chat_keepSubscribe();  // 登录后开启群聊未读常驻订阅（新消息时导航栏群聊按钮闪烁）
+  notif_load();          // 消息通知功能：读取通知偏好并同步「我的」Tab 开关
 }
 function hideMainApp(){
   document.getElementById("loginWrap").style.display = "flex";
@@ -2740,6 +2763,7 @@ async function chat_open() {
     '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
   document.getElementById('chatPage').style.display = 'flex';
   document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
+  document.getElementById('chatNotifBtn').classList.toggle('off', !notifState.enabled);  // 🔔按钮同步通知偏好
   document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
   // 导航栏高亮群聊入口
@@ -2856,6 +2880,7 @@ function chat_keepSubscribe() {
         if (m.user_email === currentUserEmail) return;    // 自己的消息不提示
         if (m.msg_type === 'system') return;              // 系统消息不提示
         chat_setUnread(true);
+        notif_send(m);                                    // 桌面弹窗通知（消息通知功能）
       })
     .subscribe();
 }
@@ -3061,31 +3086,132 @@ function chat_scrollBottom(force) {
   if (force) document.getElementById('chatNewTip').style.display = 'none';
 }
 
-// 新消息通知：标题闪烁 + 桌面通知（已授权且页面不可见时）
+// ================================================================
+//  消息通知功能（桌面弹窗 + 权限管理 + 60秒合并 + 提示音）
+// ================================================================
+const notifState = { enabled: true, t: 0, count: 0, lastNotif: null, audio: null };
+
+function notif_supported() { return 'Notification' in window; }
+
+// 读取持久化偏好（默认开启），进入主界面时调用
+function notif_load() {
+  notifState.enabled = localStorage.getItem('notification_enabled') !== 'false';
+  notif_updateUI();
+}
+
+// 同步「我的」Tab 开关与状态文字（含不支持/被拒场景）
+function notif_updateUI() {
+  const sw = document.getElementById('notifSwitch'), st = document.getElementById('notifStatus');
+  if (!sw) return;
+  if (!notif_supported()) {
+    sw.disabled = true; sw.checked = false;
+    st.textContent = '当前浏览器不支持桌面通知（iOS 需 16.4 及以上）';
+    st.style.color = '#d97706';
+    return;
+  }
+  const p = Notification.permission;
+  sw.disabled = p === 'denied';
+  sw.checked = notifState.enabled && p === 'granted';
+  if (p === 'denied') { st.textContent = '已禁用（请在浏览器设置中开启通知权限）'; st.style.color = '#dc2626'; }
+  else if (p === 'granted') { st.textContent = notifState.enabled ? '已开启 · 群聊新消息将弹窗提醒' : '已关闭'; st.style.color = notifState.enabled ? '#16a34a' : 'var(--text-secondary)'; }
+  else { st.textContent = '未授权，开启开关后按提示授权'; st.style.color = '#f59e0b'; }
+}
+
+// 切换开关：未授权时先请求权限；被拒时引导去浏览器设置
+async function notif_toggle(input) {
+  if (!notif_supported()) { input.checked = false; notif_updateUI(); return toast('您的浏览器不支持桌面通知', 'warn'); }
+  const want = input.checked;
+  if (Notification.permission === 'denied') {
+    input.checked = false; notif_updateUI();
+    return toast('通知已被浏览器禁用，请在浏览器设置中开启', 'warn');
+  }
+  if (want && Notification.permission === 'default') {
+    const p = await Notification.requestPermission();
+    notifState.enabled = p === 'granted';
+    localStorage.setItem('notification_enabled', notifState.enabled ? 'true' : 'false');
+    notif_updateUI();
+    return toast(p === 'granted' ? '通知已开启' : '未获得通知授权', p === 'granted' ? 'success' : 'warn');
+  }
+  notifState.enabled = want;
+  localStorage.setItem('notification_enabled', want ? 'true' : 'false');
+  notif_updateUI();
+  toast(want ? '通知已开启' : '通知已关闭', 'success');
+}
+
+// 短促提示音（WebAudio 合成，失败静默）
+function notif_beep() {
+  try {
+    notifState.audio = notifState.audio || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = notifState.audio, o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    o.start(); o.stop(ctx.currentTime + 0.25);
+  } catch (e) {}
+}
+
+// 发送桌面通知（60秒内多条合并为「您有 N 条新消息」）
+function notif_send(msg) {
+  if (!notifState.enabled || !notif_supported() || Notification.permission !== 'granted') return;
+  if (!document.hidden && chatState.projectId) return;  // 页面活跃且在群聊页：静默显示即可
+  const now = Date.now(), WIN = 60000;
+  if (notifState.t && now - notifState.t < WIN) {       // 60秒窗口内：合并计数并更新通知
+    notifState.count++;
+    try { if (notifState.lastNotif) notifState.lastNotif.close(); } catch (e) {}
+    notifState.lastNotif = notif_show(`您有 ${notifState.count} 条新消息`);
+    return;
+  }
+  notifState.t = now; notifState.count = 1;
+  const body = msg.msg_type === 'image'
+    ? `${msg.user_name || (msg.user_email || '').split('@')[0]} 发来一张图片`
+    : `${msg.user_name || (msg.user_email || '').split('@')[0]}：${(msg.body || '').slice(0, 60)}`;
+  notifState.lastNotif = notif_show(body);
+}
+
+// 创建通知实例：点击聚焦并打开群聊，4秒自动关闭，附提示音
+function notif_show(body) {
+  try {
+    const n = new Notification('📊 平台群聊 新消息', { body, icon: 'logo.jpg', tag: 'jy-chat', lang: 'zh-CN' });
+    n.onclick = () => { window.focus(); n.close(); chat_open_from_notify(); };
+    setTimeout(() => { try { n.close(); } catch (e) {} }, 4000);
+    notif_beep();
+    return n;
+  } catch (e) { return null; }
+}
+
+// 点击通知：打开群聊并滚动到底部
+function chat_open_from_notify() {
+  chat_open().then(() => setTimeout(() => { try { chat_scrollBottom(true); } catch (e) {} }, 400));
+}
+
+// 新消息通知入口：标题闪烁 + 桌面弹窗（页内订阅收到他人消息时调用）
 function chat_notify(msg) {
   if (document.hidden || document.getElementById('chatPage').style.display === 'none') {
     chat_startTitleFlash();
-    if (chatState.notifOn && window.Notification && Notification.permission === 'granted' && document.hidden) {
-      try {
-        const n = new Notification('九游平台 · 新消息', { body: `${msg.user_name || msg.user_email}：${msg.msg_type === 'image' ? '[图片]' : (msg.body || '').slice(0, 60)}` });
-        n.onclick = () => { window.focus(); n.close(); };
-      } catch (e) {}
-    }
+    notif_send(msg);
   }
 }
 
-// 桌面通知开关（首次点击请求授权）
+// 群聊顶栏 🔔 开关：与「我的」Tab 通知偏好共用同一状态
 function chat_toggleNotif() {
+  if (!notif_supported()) return toast('当前浏览器不支持桌面通知', 'warn');
   const btn = document.getElementById('chatNotifBtn');
-  if (!window.Notification) return toast('当前浏览器不支持桌面通知', 'warn');
   if (Notification.permission === 'granted') {
-    chatState.notifOn = !chatState.notifOn;
-    btn.classList.toggle('off', !chatState.notifOn);
-    toast(chatState.notifOn ? '桌面通知已开启' : '桌面通知已关闭', 'success');
+    notifState.enabled = !notifState.enabled;
+    localStorage.setItem('notification_enabled', notifState.enabled ? 'true' : 'false');
+    btn.classList.toggle('off', !notifState.enabled);
+    notif_updateUI();
+    toast(notifState.enabled ? '桌面通知已开启' : '桌面通知已关闭', 'success');
   } else {
     Notification.requestPermission().then(p => {
-      if (p === 'granted') { chatState.notifOn = true; btn.classList.remove('off'); toast('桌面通知已开启', 'success'); }
-      else toast('通知授权被拒绝，可在浏览器设置中修改', 'warn');
+      if (p === 'granted') {
+        notifState.enabled = true;
+        localStorage.setItem('notification_enabled', 'true');
+        btn.classList.remove('off');
+        notif_updateUI();
+        toast('桌面通知已开启', 'success');
+      } else toast('通知授权被拒绝，可在浏览器设置中修改', 'warn');
     });
   }
 }
