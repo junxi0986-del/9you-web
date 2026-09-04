@@ -222,6 +222,9 @@ th, td {
 }
 th { background: var(--th-bg); color: var(--text-secondary); font-weight: 600; }
 tbody tr:hover { background: var(--row-hover); }
+/* 历史市场价：点击行复制出货ID */
+#marketModal tbody tr { cursor: pointer; transition: background-color .15s; }
+#marketModal tbody tr.copied { background: var(--done-bg); }
 /* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
 tbody tr.row-done { background: var(--done-bg); }
 tbody tr.row-done:hover { background: var(--done-bg-strong); }
@@ -1050,7 +1053,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <button class="modal-close" onclick="closeModal('marketModal')">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-tip" style="margin-bottom:10px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
+      <div class="form-tip" style="margin-bottom:10px">市场价仅作为参考展示，不参与平台内任何自动计算；点击任意一行可复制该条的出货ID</div>
       <div class="table-wrap">
         <table>
           <thead><tr><th style="width:100px">日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th></tr></thead>
@@ -2251,13 +2254,39 @@ function renderHomeTop() {
   }
 }
 
+/* ---------- 剪贴板复制（兼容非HTTPS/旧浏览器） ---------- */
+async function copyToClipboard(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
 /* ---------- 历史市场价弹窗 ---------- */
+// 点击任意行自动复制该条记录的出货ID
+function copySellId(id, tr) {
+  const r = marketPrices.find(x => x.id === id);
+  if (!r) return;
+  if (!r.sell_id) return toast('该记录未填写出货ID', 'warn');
+  copyToClipboard(r.sell_id).then(ok => {
+    if (!ok) return toast('复制失败，请手动复制', 'error');
+    toast(`已复制出货ID：${r.sell_id}`, 'success');
+    if (tr) { tr.classList.add('copied'); setTimeout(() => tr.classList.remove('copied'), 600); }
+  });
+}
 function openMarketModal() {
   const body = document.getElementById('marketBody');
   body.innerHTML = marketPrices.length === 0
     ? '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:24px">暂无市场价数据</td></tr>'
     : marketPrices.map(r => `
-      <tr>
+      <tr onclick="copySellId('${r.id}', this)" title="点击复制出货ID">
         <td data-label="日期">${r.price_date}</td>
         <td data-label="品名">${escapeHtml(r.name)}</td>
         <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
