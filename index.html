@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
+<!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
+<script>try{if(localStorage.getItem('jy_theme')==='dark')document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -25,6 +27,40 @@
   --orange: #ea580c;         /* 橙：进度较慢 */
   --radius: 10px;
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+  --input-bg: #ffffff;        /* 输入框背景 */
+  --th-bg: #f8fafc;           /* 表头 / 只读输入框背景 */
+  --row-hover: #f8fafc;       /* 表格行悬停背景 */
+  --done-bg: #f0fdf4;         /* 已回本行背景 */
+  --done-bg-strong: #dcfce7;  /* 已回本行悬停 / 徽章背景 */
+  --selected-bg: #eff6ff;     /* 批量勾选行背景 */
+  --danger-soft: #fef2f2;     /* 危险按钮悬停背景 */
+}
+
+/* ========== 深色模式主题（html.dark-mode 覆盖变量，切换立即生效） ========== */
+html.dark-mode {
+  --primary: #3b82f6;         /* 品牌色适当调亮 */
+  --primary-dark: #2563eb;
+  --primary-light: rgba(59,130,246,.22);
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --input-bg: #2d3a4f;
+  --th-bg: #26334a;
+  --row-hover: #26334a;
+  --done-bg: rgba(22,163,74,.12);
+  --done-bg-strong: rgba(22,163,74,.22);
+  --selected-bg: rgba(59,130,246,.18);
+  --danger-soft: rgba(220,38,38,.15);
+  --shadow: 0 1px 3px rgba(0,0,0,.45), 0 4px 12px rgba(0,0,0,.35);
+}
+
+/* 主题切换平滑过渡 */
+body, .login-card, .summary-card, .project-card, .table-card, .modal,
+.bottom-nav, .form-group input, .form-group textarea, .search-input,
+th, tbody tr, .empty {
+  transition: background-color .3s ease, color .3s ease, border-color .3s ease;
 }
 
 body {
@@ -140,6 +176,7 @@ body {
 }
 .project-card {
   background: var(--card-bg);
+  border: 1px solid transparent;   /* 预留边框位，置顶/重点高亮时不抖动 */
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px;
@@ -179,11 +216,11 @@ th, td {
   padding: 10px 12px; text-align: left; font-size: 13px;
   border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle;
 }
-th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; }
-tbody tr:hover { background: #f8fafc; }
-/* 已回本的账户行背景为淡绿色，未回本为白色 */
-tbody tr.row-done { background: #f0fdf4; }
-tbody tr.row-done:hover { background: #dcfce7; }
+th { background: var(--th-bg); color: var(--text-secondary); font-weight: 600; }
+tbody tr:hover { background: var(--row-hover); }
+/* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
+tbody tr.row-done { background: var(--done-bg); }
+tbody tr.row-done:hover { background: var(--done-bg-strong); }
 td .cell-main { font-weight: 600; }
 td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .money { font-weight: 600; }
@@ -267,7 +304,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .form-group input, .form-group select, .form-group textarea {
   width: 100%; padding: 9px 12px; font-size: 14px;
   border: 1px solid var(--border); border-radius: 6px; outline: none;
-  transition: border-color .15s; background: #fff; color: var(--text);
+  transition: border-color .15s; background: var(--input-bg); color: var(--text);
   font-family: inherit;
 }
 .form-group textarea { resize: vertical; min-height: 60px; }
@@ -412,6 +449,71 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .modal-foot .btn { flex: 1; justify-content: center; }
   .breadcrumb { font-size: 12px; }
 }
+
+/* ========== 首页顶部：市场价 + 公告横幅 ========== */
+.home-top { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.market-chip {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  background: var(--card-bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 20px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+  box-shadow: var(--shadow); transition: all .15s; font-family: inherit; max-width: 100%;
+}
+.market-chip:hover { border-color: var(--primary); color: var(--primary); }
+.market-chip b { color: var(--danger); font-size: 14px; }
+.ann-banner {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 0; overflow: hidden; cursor: pointer; box-shadow: var(--shadow);
+  display: flex; align-items: center;
+}
+.ann-banner .tag {
+  flex-shrink: 0; background: var(--danger); color: #fff; font-size: 12px;
+  padding: 2px 10px; border-radius: 20px; margin: 0 10px 0 12px;
+}
+.ann-viewport { overflow: hidden; flex: 1; }
+.ann-track {
+  display: inline-block; white-space: nowrap; font-size: 13px; color: var(--text);
+  padding-left: 100%; animation: annScroll 18s linear infinite;
+}
+.ann-banner:hover .ann-track { animation-play-state: paused; }
+@keyframes annScroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* ========== 公告条目（公告Tab / 弹窗 / 管理列表共用） ========== */
+.ann-item {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 13px 16px; margin-bottom: 10px; cursor: pointer;
+  transition: border-color .15s;
+}
+.ann-item:hover { border-color: var(--primary); }
+.ann-item .a-title { font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.ann-item .a-title .a-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ann-item .a-time { font-size: 12px; color: var(--text-secondary); font-weight: 400; white-space: nowrap; }
+.ann-item .a-content {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-top: 8px;
+  display: none; white-space: pre-wrap; word-break: break-all;
+}
+.ann-item.open .a-content { display: block; }
+.ann-item .a-ops { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ========== 我的Tab ========== */
+.me-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.badge-done { background: var(--done-bg-strong); color: var(--success); }
+/* 公共项目置顶（金色）/ 重点（蓝色）高亮：普通模式实色，深色模式半透明 */
+.project-card.pub-pinned { border-color: #f59e0b; background: #fffbeb; }
+.project-card.pub-starred { border-color: var(--primary); background: var(--selected-bg); }
+html.dark-mode .project-card.pub-pinned { background: rgba(245,158,11,.12); }
+html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
+
+/* ========== 移动端补充优化 ========== */
+@media (max-width: 600px) {
+  /* 所有按钮最小高度 44px，适配手指触控 */
+  .btn { min-height: 44px; }
+  .row-actions .btn { min-height: 40px; }
+  .market-chip { width: 100%; justify-content: space-between; }
+  /* 弹窗手机端全屏显示 */
+  .modal-mask { padding: 0; align-items: stretch; }
+  .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+  .modal-body { padding: 16px; }
+}
 </style>
 </head>
 <body>
@@ -449,6 +551,8 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
       <div class="tab-switch tab-switch-desktop">
         <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
+        <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
+        <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="supabaseLogout()">退出登录</button>
@@ -457,6 +561,18 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 
   <!-- ==================== 页面一：项目列表（主页面） ==================== -->
   <section class="page active" id="pageProjectList">
+    <!-- 首页顶部：市场参考价 + 公告滚动横幅（所有页签可见） -->
+    <div class="home-top">
+      <div class="ann-banner" id="marketBanner" style="display:none" onclick="openMarketModal()" title="点击查看历史市场价">
+        <span class="tag" style="background:var(--success)">市场价</span>
+        <div class="ann-viewport"><span class="ann-track" id="marketTrack" style="animation-duration:24s"></span></div>
+      </div>
+      <div class="ann-banner" id="annBanner" style="display:none" onclick="openAnnListModal()" title="点击查看最新公告">
+        <span class="tag">公告</span>
+        <div class="ann-viewport"><span class="ann-track" id="annTrack"></span></div>
+      </div>
+    </div>
+
     <!-- 我的项目页签：全局汇总 + 私有项目列表 -->
     <div id="tabMineSection">
       <!-- 首页全局汇总：统计所有项目的整体回本情况 -->
@@ -479,10 +595,79 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
       <div class="project-grid" id="publicProjectGrid"></div>
     </div>
 
-    <!-- 移动端底部导航：公共项目 / 我的项目切换 -->
+    <!-- 公告页签：全员可见；管理员在「我的」页管理 -->
+    <div id="tabNoticeSection" style="display:none">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:14px">📢 平台公告
+        <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击公告展开正文</span>
+      </h2>
+      <div id="noticeList"></div>
+    </div>
+
+    <!-- 我的页签：账号信息 + 深色模式 + 管理员后台（公告/市场价管理） -->
+    <div id="tabMeSection" style="display:none">
+      <div class="table-card" style="margin-bottom:14px">
+        <div class="me-row">
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis" id="meEmail">—</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="meRole">普通用户</div>
+          </div>
+          <button class="btn btn-outline" id="themeBtn" onclick="toggleTheme()">🌙 切换到深色模式</button>
+        </div>
+      </div>
+
+      <!-- 管理员后台：公告管理 + 市场价管理（仅管理员可见） -->
+      <div id="meAdminTools" style="display:none">
+        <div class="table-card" style="margin-bottom:14px">
+          <div class="me-row" style="margin-bottom:12px">
+            <h2 style="font-size:16px;font-weight:600">📢 公告管理</h2>
+            <button class="btn btn-primary btn-sm" onclick="openAnnModal()">＋ 发布公告</button>
+          </div>
+          <div id="annMgrList"></div>
+        </div>
+
+        <div class="table-card">
+          <h2 style="font-size:16px;font-weight:600;margin-bottom:4px">💰 市场价管理</h2>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">每日可添加多条；首页按日期倒序滚动展示最新一天的价格</div>
+          <input type="hidden" id="mf-id">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:125px">
+              <label>日期</label>
+              <input type="date" id="mf-date">
+            </div>
+            <div class="form-group" style="margin:0;flex:1.2;min-width:105px">
+              <label>品名<span class="req">*</span></label>
+              <input type="text" id="mf-name" placeholder="如：玩购鸭" maxlength="30">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:95px">
+              <label>单价（元）<span class="req">*</span></label>
+              <input type="number" id="mf-price" placeholder="0.00" min="0.01" step="0.01">
+            </div>
+            <div class="form-group" style="margin:0;flex:0.9;min-width:85px">
+              <label>数量单位</label>
+              <input type="text" id="mf-unit" placeholder="如：1个" maxlength="20">
+            </div>
+            <div class="form-group" style="margin:0;flex:1.1;min-width:110px">
+              <label>备注（可选）</label>
+              <input type="text" id="mf-note" placeholder="选填" maxlength="60">
+            </div>
+            <button class="btn btn-primary" onclick="saveMarketPrice()">添加</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
+              <tbody id="marketMgrBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 移动端底部导航：公共项目 / 我的项目 / 公告 / 我的 -->
     <nav class="bottom-nav">
       <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
+      <button id="bnavNotice" onclick="switchListTab('notice')"><span class="ic">📢</span><span>公告</span></button>
+      <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
 
@@ -605,6 +790,19 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
             <input type="checkbox" id="pubf-starred" style="width:16px;height:16px;accent-color:#2563eb"> ⭐ 标重点（蓝色高亮）
           </label>
         </div>
+      </div>
+      <div class="form-group">
+        <label>出售跳转链接（可选，复制该项目的用户在账户列表点「出售」时跳转）</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('taobao')">淘宝</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('jd')">京东</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('pdd')">拼多多</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('xianyu')">闲鱼</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="setSellTemplate('custom')">自定义</button>
+        </div>
+        <input type="text" id="pubf-sellurl" placeholder="https://item.taobao.com/item.htm?id=xxx 或 app://scheme" maxlength="500">
+        <div class="form-tip">支持 HTTPS 商品链接或 APP Scheme（如 taobao://、weixin://）；点平台按钮后补上商品 ID 即可</div>
+        <div class="form-error">链接格式不正确：需以 https:// 开头，或为有效的 APP Scheme（如 xxx://）</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -780,7 +978,72 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
     <div class="modal-body"><p id="confirmMsg" style="line-height:1.7"></p></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('confirmModal')">取消</button>
-      <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
+ !-- ========== 发布/编辑公告弹窗（仅管理员） ========== -->
+<div class="modal-mask" id="annModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="annModalTitle">发布公告</h3>
+      <button class="modal-close" onclick="closeModal('annModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="annf-id">
+      <div class="form-group">
+        <label>公告标题<span class="req">*</span></label>
+        <input type="text" id="annf-title" placeholder="请输入公告标题" maxlength="60">
+        <div class="form-error">请输入公告标题</div>
+      </div>
+      <div class="form-group">
+        <label>公告正文（可选）</label>
+        <textarea id="annf-content" rows="5" placeholder="公告详细内容，展示时点击标题可展开" maxlength="1000"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('annModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveAnnouncement()">发布</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 历史市场价查看弹窗（全员） ========== -->
+<div class="modal-mask" id="marketModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>历史市场参考价</h3>
+      <button class="modal-close" onclick="closeModal('marketModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-tip" style="margin-bottom:10px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:100px">日期</th><th>品名</th><th>单价</th><th>备注</th></tr></thead>
+          <tbody id="marketBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('marketModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 最新公告查看弹窗（横幅点击展开） ========== -->
+<div class="modal-mask" id="annListModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>📢 最新公告</h3>
+      <button class="modal-close" onclick="closeModal('annListModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="annListBody"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('annListModal');switchListTab('notice')">查看全部公告</button>
+      <button class="btn btn-primary" onclick="closeModal('annListModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<     <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
     </div>
   </div>
 </div>
@@ -825,6 +1088,8 @@ const ADMIN_EMAILS = ['3088238757@qq.com'];
 let currentUserEmail = '';             // 当前登录用户邮箱
 let isAdmin = false;                   // 是否管理员
 let publicProjects = [];               // 公共项目列表（云端 public_projects 表）
+let announcements = [];                // 公告列表（云端 announcements 表，按发布时间倒序）
+let marketPrices = [];                 // 市场参考价列表（云端 market_prices 表，按日期倒序）
 
 // 登录/注册错误信息中文化（模糊匹配，确保命中）
 function authError(msg){
@@ -897,6 +1162,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
     isAdmin = false;
     projects = [];
     publicProjects = [];
+    announcements = [];
+    marketPrices = [];
     hideMainApp();
   }
 });
@@ -908,6 +1175,7 @@ async function afterLogin(user){
   isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
   await loadCloudData();
   await loadPublicProjects();
+  await Promise.all([loadAnnouncements(), loadMarketPrices()]);  // 公告与市场价并行加载
 }
 
 async function checkAuth(){
@@ -922,7 +1190,11 @@ function showMainApp(){
   document.getElementById("loginWrap").style.display = "none";
   document.getElementById("mainApp").style.display = "block";
   document.getElementById("welcomeEmail").textContent = `欢迎 ${currentUserEmail}`;  // 顶栏欢迎邮箱
+  applyThemeUI();        // 同步深色模式按钮文案
   listTab = 'public';  // 每次进入主界面默认显示公共项目
+  renderHomeTop();       // 市场价 + 公告横幅
+  renderNoticeTab();
+  renderMeAdmin();
   renderProjectGrid();
 }
 function hideMainApp(){
@@ -970,11 +1242,11 @@ async function loadPublicProjects(){
   }
   publicProjects = data || [];
 }
-// 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点）
-async function upsertPublicProject(id, name, remark, pinned = false, starred = false){
+// 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点，sell_url=出售跳转链接）
+async function upsertPublicProject(id, name, remark, pinned = false, starred = false, sellUrl = ''){
   const {error} = await sb
     .from("public_projects")
-    .upsert({ id, name, remark, pinned, starred, created_by: currentUserEmail });
+    .upsert({ id, name, remark, pinned, starred, sell_url: sellUrl, created_by: currentUserEmail });
   return error;
 }
 async function deletePublicProjectRow(id){
@@ -982,6 +1254,55 @@ async function deletePublicProjectRow(id){
     .from("public_projects")
     .delete()
     .eq("id", id);
+  return error;
+}
+
+/* ---------- 公告云端读写（announcements 表，全员可读、仅管理员可写） ---------- */
+async function loadAnnouncements(){
+  const {data,error} = await sb
+    .from("announcements")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if(error){
+    console.error('公告加载失败:', error.message);
+    announcements = [];
+    return;
+  }
+  announcements = data || [];
+}
+async function upsertAnnouncementRow(id, title, content){
+  const {error} = await sb.from("announcements").upsert({ id, title, content });
+  return error;
+}
+async function deleteAnnouncementRow(id){
+  const {error} = await sb.from("announcements").delete().eq("id", id);
+  return error;
+}
+
+/* ---------- 市场参考价云端读写（market_prices 表，全员可读、仅管理员可写；每天可添加多条） ---------- */
+async function loadMarketPrices(){
+  const {data,error} = await sb
+    .from("market_prices")
+    .select("*")
+    .order("price_date", { ascending: false });
+  if(error){
+    console.error('市场价加载失败:', error.message);
+    marketPrices = [];
+    return;
+  }
+  // 前端做二级排序（同日内按创建时间倒序），兼容没有 created_at 列的旧表
+  marketPrices = (data || []).sort((a,b) => {
+    if (a.price_date !== b.price_date) return a.price_date < b.price_date ? 1 : -1;
+    const ta = a.created_at || '', tb = b.created_at || '';
+    return ta < tb ? 1 : (ta > tb ? -1 : 0);
+  });
+}
+async function upsertMarketPriceRow(row){
+  const {error} = await sb.from("market_prices").upsert(row);
+  return error;
+}
+async function deleteMarketPriceRow(id){
+  const {error} = await sb.from("market_prices").delete().eq("id", id);
   return error;
 }
 
@@ -1046,6 +1367,7 @@ document.addEventListener('keydown', e => {
   const shown = id => document.getElementById(id).classList.contains('show');
   if (shown('projectModal')) { e.preventDefault(); saveProject(); }
   else if (shown('publicProjectModal')) { e.preventDefault(); savePublicProject(); }
+  else if (shown('annModal')) { e.preventDefault(); saveAnnouncement(); }
   else if (shown('userModal')) { e.preventDefault(); saveUser(); }
   else if (shown('priceModal')) { e.preventDefault(); savePrice(); }
   else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
@@ -1087,6 +1409,25 @@ function showPage(page) {
     renderDetail();
   }
   window.scrollTo(0, 0);
+}
+
+/* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/我的） ---------- */
+let listTab = 'public';
+function switchListTab(tab) {
+  listTab = tab;
+  updateListTabUI();
+  window.scrollTo(0, 0);
+}
+function updateListTabUI() {
+  const tabs = ['public', 'mine', 'notice', 'me'];
+  tabs.forEach(t => {
+    const section = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Section');
+    if (section) section.style.display = listTab === t ? '' : 'none';
+    const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (btn) btn.classList.toggle('active', listTab === t);
+    const bnav = document.getElementById('bnav' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (bnav) bnav.classList.toggle('active', listTab === t);
+  });
 }
 
 /* ---------- 主页面：项目列表渲染 ---------- */
@@ -1280,17 +1621,18 @@ function renderDetail() {
         <td data-label="投入本金">${fmtMoney(u.principal)}</td>
         <td data-label="上车日期">${u.startDate || '—'}</td>
         <td data-label="累计已收回" class="money gain">${fmtMoney(earned)}</td>
-        <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${fmtMoney(remain)}${isDone ? ' <span class="badge" style="background:#dcfce7;color:var(--success)">已回本</span>' : ''}</td>
+        <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${fmtMoney(remain)}${isDone ? ' <span class="badge badge-done">已回本</span>' : ''}</td>
         <td data-label="回本进度" class="td-progress">
           <div class="progress-wrap">
             <div class="progress-bar"><div class="progress-fill ${pc}" style="width:${progress}%"></div></div>
             <span class="progress-text ${pc === '' ? 'normal' : pc}">${progress.toFixed(1)}%</span>
           </div>
         </td>
-        <td data-label="状态">${isDone ? '<span class="badge" style="background:#dcfce7;color:var(--success)">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
+        <td data-label="状态">${isDone ? '<span class="badge badge-done">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
         <td data-label="操作" class="td-actions">
           <div class="row-actions">
-            <button class="btn btn-sm btn-primary" onclick="openPriceModal('${u.id}')">添加回本金额</button>
+            <button class="btn btn-sm btn-primary" onclick="sellAccount('${u.id}')">🛒 出售</button>
+            <button class="btn btn-sm btn-outline" onclick="openPriceModal('${u.id}')">添加回本金额</button>
             <button class="btn btn-sm btn-outline" onclick="openLedger('${u.id}')">查看台账</button>
             <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.id}')">编辑</button>
             <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">删除</button>
@@ -1358,23 +1700,6 @@ function deleteProject(id) {
 }
 
 /* ---------- 公共项目区（管理员增删改查，普通用户复制） ---------- */
-// 首页列表页签切换：公共项目 / 我的项目（手机端底部导航、桌面端顶栏开关共用）
-let listTab = 'public';
-function switchListTab(tab) {
-  listTab = tab;
-  updateListTabUI();
-  window.scrollTo(0, 0);
-}
-function updateListTabUI() {
-  const isPublic = listTab === 'public';
-  document.getElementById('tabPublicSection').style.display = isPublic ? '' : 'none';
-  document.getElementById('tabMineSection').style.display = isPublic ? 'none' : '';
-  document.getElementById('tabBtnPublic').classList.toggle('active', isPublic);
-  document.getElementById('tabBtnMine').classList.toggle('active', !isPublic);
-  document.getElementById('bnavPublic').classList.toggle('active', isPublic);
-  document.getElementById('bnavMine').classList.toggle('active', !isPublic);
-}
-
 // 渲染公共项目卡片列表（置顶 > 星标重点 > 普通排序）
 function renderPublicProjects() {
   const grid = document.getElementById('publicProjectGrid');
@@ -1394,16 +1719,14 @@ function renderPublicProjects() {
     (b.starred ? 1 : 0) - (a.starred ? 1 : 0));
 
   sorted.forEach(p => {
-    // 置顶（金色）/ 星标重点（蓝色）高亮边框与底色，让新用户一眼看到重点项目
-    const hl = p.pinned ? 'border-color:#f59e0b;background:#fffbeb;'
-              : p.starred ? 'border-color:#2563eb;background:#eff6ff;' : '';
+    // 置顶（金色）/ 星标重点（蓝色）高亮：用样式类实现，普通/深色模式各自适配
     const badges = `
       ${p.pinned ? '<span class="badge" style="background:#f59e0b;color:#fff">📌 置顶</span>' : ''}
       ${p.starred ? '<span class="badge" style="background:#2563eb;color:#fff">⭐ 重点</span>' : ''}
+      ${p.sell_url ? '<span class="badge badge-blue">🛒 可出售</span>' : ''}
       ${!p.pinned && !p.starred ? '<span class="badge badge-blue">公共项目</span>' : ''}`;
     const card = document.createElement('div');
-    card.className = 'project-card public-card';
-    card.style.cssText = hl;
+    card.className = 'project-card public-card' + (p.pinned ? ' pub-pinned' : p.starred ? ' pub-starred' : '');
     card.innerHTML = `
       <div class="pc-name">🌐 ${escapeHtml(p.name)}${badges}</div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
@@ -1419,10 +1742,22 @@ function renderPublicProjects() {
   });
 }
 
-// 发布 / 编辑公共项目弹窗（置顶/星标在弹窗内设置）
+// 发布 / 编辑公共项目弹窗（置顶/星标/出售链接在弹窗内设置）
+// 平台快捷选择：自动填入对应平台链接格式，只需补商品 ID；自定义则清空手填
+const SELL_TEMPLATES = {
+  taobao: 'https://item.taobao.com/item.htm?id=',
+  jd:     'https://item.jd.com/',
+  pdd:    'https://mobile.yangkeduo.com/goods.html?goods_id=',
+  xianyu: 'https://item.taobao.com/item.htm?id='
+};
+function setSellTemplate(key) {
+  const input = document.getElementById('pubf-sellurl');
+  input.value = key === 'custom' ? '' : (SELL_TEMPLATES[key] || '');
+  input.focus();
+}
 function openPublicProjectModal(id) {
   if (!isAdmin) return;
-  setError('pubf-name', false);
+  setError('pubf-name', false); setError('pubf-sellurl', false);
   if (id) {
     const p = publicProjects.find(x => x.id === id);
     if (!p) return;
@@ -1432,6 +1767,7 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = p.remark || '';
     document.getElementById('pubf-pinned').checked = !!p.pinned;
     document.getElementById('pubf-starred').checked = !!p.starred;
+    document.getElementById('pubf-sellurl').value = p.sell_url || '';
   } else {
     document.getElementById('publicProjectModalTitle').textContent = '发布公共项目';
     document.getElementById('pubf-id').value = '';
@@ -1439,12 +1775,13 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = '';
     document.getElementById('pubf-pinned').checked = false;
     document.getElementById('pubf-starred').checked = false;
+    document.getElementById('pubf-sellurl').value = '';
   }
   openModal('publicProjectModal');
   document.getElementById('pubf-name').focus();
 }
 
-// 保存公共项目（新增或更新，含置顶/星标标记）
+// 保存公共项目（新增或更新，含置顶/星标标记与出售链接）
 async function savePublicProject() {
   if (!isAdmin) return;
   const id = document.getElementById('pubf-id').value;
@@ -1452,10 +1789,14 @@ async function savePublicProject() {
   const remark = document.getElementById('pubf-remark').value.trim();
   const pinned = document.getElementById('pubf-pinned').checked;
   const starred = document.getElementById('pubf-starred').checked;
+  const sellUrl = document.getElementById('pubf-sellurl').value.trim();
 
   if (!setError('pubf-name', !name)) return;
+  // 出售链接校验：允许 https 链接或 APP Scheme（如 taobao://、weixin://）
+  const sellOk = !sellUrl || /^https:\/\/\S+$/.test(sellUrl) || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/\S+$/.test(sellUrl);
+  if (!setError('pubf-sellurl', !sellOk)) return;
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred);
+  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, sellUrl);
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
@@ -1478,7 +1819,7 @@ function deletePublicProject(id) {
   });
 }
 
-// 将公共项目复制到自己名下（仅复制名称与备注，不含账户和价格记录）
+// 将公共项目复制到自己名下（复制名称、备注与出售链接，不含账户和价格记录）
 async function copyPublicProject(id) {
   const p = publicProjects.find(x => x.id === id);
   if (!p) return;
@@ -1486,6 +1827,7 @@ async function copyPublicProject(id) {
     id: uid(),
     name: p.name,
     remark: p.remark || '',
+    sellUrl: p.sell_url || '',   // 出售跳转链接随项目一起复制
     createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     users: []
   });
@@ -1815,6 +2157,239 @@ async function saveBatchUsers() {
   closeModal('batchUserModal');
   renderDetail();
   toast(`成功添加 ${parsed.length} 位账户`, 'success');
+}
+
+/* ---------- 深色模式切换（偏好存 localStorage，刷新自动恢复） ---------- */
+function applyThemeUI() {
+  const dark = document.documentElement.classList.contains('dark-mode');
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = dark ? '☀️ 切换到普通模式' : '🌙 切换到深色模式';
+}
+function toggleTheme() {
+  const dark = !document.documentElement.classList.contains('dark-mode');
+  document.documentElement.classList.toggle('dark-mode', dark);
+  try { localStorage.setItem('jy_theme', dark ? 'dark' : 'light'); } catch (e) {}
+  applyThemeUI();
+}
+
+/* ---------- 出售：跳转管理员预设的第三方平台链接 ---------- */
+function sellAccount(uidVal) {
+  const p = getProject(currentProjectId);
+  const u = getUser(p, uidVal);
+  if (!u) return;
+  const url = (p.sellUrl || '').trim();
+  if (!url) return toast('该项目尚未配置出售跳转链接，请联系管理员', 'warn');
+  confirmAction('确认出售', `确认出售「${u.name}」？将跳转到第三方平台处理。`, () => {
+    if (/^https:\/\//i.test(url)) window.open(url, '_blank');   // HTTPS 链接新窗口打开
+    else location.href = url;                                    // APP Scheme 直接跳转
+  }, '确认出售');
+}
+
+/* ---------- 首页顶部：市场价滚动条 + 公告横幅 ---------- */
+function renderHomeTop() {
+  // 市场价滚动条：展示最新一天的所有条目（玩购鸭 ¥1.25/1个　XX ¥xx/xx）
+  const mb = document.getElementById('marketBanner');
+  if (marketPrices.length) {
+    mb.style.display = 'flex';
+    const latestDate = marketPrices[0].price_date;
+    const label = latestDate === todayStr() ? '今日市场价' : `市场价（${latestDate}）`;
+    const items = marketPrices
+      .filter(r => r.price_date === latestDate)
+      .map(r => `${r.name} ¥${fmtMoney(r.price)}/${r.unit || '1'}`)
+      .join('　　');
+    document.getElementById('marketTrack').textContent = `💰 ${label}：${items}`;
+  } else {
+    mb.style.display = 'none';
+  }
+  // 公告滚动横幅：最近 3 条标题循环滚动
+  const banner = document.getElementById('annBanner');
+  if (announcements.length) {
+    banner.style.display = 'flex';
+    document.getElementById('annTrack').textContent =
+      announcements.slice(0, 3).map(a => `📢 ${a.title}`).join('　　　　');
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+/* ---------- 历史市场价弹窗 ---------- */
+function openMarketModal() {
+  const body = document.getElementById('marketBody');
+  body.innerHTML = marketPrices.length === 0
+    ? '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);padding:24px">暂无市场价数据</td></tr>'
+    : marketPrices.map(r => `
+      <tr>
+        <td data-label="日期">${r.price_date}</td>
+        <td data-label="品名">${escapeHtml(r.name)}</td>
+        <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
+        <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
+      </tr>`).join('');
+  openModal('marketModal');
+}
+
+/* ---------- 公告展示 ---------- */
+// 公告条目 HTML（点击展开正文；withOps 为 true 时附带编辑/删除按钮）
+function annItemHtml(a, withOps) {
+  return `
+    <div class="ann-item" ${withOps ? '' : 'onclick="this.classList.toggle(\'open\')"'}>
+      <div class="a-title">
+        <span class="a-name" ${withOps ? `onclick="this.closest('.ann-item').classList.toggle('open')"` : ''}>📢 ${escapeHtml(a.title)}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="a-time">${(a.created_at || '').slice(0, 10)}</span>
+          ${withOps ? `<span class="a-ops">
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openAnnModal('${a.id}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAnnouncement('${a.id}')">删除</button>
+          </span>` : ''}
+        </span>
+      </div>
+      <div class="a-content">${escapeHtml(a.content || '（无正文）')}</div>
+    </div>`;
+}
+// 公告Tab：全部公告列表（点击展开）
+function renderNoticeTab() {
+  const box = document.getElementById('noticeList');
+  box.innerHTML = announcements.length === 0
+    ? `<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>`
+    : announcements.slice(0, 50).map(a => annItemHtml(a, false)).join('');
+}
+// 横幅点击：查看最近 3 条公告
+function openAnnListModal() {
+  document.getElementById('annListBody').innerHTML = announcements.length === 0
+    ? '<div class="empty"><div class="icon">📢</div><div>暂无公告</div></div>'
+    : announcements.slice(0, 3).map(a => annItemHtml(a, false)).join('');
+  openModal('annListModal');
+}
+
+/* ---------- 公告管理（我的Tab，仅管理员） ---------- */
+function openAnnModal(id) {
+  if (!isAdmin) return;
+  setError('annf-title', false);
+  if (id) {
+    const a = announcements.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('annModalTitle').textContent = '编辑公告';
+    document.getElementById('annf-id').value = a.id;
+    document.getElementById('annf-title').value = a.title;
+    document.getElementById('annf-content').value = a.content || '';
+  } else {
+    document.getElementById('annModalTitle').textContent = '发布公告';
+    document.getElementById('annf-id').value = '';
+    document.getElementById('annf-title').value = '';
+    document.getElementById('annf-content').value = '';
+  }
+  openModal('annModal');
+  document.getElementById('annf-title').focus();
+}
+async function saveAnnouncement() {
+  if (!isAdmin) return;
+  const id = document.getElementById('annf-id').value;
+  const title = document.getElementById('annf-title').value.trim();
+  const content = document.getElementById('annf-content').value.trim();
+  if (!setError('annf-title', !title)) return;
+  const error = await upsertAnnouncementRow(id || uid(), title, content);
+  if (error) return toast('保存失败：' + error.message, 'error');
+  await loadAnnouncements();
+  closeModal('annModal');
+  renderHomeTop(); renderNoticeTab(); renderAnnMgr();
+  toast(id ? '公告已更新' : '公告已发布', 'success');
+}
+function deleteAnnouncement(id) {
+  if (!isAdmin) return;
+  const a = announcements.find(x => x.id === id);
+  if (!a) return;
+  confirmAction('删除公告', `确定删除公告「${a.title}」吗？此操作不可恢复！`, async () => {
+    const error = await deleteAnnouncementRow(id);
+    if (error) return toast('删除失败：' + error.message, 'error');
+    await loadAnnouncements();
+    renderHomeTop(); renderNoticeTab(); renderAnnMgr();
+    toast('公告已删除', 'success');
+  });
+}
+// 我的Tab：公告管理列表
+function renderAnnMgr() {
+  const box = document.getElementById('annMgrList');
+  if (!box) return;
+  box.innerHTML = announcements.length === 0
+    ? '<div style="text-align:center;color:var(--text-secondary);padding:20px">暂无公告，点击右上角「＋ 发布公告」</div>'
+    : announcements.slice(0, 30).map(a => annItemHtml(a, true)).join('');
+}
+
+/* ---------- 市场价管理（我的Tab，仅管理员；每天可添加多条） ---------- */
+async function saveMarketPrice() {
+  if (!isAdmin) return;
+  const id = document.getElementById('mf-id').value;
+  const date = document.getElementById('mf-date').value;
+  const name = document.getElementById('mf-name').value.trim();
+  const price = parseFloat(document.getElementById('mf-price').value);
+  const unit = document.getElementById('mf-unit').value.trim();
+  const note = document.getElementById('mf-note').value.trim();
+  if (!date) return toast('请选择日期', 'warn');
+  if (!name) return toast('请输入品名', 'warn');
+  if (!(price > 0)) return toast('请输入大于 0 的单价', 'warn');
+  const error = await upsertMarketPriceRow({ id: id || uid(), price_date: date, name, price, unit, note });
+  if (error) return toast('保存失败：' + error.message, 'error');
+  await loadMarketPrices();
+  renderHomeTop(); renderMarketMgr();
+  // 清空输入便于连续录入（保留日期）
+  ['mf-id', 'mf-name', 'mf-price', 'mf-unit', 'mf-note'].forEach(x => document.getElementById(x).value = '');
+  toast(`${date} 市场价已保存`, 'success');
+}
+// 编辑：回填表单，保存时按同一条 id 覆盖
+function editMarketPrice(id) {
+  const r = marketPrices.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('mf-id').value = r.id;
+  document.getElementById('mf-date').value = r.price_date;
+  document.getElementById('mf-name').value = r.name;
+  document.getElementById('mf-price').value = r.price;
+  document.getElementById('mf-unit').value = r.unit || '';
+  document.getElementById('mf-note').value = r.note || '';
+  window.scrollTo(0, 0);
+}
+function deleteMarketPrice(id) {
+  if (!isAdmin) return;
+  confirmAction('删除市场价', '确定删除这条市场价记录吗？', async () => {
+    const error = await deleteMarketPriceRow(id);
+    if (error) return toast('删除失败：' + error.message, 'error');
+    await loadMarketPrices();
+    renderHomeTop(); renderMarketMgr();
+    toast('市场价已删除', 'success');
+  });
+}
+// 我的Tab：市场价管理表格
+function renderMarketMgr() {
+  const body = document.getElementById('marketMgrBody');
+  if (!body) return;
+  body.innerHTML = marketPrices.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:20px">暂无记录，在上方录入市场价</td></tr>'
+    : marketPrices.map(r => `
+      <tr>
+        <td data-label="日期">${r.price_date}</td>
+        <td data-label="品名">${escapeHtml(r.name)}</td>
+        <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
+        <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
+        <td data-label="操作">
+          <div class="row-actions">
+            <button class="btn btn-sm btn-outline" onclick="editMarketPrice('${r.id}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteMarketPrice('${r.id}')">删除</button>
+          </div>
+        </td>
+      </tr>`).join('');
+}
+
+/* ---------- 我的Tab 渲染（账号信息 + 管理员后台可见性） ---------- */
+function renderMeAdmin() {
+  document.getElementById('meEmail').textContent = currentUserEmail || '—';
+  document.getElementById('meRole').innerHTML = isAdmin
+    ? '<span class="badge" style="background:#f59e0b;color:#fff">管理员</span>'
+    : '普通用户';
+  document.getElementById('meAdminTools').style.display = isAdmin ? '' : 'none';
+  applyThemeUI();
+  renderAnnMgr();
+  renderMarketMgr();
+  // 管理员录入默认日期为今天
+  const mfDate = document.getElementById('mf-date');
+  if (isAdmin && !mfDate.value) mfDate.value = todayStr();
 }
 
 /* ---------- 数据备份：清空 ---------- */
