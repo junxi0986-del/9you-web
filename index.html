@@ -97,6 +97,11 @@ html.dark-mode {
   .chat-bubble.mention-all { border: 1.5px solid #ef4444; background: rgba(239, 68, 68, .08); }
   .chat-mention-all-btn { border: none; background: var(--input-bg); color: #fbbf24; font-size: 12px; font-weight: 700; border-radius: 18px; padding: 8px 12px; cursor: pointer; white-space: nowrap; border: 1px solid rgba(251, 191, 36, .5); }
   .chat-avatar { cursor: pointer; user-select: none; -webkit-user-select: none; }
+  /* 未读提示：导航栏群聊按钮脉冲闪烁 */
+  @keyframes chatUnreadPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); } 50% { box-shadow: 0 0 0 7px rgba(239,68,68,0); } }
+  .tab-switch button.chat-unread { color: #ef4444 !important; background: rgba(239,68,68,.12) !important; animation: chatUnreadPulse 1.1s ease-in-out infinite; }
+  .bottom-nav button.chat-unread { color: #ef4444 !important; }
+  .bottom-nav button.chat-unread .ic { animation: chatUnreadPulse 1.1s ease-in-out infinite; }
 .chat-bubble img.chat-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; cursor: zoom-in; }
 .chat-time { font-size: 11px; color: var(--text-secondary); margin: 3px 4px 0; }
 .chat-sys { text-align: center; margin: 10px 0; }
@@ -1274,6 +1279,7 @@ async function supabaseLogout(){
   isAdmin = false;
   projects = [];  // 清空本地数据，避免泄露给下一位用户
   publicProjects = [];
+  chat_keepUnsubscribe(); chat_setUnread(false);  // 清理群聊未读订阅与闪烁
   hideMainApp();
   toast("已退出登录","success");
 }
@@ -1329,6 +1335,7 @@ function showMainApp(){
   renderNoticeTab();
   renderMeAdmin();
   renderProjectGrid();
+  chat_keepSubscribe();  // 登录后开启群聊未读常驻订阅（新消息时导航栏群聊按钮闪烁）
 }
 function hideMainApp(){
   document.getElementById("loginWrap").style.display = "flex";
@@ -2723,6 +2730,8 @@ function chat_ensureDom() {
 async function chat_open() {
   chat_ensureDom();  // 确保聊天页 DOM 存在
   chatState.projectId = CHAT_GLOBAL_ID;
+  chat_keepUnsubscribe();   // 停用未读常驻订阅（页内订阅接管）
+  chat_setUnread(false);    // 清除未读闪烁
   document.getElementById('chatName').textContent = '💬 平台群聊';
   document.getElementById('chatMemberCount').textContent = '成员 — 人';
   // 清空消息区时必须同时重建 chatLoadMore（它是 chatMsgs 的子元素，否则下一行访问会报 null）
@@ -2750,6 +2759,7 @@ async function chat_open() {
 function chat_close() {
   if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
   chatState.projectId = null;
+  chat_keepSubscribe();     // 恢复未读常驻订阅
   chatState.messages = [];
   document.getElementById('chatPage').style.display = 'none';
   document.body.style.overflow = '';
@@ -2828,6 +2838,29 @@ function chat_subscribe() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: 'project_id=eq.' + chatState.projectId },
       () => chat_refreshMembers())
     .subscribe(status => { if (status === 'SUBSCRIBED') chat_refreshMembers(); });
+}
+
+// ===== 未读提示：聊天页关闭期间常驻轻量订阅，新消息让导航栏群聊按钮闪烁 =====
+let chatGlobalChannel = null;
+function chat_setUnread(on) {
+  ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.toggle('chat-unread', on); });
+  if (on) chat_startTitleFlash();
+}
+function chat_keepSubscribe() {
+  if (chatGlobalChannel || !currentUserEmail) return;
+  chatGlobalChannel = sb.channel('chat-global-unread')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'project_id=eq.global' },
+      payload => {
+        if (chatState.projectId) return;                  // 聊天页打开时由页内订阅处理
+        const m = payload.new || {};
+        if (m.user_email === currentUserEmail) return;    // 自己的消息不提示
+        if (m.msg_type === 'system') return;              // 系统消息不提示
+        chat_setUnread(true);
+      })
+    .subscribe();
+}
+function chat_keepUnsubscribe() {
+  if (chatGlobalChannel) { sb.removeChannel(chatGlobalChannel); chatGlobalChannel = null; }
 }
 
 // 刷新成员数量显示
@@ -3061,7 +3094,8 @@ function chat_toggleNotif() {
 function chat_startTitleFlash() {
   if (chatState.titleTimer) return;
   const base = '九游项目跟踪管理平台';
-  let on = false;
+  let on = true;
+  document.title = '💬 新消息 · 九游平台';  // 立即提示，不等首个定时周期
   chatState.titleTimer = setInterval(() => {
     document.title = (on = !on) ? '💬 新消息 · 九游平台' : base;
   }, 1000);
