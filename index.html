@@ -6,7 +6,7 @@
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
 <!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
-<script>try{if(localStorage.getItem('jy_theme')==='dark')document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+<script>try{var t=localStorage.getItem('jy_theme');if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
 <script>console.log('[九游平台] 代码版本 20260904-公告市场价版');</script>
 <!-- Supabase JS SDK -->
@@ -450,6 +450,20 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 
   .modal-foot .btn { flex: 1; justify-content: center; }
   .breadcrumb { font-size: 12px; }
+
+  /* 「我的」Tab 手机端优化 */
+  .me-row { flex-direction: column; align-items: stretch; }
+  .me-row .btn { width: 100%; justify-content: center; min-height: 44px; }
+  .me-row h2 { display: flex; align-items: center; min-height: 36px; }
+  /* 市场价录入表单：两列网格，添加按钮占满整行 */
+  .mf-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; align-items: end; }
+  .mf-form .form-group { min-width: 0 !important; }
+  .mf-form .form-group:last-of-type { grid-column: 1 / -1; }   /* 备注占满一行 */
+  .mf-form .btn { grid-column: 1 / -1; justify-content: center; min-height: 44px; }
+  /* 市场价表格列少，缩小横向滚动宽度 */
+  #meAdminTools .table-wrap table { min-width: 540px; }
+  /* 公告条目：时间与操作按钮窄屏自动换行 */
+  .ann-item .a-title { flex-wrap: wrap; }
 }
 
 /* ========== 首页顶部：市场价 + 公告横幅 ========== */
@@ -631,7 +645,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
           <h2 style="font-size:16px;font-weight:600;margin-bottom:4px">💰 市场价管理</h2>
           <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">每日可添加多条；首页按日期倒序滚动展示最新一天的价格</div>
           <input type="hidden" id="mf-id">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
+          <div class="mf-form" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
             <div class="form-group" style="margin:0;flex:1;min-width:125px">
               <label>日期</label>
               <input type="date" id="mf-date">
@@ -2161,7 +2175,7 @@ async function saveBatchUsers() {
   toast(`成功添加 ${parsed.length} 位账户`, 'success');
 }
 
-/* ---------- 深色模式切换（偏好存 localStorage，刷新自动恢复） ---------- */
+/* ---------- 深色模式切换（手动偏好存 localStorage；未手动设置时跟随系统） ---------- */
 function applyThemeUI() {
   const dark = document.documentElement.classList.contains('dark-mode');
   const btn = document.getElementById('themeBtn');
@@ -2173,6 +2187,14 @@ function toggleTheme() {
   try { localStorage.setItem('jy_theme', dark ? 'dark' : 'light'); } catch (e) {}
   applyThemeUI();
 }
+// 未手动设置过偏好时，实时跟随系统深色模式变化
+try {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (localStorage.getItem('jy_theme')) return;   // 用户手动选择过，尊重手动偏好
+    document.documentElement.classList.toggle('dark-mode', e.matches);
+    applyThemeUI();
+  });
+} catch (e) {}
 
 /* ---------- 出售：跳转管理员预设的第三方平台链接 ---------- */
 function sellAccount(uidVal) {
