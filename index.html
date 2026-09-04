@@ -9,7 +9,7 @@
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-主题修复版');</script>
+<script>console.log('[九游平台] 代码版本 20260904-市场价Tab版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -222,9 +222,14 @@ th, td {
 }
 th { background: var(--th-bg); color: var(--text-secondary); font-weight: 600; }
 tbody tr:hover { background: var(--row-hover); }
-/* 历史市场价：点击行复制出货ID */
-#marketModal tbody tr { cursor: pointer; transition: background-color .15s; }
-#marketModal tbody tr.copied { background: var(--done-bg); }
+/* 市场价页签：点击行复制出货ID */
+#tabMarketSection tbody tr { cursor: pointer; transition: background-color .15s; }
+#tabMarketSection tbody tr.copied { background: var(--done-bg); }
+/* 录入方式分段控件 */
+.seg-control { display: flex; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+.seg-control button { flex: 1; border: none; background: transparent; color: var(--text-secondary); padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all .15s; min-height: 36px; }
+.seg-control button.active { background: var(--primary); color: #fff; font-weight: 600; }
+select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 14px; }
 /* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
 tbody tr.row-done { background: var(--done-bg); }
 tbody tr.row-done:hover { background: var(--done-bg-strong); }
@@ -435,17 +440,17 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   #ledgerBody td::before { content: attr(data-label); }
   .ledger-modal thead { display: none; }
 
-  /* 历史市场价弹窗：手机端卡片式布局，每条记录完整展示、无需横向滑动 */
-  #marketModal .table-wrap { overflow: visible; }
-  #marketModal .table-wrap table { min-width: 0; }
-  #marketModal thead { display: none; }
-  #marketModal tbody { display: block; }
-  #marketModal tbody tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
-  #marketModal tbody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
-  #marketModal tbody td:last-child { border-bottom: none; }
-  #marketModal tbody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
-  #marketModal tbody td[colspan] { display: block; text-align: center; padding: 24px 0; }
-  #marketModal tbody td[colspan]::before { display: none; }
+  /* 市场价页签表格：手机端卡片式布局，每条记录完整展示、无需横向滑动 */
+  #tabMarketSection .table-wrap { overflow: visible; }
+  #tabMarketSection .table-wrap table { min-width: 0; }
+  #tabMarketSection thead { display: none; }
+  #tabMarketSection tbody { display: block; }
+  #tabMarketSection tbody tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
+  #tabMarketSection tbody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  #tabMarketSection tbody td:last-child { border-bottom: none; }
+  #tabMarketSection tbody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  #tabMarketSection tbody td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  #tabMarketSection tbody td[colspan]::before { display: none; }
 
   /* 账户列表在手机上改为卡片式布局，逐行完整展示所有字段 */
   .table-wrap table.user-table { min-width: 0; }
@@ -584,6 +589,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
         <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
+        <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
@@ -595,7 +601,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   <section class="page active" id="pageProjectList">
     <!-- 首页顶部：市场参考价 + 公告滚动横幅（所有页签可见） -->
     <div class="home-top">
-      <div class="ann-banner" id="marketBanner" style="display:none" onclick="openMarketModal()" title="点击查看历史市场价">
+      <div class="ann-banner" id="marketBanner" style="display:none" onclick="switchListTab('market')" title="点击进入市场价页">
         <span class="tag" style="background:var(--success)">市场价</span>
         <div class="ann-viewport"><span class="ann-track" id="marketTrack" style="animation-duration:24s"></span></div>
       </div>
@@ -633,6 +639,22 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击公告展开正文</span>
       </h2>
       <div id="noticeList"></div>
+    </div>
+
+    <!-- 市场价页签：历史市场参考价，全员可见；点击任意行复制出货ID -->
+    <div id="tabMarketSection" style="display:none">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:6px">💰 市场参考价
+        <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击任意一行可复制该条的出货ID</span>
+      </h2>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
+      <div class="table-card">
+        <div class="table-wrap">
+          <table class="market-page-table">
+            <thead><tr><th style="width:110px">日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th></tr></thead>
+            <tbody id="marketBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- 我的页签：账号信息 + 深色模式 + 管理员后台（公告/市场价管理） -->
@@ -703,6 +725,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
       <button id="bnavNotice" onclick="switchListTab('notice')"><span class="ic">📢</span><span>公告</span></button>
+      <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
@@ -910,10 +933,30 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <div class="form-error">请选择不晚于当前时间的时间</div>
       </div>
       <div class="form-group">
+        <label>录入方式</label>
+        <div class="seg-control" id="pr-modeSeg">
+          <button type="button" class="active" onclick="setPriceMode('amount')">回本金额（元）</button>
+          <button type="button" onclick="setPriceMode('qty')">出货数量</button>
+        </div>
+        <div class="form-tip">出货数量模式：单价自动取历史市场参考价，金额 = 数量 × 单价</div>
+      </div>
+      <div class="form-group" id="pr-amountGroup">
         <label>回本金额（元）<span class="req">*</span></label>
         <input type="number" id="pr-price" placeholder="请输入回本金额" min="0.01" step="0.01">
         <div class="form-tip">同一天可多次录入，每次添加单独记录</div>
         <div class="form-error">请输入大于 0 的回本金额</div>
+      </div>
+      <div class="form-group" id="pr-qtyGroup" style="display:none">
+        <label>市场价品名<span class="req">*</span></label>
+        <select id="pr-mp" onchange="updateQtyAmount()"></select>
+        <div class="form-tip">单价取自「市场价」页签的历史市场参考价</div>
+        <div class="form-error">请选择市场价品名</div>
+      </div>
+      <div class="form-group" id="pr-qtyInputGroup" style="display:none">
+        <label>出货数量<span class="req">*</span></label>
+        <input type="number" id="pr-qty" placeholder="请输入出货数量" min="0.01" step="0.01" oninput="updateQtyAmount()">
+        <div class="form-tip" id="pr-qtyAmount">预计回本金额：— 元</div>
+        <div class="form-error">请输入大于 0 的出货数量</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1041,28 +1084,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('annModal')">取消</button>
       <button class="btn btn-primary" onclick="saveAnnouncement()">发布</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== 历史市场价查看弹窗（全员） ========== -->
-<div class="modal-mask" id="marketModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>历史市场参考价</h3>
-      <button class="modal-close" onclick="closeModal('marketModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-tip" style="margin-bottom:10px">市场价仅作为参考展示，不参与平台内任何自动计算；点击任意一行可复制该条的出货ID</div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th style="width:100px">日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th></tr></thead>
-          <tbody id="marketBody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('marketModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -1430,15 +1451,16 @@ function showPage(page) {
   window.scrollTo(0, 0);
 }
 
-/* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/我的） ---------- */
+/* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'public';
 function switchListTab(tab) {
   listTab = tab;
   updateListTabUI();
+  if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
   window.scrollTo(0, 0);
 }
 function updateListTabUI() {
-  const tabs = ['public', 'mine', 'notice', 'me'];
+  const tabs = ['public', 'mine', 'notice', 'market', 'me'];
   tabs.forEach(t => {
     const section = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Section');
     if (section) section.style.display = listTab === t ? '' : 'none';
@@ -1462,10 +1484,15 @@ function renderProjectGrid() {
   const gEarned = allUsers.reduce((s, u) => s + calcEarned(u), 0);
   const gAvgProgress = gUserCount ? allUsers.reduce((s, u) => s + calcProgress(u), 0) / gUserCount : 0;
   const gDone = allUsers.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+  // 今日回本金额：所有账户今天（本地日期）添加的回本记录之和
+  const today = nowLocal().slice(0, 10);
+  const gTodayEarned = allUsers.reduce((s, u) =>
+    s + u.prices.filter(r => (r.date || '').slice(0, 10) === today).reduce((x, r) => x + Number(r.price), 0), 0);
   document.getElementById('homeSummary').innerHTML = `
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${gUserCount}" data-decimals="0">0</span><small>人</small></div></div>
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card"><div class="label">今日回本金额</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card"><div class="label">平均回本进度</div><div class="value"><span class="count-up" data-target="${gAvgProgress}" data-decimals="1">0</span><small>%</small></div></div>
     <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDone}" data-decimals="0">0</span><small>人 / </small><span class="count-up" data-target="${gUserCount - gDone}" data-decimals="0">0</span><small>人</small></div></div>`;
   animateCountUps();
@@ -1933,8 +1960,52 @@ function deleteUser(id) {
   });
 }
 
-/* ---------- 添加回本金额（可连续添加） ---------- */
-function openPriceModal(id) {
+/* ---------- 添加回本金额（可连续添加；支持金额录入 / 出货数量自动算价两种方式） ---------- */
+let prMode = 'amount';  // 当前录入方式：amount=回本金额，qty=出货数量
+
+// 切换录入方式
+function setPriceMode(mode) {
+  prMode = mode;
+  document.querySelectorAll('#pr-modeSeg button').forEach(b => b.classList.toggle('active', b.textContent.includes(mode === 'amount' ? '回本金额' : '出货数量')));
+  document.getElementById('pr-amountGroup').style.display = mode === 'amount' ? '' : 'none';
+  document.getElementById('pr-qtyGroup').style.display = mode === 'qty' ? '' : 'none';
+  document.getElementById('pr-qtyInputGroup').style.display = mode === 'qty' ? '' : 'none';
+  setError('pr-price', false); setError('pr-mp', false); setError('pr-qty', false);
+}
+
+// 品名下拉：同一品名可能多天多条，按品名去重取最新一条的单价
+function fillMpOptions(projectName) {
+  const sel = document.getElementById('pr-mp');
+  const seen = new Set();
+  const opts = [];
+  for (const r of marketPrices) {
+    if (seen.has(r.name)) continue;
+    seen.add(r.name);
+    opts.push(r);
+  }
+  sel.innerHTML = opts.length === 0
+    ? '<option value="">暂无市场价数据，请管理员在「市场价管理」录入</option>'
+    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
+  // 默认选中与项目名相同的品名（若有）
+  if ([...sel.options].some(o => o.value === projectName)) sel.value = projectName;
+  updateQtyAmount();
+}
+
+// 出货数量模式下实时计算预计回本金额：数量 × 所选品名单价
+function updateQtyAmount() {
+  const sel = document.getElementById('pr-mp');
+  const opt = sel.selectedOptions[0];
+  const qty = parseFloat(document.getElementById('pr-qty').value);
+  const tip = document.getElementById('pr-qtyAmount');
+  if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元'; return; }
+  const rate = parseFloat(opt.dataset.price);
+  const unit = opt.dataset.unit || '1';
+  tip.textContent = Number(qty) > 0
+    ? `预计回本金额：${fmtMoney(qty * rate)} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
+    : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
+}
+
+async function openPriceModal(id) {
   const p = getProject(currentProjectId);
   const u = getUser(p, id);
   if (!u) return;
@@ -1943,8 +2014,12 @@ function openPriceModal(id) {
   document.getElementById('pr-userName').dataset.uid = u.id;
   document.getElementById('pr-date').value = nowLocal();
   document.getElementById('pr-price').value = '';
+  document.getElementById('pr-qty').value = '';
+  setPriceMode('amount');  // 每次打开默认金额录入
   updatePriceTip(u);
   openModal('priceModal');
+  if (marketPrices.length === 0) await loadMarketPrices();  // 品名下拉需要市场价数据
+  fillMpOptions(p.name);
   document.getElementById('pr-price').focus();
 }
 
@@ -1961,26 +2036,45 @@ async function savePrice() {
   const u = getUser(p, uidVal);
   if (!u) return;
   const date = document.getElementById('pr-date').value;
-  const price = parseFloat(document.getElementById('pr-price').value);
 
-  // 表单验证：时间必填且不晚于当前时间，金额必须为正数
+  // 表单验证：时间必填且不晚于当前时间
   let ok = true;
   ok = setError('pr-date', !date || date > nowLocal()) && ok;
-  ok = setError('pr-price', !(price > 0)) && ok;
+
+  // 两种录入方式：金额直接取值；出货数量 = 数量 × 所选品名的市场价单价
+  let price = 0;
+  let extra = {};
+  if (prMode === 'qty') {
+    const qty = parseFloat(document.getElementById('pr-qty').value);
+    const opt = document.getElementById('pr-mp').selectedOptions[0];
+    const mpName = opt ? opt.value : '';
+    ok = setError('pr-mp', !mpName || !opt || !opt.dataset.price) && ok;
+    ok = setError('pr-qty', !(qty > 0)) && ok;
+    if (ok && mpName && opt.dataset.price) {
+      const rate = parseFloat(opt.dataset.price);
+      price = qty * rate;
+      extra = { qty, rate, mpName };  // 附加数量与单价信息，供台账展示
+    }
+  } else {
+    price = parseFloat(document.getElementById('pr-price').value);
+    ok = setError('pr-price', !(price > 0)) && ok;
+  }
   if (!ok) return;
 
   // 每次添加都单独记录一条，供台账逐笔查看
-  u.prices.push({ id: uid(), date, price });
+  u.prices.push({ id: uid(), date, price, ...extra });
   const dayTotal = u.prices
     .filter(r => r.date.slice(0, 10) === date.slice(0, 10))  // 按天统计当日累计
     .reduce((s, r) => s + Number(r.price), 0);
   await saveCloudData(true);
   renderDetail();
   updatePriceTip(u);
-  toast(`回本金额已添加，当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
+  toast(`回本金额已添加（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
   // 连续添加：清空金额并聚焦，可直接继续录入
   document.getElementById('pr-price').value = '';
-  document.getElementById('pr-price').focus();
+  document.getElementById('pr-qty').value = '';
+  updateQtyAmount();
+  (prMode === 'qty' ? document.getElementById('pr-qty') : document.getElementById('pr-price')).focus();
 }
 
 /* ---------- 台账 ---------- */
@@ -2011,7 +2105,7 @@ function renderLedger() {
       <tr>
         <td data-label="序号">${i + 1}</td>
         <td data-label="日期">${fmtDateTime(r.date)}</td>
-        <td data-label="回本金额">${fmtMoney(r.price)} 元</td>
+        <td data-label="回本金额">${fmtMoney(r.price)} 元${r.qty ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${r.qty} × ¥${fmtMoney(r.rate)}/${r.mpName || ''}</div>` : ''}</td>
         <td data-label="操作"><button class="btn btn-sm btn-danger" onclick="deletePrice('${r.id}')">删除</button></td>
       </tr>`).join('');
 }
@@ -2269,8 +2363,8 @@ async function copyToClipboard(text) {
   } catch (e) { return false; }
 }
 
-/* ---------- 历史市场价弹窗 ---------- */
-// 点击任意行自动复制该条记录的出货ID
+/* ---------- 市场价页签 ---------- */
+// 渲染历史市场参考价表格；点击任意行自动复制该条记录的出货ID
 function copySellId(id, tr) {
   const r = marketPrices.find(x => x.id === id);
   if (!r) return;
@@ -2281,8 +2375,9 @@ function copySellId(id, tr) {
     if (tr) { tr.classList.add('copied'); setTimeout(() => tr.classList.remove('copied'), 600); }
   });
 }
-function openMarketModal() {
+function renderMarketPage() {
   const body = document.getElementById('marketBody');
+  if (!body) return;
   body.innerHTML = marketPrices.length === 0
     ? '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:24px">暂无市场价数据</td></tr>'
     : marketPrices.map(r => `
@@ -2293,7 +2388,6 @@ function openMarketModal() {
         <td data-label="出货ID">${r.sell_id ? escapeHtml(r.sell_id) : '—'}</td>
         <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
       </tr>`).join('');
-  openModal('marketModal');
 }
 
 /* ---------- 公告展示 ---------- */
