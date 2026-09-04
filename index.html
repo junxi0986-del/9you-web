@@ -2232,11 +2232,14 @@ function openMarketModal() {
 
 /* ---------- 公告展示 ---------- */
 // 公告条目 HTML（点击展开正文；withOps 为 true 时附带编辑/删除按钮）
+// 列表标题行按「标题：正文」显示，总长不超过 20 字，点击展开查看全文
 function annItemHtml(a, withOps) {
+  const clip = s => s.length > 20 ? s.slice(0, 19) + '…' : s;
+  const summary = clip(a.title + '：' + (a.content || ''));
   return `
     <div class="ann-item" ${withOps ? '' : 'onclick="this.classList.toggle(\'open\')"'}>
       <div class="a-title">
-        <span class="a-name" ${withOps ? `onclick="this.closest('.ann-item').classList.toggle('open')"` : ''}>📢 ${escapeHtml(a.title)}</span>
+        <span class="a-name" ${withOps ? `onclick="this.closest('.ann-item').classList.toggle('open')"` : ''}>📢 ${escapeHtml(summary)}</span>
         <span style="display:flex;align-items:center;gap:8px">
           <span class="a-time">${(a.created_at || '').slice(0, 10)}</span>
           ${withOps ? `<span class="a-ops">
