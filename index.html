@@ -2796,7 +2796,10 @@ async function chat_open() {
   await chat_join();
   await chat_loadInitial();
   chat_subscribe();
-  document.getElementById('chatText').focus();
+  // 触屏设备（手机/平板）不自动聚焦输入框，避免键盘弹出遮挡消息列表
+  if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) {
+    document.getElementById('chatText').focus();
+  }
 }
 
 // 关闭群聊：退订实时通道、恢复页面与导航栏高亮
