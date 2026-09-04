@@ -1362,6 +1362,10 @@ function showMainApp(){
   renderProjectGrid();
   chat_keepSubscribe();  // 登录后开启群聊未读常驻订阅（新消息时导航栏群聊按钮闪烁）
   notif_load();          // 消息通知功能：读取通知偏好并同步「我的」Tab 开关
+  // 触屏设备（手机/平板）没有键盘快捷键概念，输入框不显示 Enter 快捷键提示
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    document.querySelectorAll('#chatText').forEach(el => { el.placeholder = '输入消息…'; });
+  }
 }
 function hideMainApp(){
   document.getElementById("loginWrap").style.display = "flex";
