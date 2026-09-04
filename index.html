@@ -1184,14 +1184,13 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 
 <!-- ========== 项目群聊页（全屏视图，公共项目全员可聊） ========== -->
 <div id="chatPage" class="chat-page" style="display:none">
-  <!-- 顶部导航栏：返回 + 群名 + 成员数 + 通知开关 -->
+  <!-- 顶部导航栏：返回 + 群名 + 成员数 -->
   <div class="chat-top">
     <button class="chat-back" onclick="chat_close()">←</button>
     <div class="chat-top-info">
       <div class="chat-top-name" id="chatName">群聊</div>
       <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
     </div>
-    <button class="chat-notif" id="chatNotifBtn" onclick="chat_toggleNotif()" title="桌面通知">🔔</button>
   </div>
 
   <!-- 消息列表 -->
@@ -2743,7 +2742,7 @@ async function chat_changeNick() {
 // 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
 function chat_ensureDom() {
   const ids = ['chatPage', 'chatName', 'chatMemberCount', 'chatMsgs', 'chatLoadMore', 'chatNewTip',
-    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNickBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
+    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNickBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
   if (ids.every(id => document.getElementById(id))) return;
   // 移除可能残缺的旧节点，避免重复 id
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
@@ -2756,7 +2755,6 @@ function chat_ensureDom() {
         <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
       </div>
       <button class="chat-notif" id="chatNickBtn" onclick="chat_changeNick()" title="修改我的群昵称">✏️</button>
-      <button class="chat-notif" id="chatNotifBtn" onclick="chat_toggleNotif()" title="桌面通知">🔔</button>
     </div>
     <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
       <div class="chat-load" id="chatLoadMore" style="display:none">
@@ -2768,7 +2766,7 @@ function chat_ensureDom() {
       <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
       <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
       <button class="chat-mention-all-btn" id="chatMentionAll" style="display:none" onclick="chat_mention('所有人')" title="管理员可 @所有人">@所有人</button>
-      <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
+      <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
       <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
     </div>
   </div>
@@ -2792,7 +2790,6 @@ async function chat_open() {
     '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
   document.getElementById('chatPage').style.display = 'flex';
   document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
-  document.getElementById('chatNotifBtn').classList.toggle('off', !notifState.enabled);  // 🔔按钮同步通知偏好
   document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
   // 导航栏高亮群聊入口
@@ -3287,29 +3284,6 @@ function chat_notify(msg) {
   if (document.hidden || document.getElementById('chatPage').style.display === 'none') {
     chat_startTitleFlash();
     notif_send(msg);
-  }
-}
-
-// 群聊顶栏 🔔 开关：与「我的」Tab 通知偏好共用同一状态
-function chat_toggleNotif() {
-  if (!notif_supported()) return toast('当前浏览器不支持桌面通知', 'warn');
-  const btn = document.getElementById('chatNotifBtn');
-  if (Notification.permission === 'granted') {
-    notifState.enabled = !notifState.enabled;
-    localStorage.setItem('notification_enabled', notifState.enabled ? 'true' : 'false');
-    btn.classList.toggle('off', !notifState.enabled);
-    notif_updateUI();
-    toast(notifState.enabled ? '桌面通知已开启' : '桌面通知已关闭', 'success');
-  } else {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') {
-        notifState.enabled = true;
-        localStorage.setItem('notification_enabled', 'true');
-        btn.classList.remove('off');
-        notif_updateUI();
-        toast('桌面通知已开启', 'success');
-      } else toast('通知授权被拒绝，可在浏览器设置中修改', 'warn');
-    });
   }
 }
 
