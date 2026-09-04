@@ -2677,8 +2677,41 @@ const chatState = {
 // 群聊显示名：邮箱前缀
 function chat_displayName() { return (currentUserEmail || '用户').split('@')[0]; }
 
+// 兜底：确保聊天页 DOM 存在（静态 HTML 缺失时动态注入，避免元素为 null 报错）
+function chat_ensureDom() {
+  if (document.getElementById('chatPage')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+  <div id="chatPage" class="chat-page" style="display:none">
+    <div class="chat-top">
+      <button class="chat-back" onclick="chat_close()">←</button>
+      <div class="chat-top-info">
+        <div class="chat-top-name" id="chatName">💬 平台群聊</div>
+        <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
+      </div>
+      <button class="chat-notif" id="chatNotifBtn" onclick="chat_toggleNotif()" title="桌面通知">🔔</button>
+    </div>
+    <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
+      <div class="chat-load" id="chatLoadMore" style="display:none">
+        <button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button>
+      </div>
+    </div>
+    <button class="chat-newtip" id="chatNewTip" style="display:none" onclick="chat_scrollBottom(true)">↓ 新消息</button>
+    <div class="chat-inputbar">
+      <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
+      <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
+      <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
+      <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
+    </div>
+  </div>
+  <div id="chatImgViewer" class="chat-imgviewer" style="display:none" onclick="this.style.display='none'">
+    <img id="chatImgViewerImg" src="" alt="图片查看">
+  </div>
+  <div id="chatUploading" class="chat-uploading" style="display:none"><div class="spin"></div><div>图片上传中…</div></div>`);
+}
+
 // 进入群聊：打开全屏视图、加入成员、加载最近50条、订阅实时消息
 async function chat_open() {
+  chat_ensureDom();  // 确保聊天页 DOM 存在
   chatState.projectId = CHAT_GLOBAL_ID;
   document.getElementById('chatName').textContent = '💬 平台群聊';
   document.getElementById('chatMemberCount').textContent = '成员 — 人';
