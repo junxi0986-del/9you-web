@@ -2710,12 +2710,31 @@ const chatState = {
 };
 
 // 群聊显示名：邮箱前缀
-function chat_displayName() { return (currentUserEmail || '用户').split('@')[0]; }
+function chat_displayName() { return localStorage.getItem('chat_nick') || (currentUserEmail || '用户').split('@')[0]; }
+
+// 更改自己的群昵称（存 localStorage + 同步 chat_members 表）
+async function chat_changeNick() {
+  if (!currentUserEmail) return;
+  const cur = chat_displayName();
+  const name = (prompt('请输入你的群昵称（最长20字）：', cur) || '').trim();
+  if (!name || name === cur) return;
+  if (name.length > 20) return toast('昵称最长20个字', 'warn');
+  localStorage.setItem('chat_nick', name);
+  try {
+    await sb.from('chat_members').upsert({
+      project_id: CHAT_GLOBAL_ID, user_email: currentUserEmail,
+      user_name: name, joined_at: new Date().toISOString()
+    }, { onConflict: 'project_id,user_email' });
+    toast('群昵称已更改为「' + name + '」', 'success');
+  } catch (e) {
+    toast('昵称已保存到本机，云端同步失败', 'warn');
+  }
+}
 
 // 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
 function chat_ensureDom() {
   const ids = ['chatPage', 'chatName', 'chatMemberCount', 'chatMsgs', 'chatLoadMore', 'chatNewTip',
-    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
+    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNickBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
   if (ids.every(id => document.getElementById(id))) return;
   // 移除可能残缺的旧节点，避免重复 id
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
@@ -2727,6 +2746,7 @@ function chat_ensureDom() {
         <div class="chat-top-name" id="chatName">💬 平台群聊</div>
         <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
       </div>
+      <button class="chat-notif" id="chatNickBtn" onclick="chat_changeNick()" title="修改我的群昵称">✏️</button>
       <button class="chat-notif" id="chatNotifBtn" onclick="chat_toggleNotif()" title="桌面通知">🔔</button>
     </div>
     <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
