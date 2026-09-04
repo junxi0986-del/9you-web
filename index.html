@@ -91,6 +91,12 @@ html.dark-mode {
 .chat-bubble { padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; background: var(--chat-bubble-other); color: var(--chat-bubble-other-text); border-top-left-radius: 4px; box-shadow: var(--shadow); }
 .chat-row.me .chat-bubble { background: var(--chat-bubble-me); color: var(--chat-bubble-me-text); border-top-left-radius: 12px; border-top-right-radius: 4px; }
 .chat-bubble.pending { opacity: .55; }
+  /* 管理员金色区分 + @所有人高亮 + @所有人按钮 */
+  .chat-avatar.admin { background: linear-gradient(135deg, #f59e0b, #b45309); box-shadow: 0 0 0 2px #fbbf24; }
+  .chat-admin-name { color: #fbbf24 !important; font-weight: 700; }
+  .chat-bubble.mention-all { border: 1.5px solid #ef4444; background: rgba(239, 68, 68, .08); }
+  .chat-mention-all-btn { border: none; background: var(--input-bg); color: #fbbf24; font-size: 12px; font-weight: 700; border-radius: 18px; padding: 8px 12px; cursor: pointer; white-space: nowrap; border: 1px solid rgba(251, 191, 36, .5); }
+  .chat-avatar { cursor: pointer; user-select: none; -webkit-user-select: none; }
 .chat-bubble img.chat-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; display: block; cursor: zoom-in; }
 .chat-time { font-size: 11px; color: var(--text-secondary); margin: 3px 4px 0; }
 .chat-sys { text-align: center; margin: 10px 0; }
@@ -636,7 +642,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div class="tab-switch tab-switch-desktop">
         <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
-        <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
         <button id="tabBtnChat" onclick="chat_open()">💬 群聊</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
@@ -773,7 +778,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <nav class="bottom-nav">
       <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
-      <button id="bnavNotice" onclick="switchListTab('notice')"><span class="ic">📢</span><span>公告</span></button>
       <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
       <button id="bnavChat" onclick="chat_open()"><span class="ic">💬</span><span>群聊</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
@@ -1174,6 +1178,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   <div class="chat-inputbar">
     <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
     <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
+    <button class="chat-mention-all-btn" id="chatMentionAll" style="display:none" onclick="chat_mention('所有人')" title="管理员可 @所有人">@所有人</button>
     <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
     <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
   </div>
@@ -2680,7 +2685,7 @@ function chat_displayName() { return (currentUserEmail || '用户').split('@')[0
 // 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
 function chat_ensureDom() {
   const ids = ['chatPage', 'chatName', 'chatMemberCount', 'chatMsgs', 'chatLoadMore', 'chatNewTip',
-    'chatText', 'chatFile', 'chatSendBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
+    'chatText', 'chatFile', 'chatMentionAll', 'chatSendBtn', 'chatNotifBtn', 'chatImgViewer', 'chatImgViewerImg', 'chatUploading'];
   if (ids.every(id => document.getElementById(id))) return;
   // 移除可能残缺的旧节点，避免重复 id
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
@@ -2703,6 +2708,7 @@ function chat_ensureDom() {
     <div class="chat-inputbar">
       <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
       <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
+      <button class="chat-mention-all-btn" id="chatMentionAll" style="display:none" onclick="chat_mention('所有人')" title="管理员可 @所有人">@所有人</button>
       <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
       <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
     </div>
@@ -2724,6 +2730,7 @@ async function chat_open() {
     '<div class="chat-load" id="chatLoadMore" style="display:none"><button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button></div>' +
     '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
   document.getElementById('chatPage').style.display = 'flex';
+  document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
   document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
   // 导航栏高亮群聊入口
@@ -2857,19 +2864,52 @@ function chat_append(msg) {
   const mine = msg.user_email === currentUserEmail;
   const name = msg.user_name || (msg.user_email || '').split('@')[0];
   const initial = (name || '?').charAt(0).toUpperCase();
+  const isAdminMsg = ADMIN_EMAILS.includes(msg.user_email);  // 管理员金色区分
+  // 他人消息包含 @所有人 时红色高亮
+  const mentionAll = !mine && msg.body && msg.body.includes('@所有人');
   const content = msg.msg_type === 'image' && msg.image_url
     ? `<img class="chat-thumb" src="${escapeHtml(msg.image_url)}" onclick="chat_viewImage(this.src)" loading="lazy" alt="图片">`
     : escapeHtml(msg.body || '');
   box.insertAdjacentHTML('beforeend', `
     <div class="chat-row ${mine ? 'me' : ''}" data-id="${msg.id}">
-      <div class="chat-avatar">${escapeHtml(initial)}</div>
+      <div class="chat-avatar ${isAdminMsg ? 'admin' : ''}" data-name="${escapeHtml(name)}" title="点击或长按 @${escapeHtml(name)}" onclick="chat_mention('${escapeHtml(name).replace(/'/g, "\\'")}')">${escapeHtml(initial)}</div>
       <div class="chat-col">
-        ${mine ? '' : `<div class="chat-sender">${escapeHtml(name)}</div>`}
-        <div class="chat-bubble ${msg.pending ? 'pending' : ''}">${content}</div>
+        ${mine ? '' : `<div class="chat-sender ${isAdminMsg ? 'chat-admin-name' : ''}">${escapeHtml(name)}${isAdminMsg ? ' 👑' : ''}</div>`}
+        <div class="chat-bubble ${msg.pending ? 'pending' : ''} ${mentionAll ? 'mention-all' : ''}">${content}</div>
         <div class="chat-time">${chat_fmtTime(msg.created_at)}${msg.pending ? ' · 发送中' : ''}</div>
       </div>
     </div>`);
 }
+
+// 点击/长按头像：在输入框插入 @名字
+function chat_mention(name) {
+  if (!chatState.projectId) return;
+  const input = document.getElementById('chatText');
+  if (chat_mention._last === name && Date.now() - (chat_mention._t || 0) < 800) return;  // 长按后 click 去重
+  chat_mention._last = name; chat_mention._t = Date.now();
+  const cur = input.value;
+  if (!cur || cur.endsWith(' ')) input.value = cur + '@' + name + ' ';
+  else input.value = cur + ' @' + name + ' ';
+  input.focus();
+}
+
+// 长按头像 @（移动端，事件委托）
+(function () {
+  let timer = null, longFired = false;
+  const box = () => document.getElementById('chatMsgs');
+  document.addEventListener('touchstart', e => {
+    const av = e.target.closest && e.target.closest('.chat-avatar');
+    if (!av || !av.dataset.name) return;
+    longFired = false;
+    timer = setTimeout(() => { longFired = true; chat_mention(av.dataset.name); }, 500);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach(ev =>
+    document.addEventListener(ev, () => { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true }));
+  // 长按触发后拦截后续 click，避免重复 @
+  document.addEventListener('click', e => {
+    if (longFired && e.target.closest && e.target.closest('.chat-avatar')) { longFired = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+})();
 
 // 全量重渲染（初始/分页加载时）
 function chat_renderAll() {
