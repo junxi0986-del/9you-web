@@ -72,7 +72,8 @@ html.dark-mode {
 }
 
 /* ========== 项目群聊样式（浅色/深色模式自适应，见 --chat-* 变量） ========== */
-.chat-page { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; background: var(--bg); }
+/* 群聊页为站内普通页面（非全屏覆盖）：顶部导航与底部导航保持可见可点 */
+.chat-page { display: none; flex-direction: column; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); height: calc(100dvh - 250px); min-height: 420px; overflow: hidden; margin-bottom: 20px; }
 .chat-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card-bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .chat-back { border: none; background: transparent; color: var(--text); font-size: 22px; cursor: pointer; padding: 4px 10px; min-height: 44px; }
 .chat-top-info { flex: 1; min-width: 0; }
@@ -479,6 +480,12 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .summary-card { padding: 12px 14px; }
   .summary-card .value { font-size: 18px; }
+
+  /* 群聊页：站内普通页，高度适配并预留底部导航栏空间（导航保持可见可点） */
+  .chat-page { height: calc(100dvh - 190px); min-height: 320px; margin-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  /* 群聊打开时锁定页面滚动，聊天区固定在页头与底部导航之间，避免滑动页面滑出聊天框 */
+  body.chat-open { overflow: hidden; }
+  body.chat-open .chat-page { position: fixed; left: 10px; right: 10px; bottom: calc(62px + env(safe-area-inset-bottom)); height: auto; min-height: 0; margin-bottom: 0; z-index: 55; }
 
   .project-card { padding: 14px; }
   .project-card .pc-stats { flex-wrap: wrap; }
@@ -892,6 +899,43 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
   </section>
 
+  <!-- ========== 项目群聊页（站内普通页面，公共项目全员可聊） ========== -->
+  <div id="chatPage" class="chat-page" style="display:none">
+    <!-- 顶部导航栏：返回 + 群名 + 成员数 -->
+    <div class="chat-top">
+      <button class="chat-back" onclick="chat_close()">←</button>
+      <div class="chat-top-info">
+        <div class="chat-top-name" id="chatName">群聊</div>
+        <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
+      </div>
+    </div>
+
+    <!-- 公告滚动横幅：复用首页公告数据，点击跳转公告页 -->
+    <div class="ann-banner chat-ann-banner" id="chatAnnBanner" style="display:none" onclick="chat_gotoNotice()" title="点击进入公告页">
+      <span class="tag">公告</span>
+      <div class="ann-viewport"><div class="ann-track" id="chatAnnTrack"></div></div>
+    </div>
+
+    <!-- 消息列表 -->
+    <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
+      <div class="chat-load" id="chatLoadMore" style="display:none">
+        <button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button>
+      </div>
+    </div>
+
+    <!-- 新消息提示按钮（未滚动到底部且有新消息时显示） -->
+    <button class="chat-newtip" id="chatNewTip" style="display:none" onclick="chat_scrollBottom(true)">↓ 新消息</button>
+
+    <!-- 底部输入区 -->
+    <div class="chat-inputbar">
+      <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
+      <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
+      <button class="chat-mention-all-btn" id="chatMentionAll" style="display:none" onclick="chat_mention('所有人')" title="管理员可 @所有人">@所有人</button>
+      <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
+      <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
+    </div>
+  </div>
+
   <!-- 底部信息 -->
   <footer class="footer">
     <div>数据保存在云端Supabase，多设备登录账号自动同步</div>
@@ -952,19 +996,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
             <input type="checkbox" id="pubf-starred" style="width:16px;height:16px;accent-color:#2563eb"> ⭐ 标重点（蓝色高亮）
           </label>
         </div>
-      </div>
-      <div class="form-group">
-        <label>出售跳转链接（可选，复制该项目的用户在账户列表点「出售」时跳转）</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('taobao')">淘宝</button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('jd')">京东</button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('pdd')">拼多多</button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="setSellTemplate('xianyu')">闲鱼</button>
-          <button type="button" class="btn btn-sm btn-ghost" onclick="setSellTemplate('custom')">自定义</button>
-        </div>
-        <input type="text" id="pubf-sellurl" placeholder="https://item.taobao.com/item.htm?id=xxx 或 app://scheme" maxlength="500">
-        <div class="form-tip">支持 HTTPS 商品链接或 APP Scheme（如 taobao://、weixin://）；点平台按钮后补上商品 ID 即可</div>
-        <div class="form-error">链接格式不正确：需以 https:// 开头，或为有效的 APP Scheme（如 xxx://）</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1201,43 +1232,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 
 <div id="toast-box"></div>
 
-<!-- ========== 项目群聊页（全屏视图，公共项目全员可聊） ========== -->
-<div id="chatPage" class="chat-page" style="display:none">
-  <!-- 顶部导航栏：返回 + 群名 + 成员数 -->
-  <div class="chat-top">
-    <button class="chat-back" onclick="chat_close()">←</button>
-    <div class="chat-top-info">
-      <div class="chat-top-name" id="chatName">群聊</div>
-      <div class="chat-top-sub" id="chatMemberCount">成员 — 人</div>
-    </div>
-  </div>
-
-  <!-- 公告滚动横幅：复用首页公告数据，点击跳转公告页 -->
-  <div class="ann-banner chat-ann-banner" id="chatAnnBanner" style="display:none" onclick="chat_gotoNotice()" title="点击进入公告页">
-    <span class="tag">公告</span>
-    <div class="ann-viewport"><div class="ann-track" id="chatAnnTrack"></div></div>
-  </div>
-
-  <!-- 消息列表 -->
-  <div class="chat-msgs" id="chatMsgs" onscroll="chat_onScroll()">
-    <div class="chat-load" id="chatLoadMore" style="display:none">
-      <button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button>
-    </div>
-  </div>
-
-  <!-- 新消息提示按钮（未滚动到底部且有新消息时显示） -->
-  <button class="chat-newtip" id="chatNewTip" style="display:none" onclick="chat_scrollBottom(true)">↓ 新消息</button>
-
-  <!-- 底部输入区 -->
-  <div class="chat-inputbar">
-    <button class="chat-plus" onclick="document.getElementById('chatFile').click()" title="发送图片">📎</button>
-    <input type="file" id="chatFile" accept="image/*" style="display:none" onchange="chat_pickImage(this)">
-    <button class="chat-mention-all-btn" id="chatMentionAll" style="display:none" onclick="chat_mention('所有人')" title="管理员可 @所有人">@所有人</button>
-    <textarea id="chatText" class="chat-text" rows="1" maxlength="500" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" oninput="chat_autoGrow(this)" onkeydown="chat_onKey(event)"></textarea>
-    <button class="chat-send" id="chatSendBtn" onclick="chat_send()">发送</button>
-  </div>
-</div>
-
 <!-- 图片查看器（点击聊天图片放大） -->
 <div id="chatImgViewer" class="chat-imgviewer" style="display:none" onclick="this.style.display='none'">
   <img id="chatImgViewerImg" src="" alt="图片查看">
@@ -1436,11 +1430,11 @@ async function loadPublicProjects(){
   }
   publicProjects = data || [];
 }
-// 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点，sell_url=出售跳转链接）
-async function upsertPublicProject(id, name, remark, pinned = false, starred = false, sellUrl = ''){
+// 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点）
+async function upsertPublicProject(id, name, remark, pinned = false, starred = false){
   const {error} = await sb
     .from("public_projects")
-    .upsert({ id, name, remark, pinned, starred, sell_url: sellUrl, created_by: currentUserEmail });
+    .upsert({ id, name, remark, pinned, starred, created_by: currentUserEmail });
   return error;
 }
 async function deletePublicProjectRow(id){
@@ -1593,6 +1587,9 @@ function setError(inputId, hasError) {
 
 /* ---------- 页面切换 ---------- */
 function showPage(page) {
+  // 若群聊页已打开，先正常关闭（退订实时通道、恢复未读订阅与导航高亮）
+  const cp = document.getElementById('chatPage');
+  if (cp && cp.style.display !== 'none') chat_close();
   document.getElementById('pageProjectList').classList.toggle('active', page === 'list');
   document.getElementById('pageProjectDetail').classList.toggle('active', page === 'detail');
   if (page === 'list') {
@@ -1608,6 +1605,11 @@ function showPage(page) {
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'public';
 function switchListTab(tab) {
+  // 若正处于项目详情页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
+  if (currentProjectId) showPage('list');
+  // 若群聊页已打开，先正常关闭再切换页签
+  const cp = document.getElementById('chatPage');
+  if (cp && cp.style.display !== 'none') chat_close();
   listTab = tab;
   updateListTabUI();
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
@@ -1842,7 +1844,7 @@ function renderDetail() {
         <td data-label="状态">${isDone ? '<span class="badge badge-done">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
         <td data-label="操作" class="td-actions">
           <div class="row-actions">
-            <button class="btn btn-sm btn-primary" onclick="sellAccount('${u.id}')">🛒 出售</button>
+            <button class="btn btn-sm btn-primary" onclick="sellAccount()">🛒 出售</button>
             <button class="btn btn-sm btn-outline" onclick="openPriceModal('${u.id}')">添加回本金额</button>
             <button class="btn btn-sm btn-outline" onclick="openLedger('${u.id}')">查看台账</button>
             <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.id}')">编辑</button>
@@ -1934,7 +1936,6 @@ function renderPublicProjects() {
     const badges = `
       ${p.pinned ? '<span class="badge" style="background:#f59e0b;color:#fff">📌 置顶</span>' : ''}
       ${p.starred ? '<span class="badge" style="background:#2563eb;color:#fff">⭐ 重点</span>' : ''}
-      ${p.sell_url ? '<span class="badge badge-blue">🛒 可出售</span>' : ''}
       ${!p.pinned && !p.starred ? '<span class="badge badge-blue">公共项目</span>' : ''}`;
     const card = document.createElement('div');
     card.className = 'project-card public-card' + (p.pinned ? ' pub-pinned' : p.starred ? ' pub-starred' : '');
@@ -1953,22 +1954,10 @@ function renderPublicProjects() {
   });
 }
 
-// 发布 / 编辑公共项目弹窗（置顶/星标/出售链接在弹窗内设置）
-// 平台快捷选择：自动填入对应平台链接格式，只需补商品 ID；自定义则清空手填
-const SELL_TEMPLATES = {
-  taobao: 'https://item.taobao.com/item.htm?id=',
-  jd:     'https://item.jd.com/',
-  pdd:    'https://mobile.yangkeduo.com/goods.html?goods_id=',
-  xianyu: 'https://item.taobao.com/item.htm?id='
-};
-function setSellTemplate(key) {
-  const input = document.getElementById('pubf-sellurl');
-  input.value = key === 'custom' ? '' : (SELL_TEMPLATES[key] || '');
-  input.focus();
-}
+// 发布 / 编辑公共项目弹窗（置顶/星标在弹窗内设置）
 function openPublicProjectModal(id) {
   if (!isAdmin) return;
-  setError('pubf-name', false); setError('pubf-sellurl', false);
+  setError('pubf-name', false);
   if (id) {
     const p = publicProjects.find(x => x.id === id);
     if (!p) return;
@@ -1978,7 +1967,6 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = p.remark || '';
     document.getElementById('pubf-pinned').checked = !!p.pinned;
     document.getElementById('pubf-starred').checked = !!p.starred;
-    document.getElementById('pubf-sellurl').value = p.sell_url || '';
   } else {
     document.getElementById('publicProjectModalTitle').textContent = '发布公共项目';
     document.getElementById('pubf-id').value = '';
@@ -1986,13 +1974,12 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = '';
     document.getElementById('pubf-pinned').checked = false;
     document.getElementById('pubf-starred').checked = false;
-    document.getElementById('pubf-sellurl').value = '';
   }
   openModal('publicProjectModal');
   document.getElementById('pubf-name').focus();
 }
 
-// 保存公共项目（新增或更新，含置顶/星标标记与出售链接）
+// 保存公共项目（新增或更新，含置顶/星标标记）
 async function savePublicProject() {
   if (!isAdmin) return;
   const id = document.getElementById('pubf-id').value;
@@ -2000,14 +1987,10 @@ async function savePublicProject() {
   const remark = document.getElementById('pubf-remark').value.trim();
   const pinned = document.getElementById('pubf-pinned').checked;
   const starred = document.getElementById('pubf-starred').checked;
-  const sellUrl = document.getElementById('pubf-sellurl').value.trim();
 
   if (!setError('pubf-name', !name)) return;
-  // 出售链接校验：允许 https 链接或 APP Scheme（如 taobao://、weixin://）
-  const sellOk = !sellUrl || /^https:\/\/\S+$/.test(sellUrl) || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/\S+$/.test(sellUrl);
-  if (!setError('pubf-sellurl', !sellOk)) return;
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, sellUrl);
+  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred);
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
@@ -2030,7 +2013,7 @@ function deletePublicProject(id) {
   });
 }
 
-// 将公共项目复制到自己名下（复制名称、备注与出售链接，不含账户和价格记录）
+// 将公共项目复制到自己名下（复制名称、备注，不含账户和价格记录）
 async function copyPublicProject(id) {
   const p = publicProjects.find(x => x.id === id);
   if (!p) return;
@@ -2038,7 +2021,6 @@ async function copyPublicProject(id) {
     id: uid(),
     name: p.name,
     remark: p.remark || '',
-    sellUrl: p.sell_url || '',   // 出售跳转链接随项目一起复制
     createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     users: []
   });
@@ -2470,17 +2452,10 @@ try {
   });
 } catch (e) {}
 
-/* ---------- 出售：跳转管理员预设的第三方平台链接 ---------- */
-function sellAccount(uidVal) {
-  const p = getProject(currentProjectId);
-  const u = getUser(p, uidVal);
-  if (!u) return;
-  const url = (p.sellUrl || '').trim();
-  if (!url) return toast('该项目尚未配置出售跳转链接，请联系管理员', 'warn');
-  confirmAction('确认出售', `确认出售「${u.name}」？将跳转到第三方平台处理。`, () => {
-    if (/^https:\/\//i.test(url)) window.open(url, '_blank');   // HTTPS 链接新窗口打开
-    else location.href = url;                                    // APP Scheme 直接跳转
-  }, '确认出售');
+/* ---------- 出售：跳转到市场价页，对照最新市场参考价 ---------- */
+function sellAccount() {
+  showPage('list');          // 从项目详情页退回列表页
+  switchListTab('market');   // 切换到市场价页
 }
 
 /* ---------- 首页顶部：市场价滚动条 + 公告横幅 ---------- */
@@ -2807,7 +2782,7 @@ function chat_ensureDom() {
   if (ids.every(id => document.getElementById(id))) return;
   // 移除可能残缺的旧节点，避免重复 id
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
-  document.body.insertAdjacentHTML('beforeend', `
+  document.getElementById('mainApp').insertAdjacentHTML('beforeend', `
   <div id="chatPage" class="chat-page" style="display:none">
     <div class="chat-top">
       <button class="chat-back" onclick="chat_close()">←</button>
@@ -2841,7 +2816,7 @@ function chat_ensureDom() {
   <div id="chatUploading" class="chat-uploading" style="display:none"><div class="spin"></div><div>图片上传中…</div></div>`);
 }
 
-// 进入群聊：打开全屏视图、加入成员、加载最近50条、订阅实时消息
+// 进入群聊：以站内普通页打开（隐藏列表/详情区块，导航保持可用）、加入成员、加载最近50条、订阅实时消息
 async function chat_open() {
   chat_ensureDom();  // 确保聊天页 DOM 存在
   chatState.projectId = CHAT_GLOBAL_ID;
@@ -2853,9 +2828,14 @@ async function chat_open() {
   document.getElementById('chatMsgs').innerHTML =
     '<div class="chat-load" id="chatLoadMore" style="display:none"><button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button></div>' +
     '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
+  showPage('list');  // 若在项目详情页先退回列表页（渲染并复位状态）
+  document.getElementById('pageProjectList').classList.remove('active');  // 隐藏列表区块，仅显示聊天区
   document.getElementById('chatPage').style.display = 'flex';
+  window.scrollTo(0, 0);                 // 复位到顶部，保证页头完整可见
+  document.body.classList.add('chat-open');  // 手机端锁定滚动并固定聊天区
+  chat_fitMobile();                      // 测量页头底缘，定位聊天区顶部
+  window.onresize = chat_fitMobile;      // 旋转/缩放时重新定位
   document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
-  document.body.style.overflow = 'hidden';  // 聊天页打开时锁定背景滚动
   chat_stopTitleFlash();
   // 导航栏高亮群聊入口
   ['Public', 'Mine', 'Notice', 'Market', 'Me'].forEach(k => {
@@ -2874,6 +2854,16 @@ async function chat_open() {
   }
 }
 
+// 手机端定位：聊天区顶部贴在页头底缘下方 8px（底部由 CSS 固定在导航栏上方）
+function chat_fitMobile() {
+  const page = document.getElementById('chatPage');
+  if (!page || page.style.display === 'none') return;
+  if (!window.matchMedia('(max-width: 600px)').matches) { page.style.top = ''; return; }
+  const header = document.querySelector('#mainApp .header');
+  const top = header ? header.getBoundingClientRect().bottom + 8 : 12;
+  page.style.top = Math.max(8, Math.min(top, window.innerHeight - 200)) + 'px';
+}
+
 // 关闭群聊：退订实时通道、恢复页面与导航栏高亮
 function chat_close() {
   if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
@@ -2881,7 +2871,8 @@ function chat_close() {
   chat_keepSubscribe();     // 恢复未读常驻订阅
   chatState.messages = [];
   document.getElementById('chatPage').style.display = 'none';
-  document.body.style.overflow = '';
+  document.getElementById('pageProjectList').classList.add('active');  // 恢复显示列表区块
+  document.body.classList.remove('chat-open');  // 解除滚动锁定与固定定位
   chat_stopTitleFlash();
   updateListTabUI();  // 恢复导航栏到当前页签高亮
 }
