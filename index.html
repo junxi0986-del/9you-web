@@ -694,9 +694,12 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div id="tabMineSection">
       <!-- 首页全局汇总：统计所有项目的整体回本情况 -->
       <div class="summary-grid" id="homeSummary" style="margin-bottom:16px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px">
         <h2 style="font-size:16px;font-weight:600">项目列表</h2>
-        <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
+          <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
+        </div>
       </div>
       <div class="project-grid" id="projectGrid"></div>
     </div>
@@ -951,6 +954,15 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-body">
       <input type="hidden" id="pf-id">
+      <!-- 导入分享项目：粘贴他人分享的分享码一键导入（含项目、账户与回本记录） -->
+      <div class="form-group">
+        <label>📦 从分享码导入</label>
+        <textarea id="pf-import" placeholder="粘贴对方发给你的分享码（9YOU: 开头），一键导入项目和全部记录" style="min-height:64px;font-family:monospace;font-size:12px"></textarea>
+        <button type="button" class="btn btn-outline" style="margin-top:8px;width:100%" onclick="importSharedProject()">⤵️ 导入分享项目</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:2px 0 14px;color:var(--text-secondary);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>或手动填写下方表单<div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
       <div class="form-group">
         <label>项目名称<span class="req">*</span></label>
         <input type="text" id="pf-name" placeholder="请输入项目名称" maxlength="50">
@@ -964,6 +976,32 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('projectModal')">取消</button>
       <button class="btn btn-primary" onclick="saveProject()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 分享项目弹窗 ========== -->
+<div class="modal-mask" id="shareProjectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🔗 分享项目</h3>
+      <button class="modal-close" onclick="closeModal('shareProjectModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>选择要分享的项目<span class="req">*</span></label>
+        <select id="sp-project"></select>
+      </div>
+      <div class="form-group" id="sp-result-group" style="display:none">
+        <label>分享码（发送给对方，对方在「新增项目」弹窗中粘贴导入）</label>
+        <textarea id="sp-code" readonly style="min-height:110px;font-family:monospace;font-size:12px;word-break:break-all"></textarea>
+        <button type="button" class="btn btn-primary" style="margin-top:8px;width:100%" onclick="copyShareCode()">⧉ 复制分享码</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary)">⚠️ 分享码包含项目名称、备注、全部账户及回本记录，请仅发给可信的人</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('shareProjectModal')">取消</button>
+      <button class="btn btn-primary" onclick="generateShareCode()">生成分享码</button>
     </div>
   </div>
 </div>
@@ -1872,6 +1910,7 @@ function openProjectModal(id) {
     document.getElementById('pf-remark').value = '';
   }
   openModal('projectModal');
+  document.getElementById('pf-import').value = '';  // 清空上次粘贴的分享码
   document.getElementById('pf-name').focus();
 }
 
@@ -1895,6 +1934,92 @@ async function saveProject() {
   closeModal('projectModal');
   // 详情页编辑时同步刷新详情；主页面刷新列表
   if (currentProjectId) renderDetail(); else renderProjectGrid();
+}
+
+/* ---------- 分享 / 导入项目（分享码 = 9YOU: + Base64(JSON)，含项目、账户与回本记录） ---------- */
+const SHARE_PREFIX = '9YOU:';
+
+// 兼容数量自动算价记录：保留 qty/rate/mpName 附加字段
+function share_packPrice(r) {
+  const base = { id: r.id, date: r.date || '', price: Number(r.price) || 0 };
+  if (r.qty !== undefined) { base.qty = r.qty; base.rate = r.rate; base.mpName = r.mpName; }
+  return base;
+}
+
+function openShareProjectModal() {
+  if (projects.length === 0) { toast('暂无可分享的项目，请先新增项目', 'warn'); return; }
+  const sel = document.getElementById('sp-project');
+  sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
+  document.getElementById('sp-code').value = '';
+  document.getElementById('sp-result-group').style.display = 'none';
+  openModal('shareProjectModal');
+}
+
+function generateShareCode() {
+  const p = getProject(document.getElementById('sp-project').value);
+  if (!p) return;
+  const payload = {
+    v: 1,
+    name: p.name,
+    remark: p.remark || '',
+    users: p.users.map(u => ({
+      id: u.id,
+      name: u.name,
+      principal: u.principal,
+      startDate: u.startDate || '',
+      remark: u.remark || '',
+      prices: (u.prices || []).map(share_packPrice)
+    }))
+  };
+  const code = SHARE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  document.getElementById('sp-code').value = code;
+  document.getElementById('sp-result-group').style.display = '';
+  toast('分享码已生成，复制后发给对方即可', 'success');
+}
+
+async function copyShareCode() {
+  const code = document.getElementById('sp-code').value;
+  if (!code) return;
+  const ok = await copyToClipboard(code);
+  toast(ok ? '分享码已复制，可发送给对方' : '复制失败，请长按文本框手动复制', ok ? 'success' : 'error');
+}
+
+// 解析分享码：容忍前后夹杂其他文本，自动截取 9YOU: 之后的内容
+function share_parseCode(raw) {
+  if (!raw) return null;
+  const idx = raw.indexOf(SHARE_PREFIX);
+  const body = (idx >= 0 ? raw.slice(idx + SHARE_PREFIX.length) : raw).trim();
+  try {
+    const payload = JSON.parse(decodeURIComponent(escape(atob(body))));
+    if (payload && Array.isArray(payload.users)) return payload;
+  } catch (e) {}
+  return null;
+}
+
+async function importSharedProject() {
+  const payload = share_parseCode(document.getElementById('pf-import').value);
+  if (!payload) { toast('分享码无效，请确认已完整复制粘贴', 'error'); return; }
+  const name = String(payload.name || '').trim() || '导入的项目';
+  // 重建账户与记录：字段全部收窄为平台结构；项目内账户ID冲突时自动追加后缀去重
+  const users = payload.users.map(u => ({
+    id: String(u.id || '').trim() || uid(),
+    name: String(u.name || '').trim() || '未命名账户',
+    principal: Number(u.principal) || 0,
+    startDate: String(u.startDate || ''),
+    remark: String(u.remark || ''),
+    prices: Array.isArray(u.prices) ? u.prices.map(share_packPrice) : []
+  }));
+  const seen = new Set();
+  users.forEach(u => { while (seen.has(u.id)) u.id += '-2'; seen.add(u.id); });
+  const priceCount = users.reduce((s, u) => s + u.prices.length, 0);
+  confirmAction('导入分享项目', `将导入项目「${name}」：${users.length} 个账户、共 ${priceCount} 条回本记录，导入后归入你名下。确认导入？`, async () => {
+    projects.push({ id: uid(), name, remark: String(payload.remark || ''), createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users });
+    await saveCloudData(true);
+    closeModal('projectModal');
+    document.getElementById('pf-import').value = '';
+    renderProjectGrid();
+    toast(`已导入项目「${name}」（${users.length} 个账户）`, 'success');
+  });
 }
 
 // 删除项目（连同其下所有用户及价格记录）
