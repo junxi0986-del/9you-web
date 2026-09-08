@@ -630,6 +630,25 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   .modal-body { padding: 16px; }
 }
+
+/* ========== 滑动拼图人机验证（发送验证码前） ========== */
+.cap-stage { position: relative; width: 100%; aspect-ratio: 2 / 1; background: var(--input-bg); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.cap-stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#capPiece { width: 50px; height: 50px; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.cap-ok { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(16,185,129,.28); color: #fff; font-weight: 600; font-size: 15px; z-index: 3; }
+.cap-ok.show { display: flex; }
+.cap-track { position: relative; height: 42px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 21px; overflow: hidden; user-select: none; -webkit-user-select: none; }
+.cap-progress { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(59,130,246,.22); }
+.cap-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+.cap-handle { position: absolute; top: 0; left: 0; width: 42px; height: 40px; background: var(--card-bg); border-radius: 20px; display: flex; align-items: center; justify-content: center; cursor: grab; box-shadow: 0 1px 4px rgba(0,0,0,.25); touch-action: none; font-weight: 700; color: var(--text-secondary); }
+.cap-handle:active { cursor: grabbing; }
+.cap-track.shake { animation: capShake .3s; }
+@keyframes capShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+/* 手机端：弹窗全屏规则例外，人机验证保持小窗居中 */
+@media (max-width: 600px) {
+  .modal-mask#captchaModal { padding: 24px 16px; align-items: center; }
+  #captchaModal .modal { max-width: 340px; width: 100%; height: auto; max-height: none; border-radius: var(--radius); }
+}
 </style>
 </head>
 <body>
@@ -639,7 +658,17 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <h2 style="display:flex;align-items:center;justify-content:center;margin-bottom:24px"><img src="logo.jpg" class="header-logo login-logo" alt="logo">九游项目跟踪平台</h2>
     <div class="form-group">
       <label>邮箱</label>
-      <input type="email" id="loginEmail">
+      <div style="display:flex;gap:8px">
+        <input type="email" id="loginEmail" placeholder="邮箱账号名" style="flex:1">
+        <select id="loginDomain" onchange="applyEmailDomain()" style="width:auto;min-width:118px" title="选择邮箱后缀，免输入@域名">
+          <option value="@qq.com" selected>@qq.com</option>
+          <option value="@163.com">@163.com</option>
+          <option value="@126.com">@126.com</option>
+          <option value="@foxmail.com">@foxmail.com</option>
+          <option value="@gmail.com">@gmail.com</option>
+          <option value="@outlook.com">@outlook.com</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label>验证码</label>
@@ -1268,6 +1297,32 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   <button class="btn btn-sm btn-ghost" style="color:#cbd5e1" onclick="toggleBatchMode()">退出批量</button>
 </div>
 
+<!-- ========== 滑动拼图人机验证弹窗（发送验证码前） ========== -->
+<div class="modal-mask" id="captchaModal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-head">
+      <h3>🛡️ 安全验证</h3>
+      <button class="modal-close" onclick="closeModal('captchaModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="cap-stage">
+        <canvas id="capBg" width="300" height="150"></canvas>
+        <canvas id="capPiece" width="50" height="50"></canvas>
+        <div class="cap-ok" id="capOkTip">✓ 验证通过</div>
+      </div>
+      <div class="cap-track" id="capTrack">
+        <div class="cap-progress" id="capProgress"></div>
+        <div class="cap-text" id="capText">按住滑块，拖动填充拼图</div>
+        <div class="cap-handle" id="capHandle">»</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <span style="font-size:12px;color:var(--text-secondary)">验证通过后才会发送邮箱验证码</span>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="cap_reset()">🔄 换一张</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast-box"></div>
 
 <!-- 图片查看器（点击聊天图片放大） -->
@@ -1325,25 +1380,155 @@ function authError(msg){
 }
 
 // ============登录相关函数============
+// 邮箱后缀由下拉框管理（默认@qq.com）：输入框只填账号名，读取时用 getLoginEmail() 拼接完整邮箱
+function getLoginEmail() {
+  const val = document.getElementById('loginEmail').value.trim();
+  const domain = document.getElementById('loginDomain').value || '@qq.com';
+  return val.includes('@') ? val : val + domain;  // 手动输入完整邮箱时原样使用
+}
+// 切换后缀：仅当输入框含 @（手动输入了完整邮箱）时剥离后缀，统一保存在下拉框中显示
+function applyEmailDomain() {
+  const input = document.getElementById('loginEmail');
+  const val = input.value.trim();
+  const at = val.indexOf('@');
+  if (at >= 0) { input.value = val.slice(0, at); input.setSelectionRange(at, at); }
+  input.focus();
+}
 // 发送邮箱验证码：未注册的邮箱自动创建账号（shouldCreateUser）
 async function sendLoginCode(){
-  const email = document.getElementById("loginEmail").value.trim();
+  const email = getLoginEmail();
   if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast("请输入有效的邮箱地址","warn");
+  cap_open(doSendLoginCode);  // 先通过滑动拼图人机验证，再真正发送
+}
+async function doSendLoginCode(){
+  const email = getLoginEmail();
   const btn = document.getElementById('sendCodeBtn');
+  // 立即反馈：Supabase 发信需等待邮件实际发出（约1-3秒），先禁用按钮避免重复点击
+  btn.disabled = true;
+  btn.textContent = '发送中…';
   const {error} = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-  if(error) return toast("发送失败："+authError(error.message),"error");
+  if(error){ btn.disabled = false; btn.textContent = '发送验证码'; return toast("发送失败："+authError(error.message),"error"); }
   toast("验证码已发送，请查收邮箱","success");
   // 60 秒倒计时，防止频繁发送
   let seconds = 60;
-  btn.disabled = true;
   const timer = setInterval(() => {
     btn.textContent = `${seconds--} 秒后重发`;
     if(seconds < 0){ clearInterval(timer); btn.disabled = false; btn.textContent = '发送验证码'; }
   }, 1000);
 }
+
+/* ---------- 滑动拼图人机验证（Canvas 生成随机背景与缺口，拖动滑块对准缺口） ---------- */
+const cap = { gx: 0, gy: 0, S: 46, dragging: false, x: 0, max: 0, scale: 1, verified: false, onSuccess: null };
+
+// 打开验证弹窗：onSuccess 为验证通过后的回调
+function cap_open(onSuccess) {
+  cap.onSuccess = onSuccess;
+  cap.verified = false;
+  openModal('captchaModal');
+  cap_reset();
+}
+function cap_rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+// 圆角矩形路径（兼容不支持 ctx.roundRect 的浏览器）
+function cap_rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// 重新生成拼图背景与缺口，并复位滑块
+function cap_reset() {
+  const W = 300, H = 150, S = cap.S;
+  const bgCv = document.getElementById('capBg'), pcCv = document.getElementById('capPiece');
+  const bg = bgCv.getContext('2d'), pc = pcCv.getContext('2d');
+  cap.gx = cap_rand(120, W - S - 10);   // 缺口横向位置（不会太靠左，保证滑块可拖到）
+  cap.gy = cap_rand(15, H - S - 15);
+  cap.x = 0; cap.verified = false;
+  // 随机渐变背景 + 散点与线条，避免固定图案被截图识别
+  const hue = cap_rand(0, 360);
+  const grd = bg.createLinearGradient(0, 0, W, H);
+  grd.addColorStop(0, `hsl(${hue},42%,72%)`);
+  grd.addColorStop(1, `hsl(${(hue + 90) % 360},42%,52%)`);
+  bg.fillStyle = grd; bg.fillRect(0, 0, W, H);
+  for (let i = 0; i < 22; i++) {
+    bg.fillStyle = `hsla(${cap_rand(0,360)},60%,${cap_rand(30,78)}%,.35)`;
+    bg.beginPath(); bg.arc(cap_rand(0, W), cap_rand(0, H), cap_rand(4, 26), 0, Math.PI * 2); bg.fill();
+  }
+  for (let i = 0; i < 7; i++) {
+    bg.strokeStyle = `hsla(${cap_rand(0,360)},60%,28%,.25)`; bg.lineWidth = 2;
+    bg.beginPath(); bg.moveTo(cap_rand(0, W), cap_rand(0, H)); bg.lineTo(cap_rand(0, W), cap_rand(0, H)); bg.stroke();
+  }
+  // 缩放系数：画布固定 300 宽，按显示宽度换算缺口目标位置
+  cap.scale = bgCv.clientWidth / W || 1;
+  // 先从干净背景截取拼图块图案，再挖空缺口并描边
+  pc.clearRect(0, 0, 50, 50);
+  pc.save();
+  cap_rrect(pc, 2, 2, S, S, 8); pc.clip();
+  pc.drawImage(bgCv, cap.gx, cap.gy, S, S, 2, 2, S, S);
+  pc.restore();
+  pc.strokeStyle = 'rgba(255,255,255,.9)'; pc.lineWidth = 2;
+  cap_rrect(pc, 2, 2, S, S, 8); pc.stroke();
+  cap_rrect(bg, cap.gx, cap.gy, S, S, 8);
+  bg.fillStyle = 'rgba(0,0,0,.42)'; bg.fill();
+  bg.strokeStyle = 'rgba(255,255,255,.65)'; bg.lineWidth = 2; bg.stroke();
+  // 复位滑块与拼图块位置
+  const stage = document.getElementById('capTrack');
+  cap.max = Math.max(60, stage.clientWidth - 42);
+  document.getElementById('capHandle').style.left = '0px';
+  document.getElementById('capProgress').style.width = '0px';
+  pcCv.style.left = '0px';
+  pcCv.style.top = Math.round(cap.gy * cap.scale) + 'px';
+  document.getElementById('capText').textContent = '按住滑块，拖动填充拼图';
+  document.getElementById('capOkTip').classList.remove('show');
+}
+
+// 绑定滑块拖动（Pointer Events 同时支持鼠标与触屏）
+(function cap_bind() {
+  const handle = document.getElementById('capHandle'), track = document.getElementById('capTrack');
+  const piece = document.getElementById('capPiece');
+  const target = () => Math.round(cap.gx * cap.scale);   // 缺口的显示坐标
+  handle.addEventListener('pointerdown', e => {
+    if (cap.verified) return;
+    cap.dragging = true;
+    cap.sx = e.clientX - cap.x;
+    handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!cap.dragging) return;
+    cap.x = Math.max(0, Math.min(cap.max, e.clientX - cap.sx));
+    handle.style.left = cap.x + 'px';
+    document.getElementById('capProgress').style.width = (cap.x + 42) + 'px';
+    piece.style.left = cap.x + 'px';
+  });
+  const finish = () => {
+    if (!cap.dragging) return;
+    cap.dragging = false;
+    if (Math.abs(cap.x - target()) <= 10) {
+      cap.verified = true;
+      document.getElementById('capOkTip').classList.add('show');
+      document.getElementById('capText').textContent = '验证通过';
+      setTimeout(() => {
+        closeModal('captchaModal');
+        const cb = cap.onSuccess; cap.onSuccess = null;
+        if (cb) cb();
+      }, 500);
+    } else {
+      track.classList.add('shake');
+      setTimeout(() => track.classList.remove('shake'), 320);
+      toast('未对准缺口，请重试', 'warn');
+      setTimeout(cap_reset, 250);
+    }
+  };
+  handle.addEventListener('pointerup', finish);
+  handle.addEventListener('pointercancel', finish);
+})();
 // 验证码校验登录
 async function supabaseSignIn(){
-  const email = document.getElementById("loginEmail").value.trim();
+  const email = getLoginEmail();
   const token = document.getElementById("loginCode").value.trim();
   if(!email) return toast("请输入邮箱","warn");
   if(!token) return toast("请输入邮箱收到的验证码","warn");
@@ -1443,16 +1628,12 @@ async function loadCloudData(){
     .from("user_data")
     .select("content")
     .eq("user_id", currentUserId)   // 只读取当前登录用户的数据行
-    .single();
-  if(error && error.code !== 'PGRST116'){
+    .maybeSingle();                 // 新账号尚无数据行时返回 null（用 single 会报 406）
+  if(error){
     toast("读取云端失败","error");
     return;
   }
-  if(data && data.content){
-    projects = JSON.parse(data.content);
-  }else{
-    projects = [];
-  }
+  projects = (data && data.content) ? JSON.parse(data.content) : [];
 }
 
 // =========公共项目云端读写（public_projects 表，全员可读、仅管理员可写）=========
