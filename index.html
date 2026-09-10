@@ -1083,9 +1083,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <input type="hidden" id="uf-id">
       <input type="hidden" id="uf-projectId">
       <div class="form-group">
-        <label>账户ID<span class="req">*</span></label>
-        <input type="text" id="uf-uid" placeholder="请输入账户ID（项目内不可重复）" maxlength="30">
-        <div class="form-error">请输入账户ID，且不能与该项目下其他账户重复</div>
+        <label>账户ID（可选）</label>
+        <input type="text" id="uf-uid" placeholder="留空自动生成；也可自定义，项目内不可重复" maxlength="30">
+        <div class="form-error">账户ID为空或与该项目下其他账户重复</div>
       </div>
       <div class="form-group">
         <label>姓名<span class="req">*</span></label>
@@ -1813,6 +1813,7 @@ function showPage(page) {
   document.getElementById('pageProjectList').classList.toggle('active', page === 'list');
   document.getElementById('pageProjectDetail').classList.toggle('active', page === 'detail');
   if (page === 'list') {
+    histConsume();  // 若详情页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
     batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 返回列表时退出批量模式
     renderProjectGrid();
@@ -1821,6 +1822,19 @@ function showPage(page) {
   }
   window.scrollTo(0, 0);
 }
+
+/* ---------- 浏览器返回键/侧滑手势返回（SPA 视图入栈） ---------- */
+let histGuard = false;  // 程序内返回时置位，popstate 跳过处理避免重复切换
+function histPush(tag) { try { history.pushState({ app: tag }, ''); } catch (e) {} }
+function histConsume() {  // 程序内正常返回路径：消费掉已入栈的视图历史
+  if (history.state && history.state.app) { histGuard = true; try { history.back(); } catch (e) { histGuard = false; } }
+}
+window.addEventListener('popstate', () => {
+  if (histGuard) { histGuard = false; return; }
+  const cp = document.getElementById('chatPage');
+  if (cp && cp.style.display !== 'none') { chat_close(); return; }  // 群聊页：返回=关闭群聊
+  if (currentProjectId) showPage('list');                           // 详情页：返回=回项目列表
+});
 
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'public';
@@ -1966,6 +1980,7 @@ function enterProject(id) {
   document.getElementById('userSearch').value = '';  // 进入项目时清空搜索
   batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 重置批量操作状态
   showPage('detail');
+  histPush('detail');  // 详情页入栈：浏览器返回键/手机侧滑可回到列表
 }
 
 /* ---------- 详情页渲染 ---------- */
@@ -2370,15 +2385,16 @@ async function saveUser() {
   const p = getProject(projectId);
   if (!p) return;
   const oldId = document.getElementById('uf-id').value;
-  const newId = document.getElementById('uf-uid').value.trim();
+  const rawId = document.getElementById('uf-uid').value.trim();
+  const newId = oldId ? rawId : (rawId || uid());  // 新增时ID可留空自动生成；编辑时ID为账户标识必填
   const name = document.getElementById('uf-name').value.trim();
   const principal = parseFloat(document.getElementById('uf-principal').value);
   const date = document.getElementById('uf-date').value;
   const remark = document.getElementById('uf-remark').value.trim();
 
-  // 表单验证：ID必填且项目内唯一、姓名必填、本金为正数、日期不晚于今天
+  // 表单验证：新增时ID留空自动生成（填写则项目内唯一）；编辑时ID必填且唯一；姓名必填、本金为正数、日期不晚于今天
   let ok = true;
-  ok = setError('uf-uid', !newId || p.users.some(u => u.id === newId && u.id !== oldId)) && ok;
+  ok = setError('uf-uid', oldId ? !newId : (!!rawId && p.users.some(u => u.id === rawId && u.id !== oldId))) && ok;
   ok = setError('uf-name', !name) && ok;
   ok = setError('uf-principal', !(principal > 0)) && ok;
   ok = setError('uf-date', !date || date > todayStr()) && ok;
@@ -3140,6 +3156,7 @@ async function chat_open() {
   document.getElementById('chatPage').style.display = 'flex';
   window.scrollTo(0, 0);                 // 复位到顶部，保证页头完整可见
   document.body.classList.add('chat-open');  // 手机端锁定滚动并固定聊天区
+  histPush('chat');  // 群聊页入栈：浏览器返回键/手机侧滑可退出群聊
   chat_fitMobile();                      // 测量页头底缘，定位聊天区顶部
   window.onresize = chat_fitMobile;      // 旋转/缩放时重新定位
   document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
@@ -3173,6 +3190,7 @@ function chat_fitMobile() {
 
 // 关闭群聊：退订实时通道、恢复页面与导航栏高亮
 function chat_close() {
+  histConsume();  // 消费群聊历史记录（若存在），保持返回手势语义一致
   if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
   chatState.projectId = null;
   chat_keepSubscribe();     // 恢复未读常驻订阅
