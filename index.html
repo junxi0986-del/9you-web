@@ -719,19 +719,20 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
     </div>
 
-    <!-- 我的项目页签：全局汇总 + 私有项目列表 -->
+    <!-- 我的项目页签：全局汇总 + 全部账户列表（下拉框筛选项目，不再展示项目卡片） -->
     <div id="tabMineSection">
       <!-- 首页全局汇总：统计所有项目的整体回本情况 -->
       <div class="summary-grid" id="homeSummary" style="margin-bottom:16px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px">
-        <h2 style="font-size:16px;font-weight:600">项目列表</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+        <h2 style="font-size:16px;font-weight:600">账户列表</h2>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="openBillModal()">🧾 生成账单</button>
+          <button class="btn btn-outline" onclick="openBillPage()">🧾 生成账单</button>
           <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
-          <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
+          <button class="btn btn-primary" onclick="openUserModal()">＋ 添加账户</button>
         </div>
       </div>
-      <div class="project-grid" id="projectGrid"></div>
+      <select id="mineProjectFilter" onchange="mineFilterChanged()" style="width:100%;margin-bottom:12px"></select>
+      <div id="mineAccountList"></div>
     </div>
 
     <!-- 公共项目页签：全员可见；普通用户可复制到自己名下，管理员可增删改查 -->
@@ -932,6 +933,49 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
   </section>
 
+  <!-- ==================== 页面三：生成账单（独立页面，手机端全宽自适应无横向滚动） ==================== -->
+  <section class="page" id="pageBill">
+    <!-- 面包屑导航 -->
+    <nav class="breadcrumb">
+      <a onclick="showPage('list')">项目列表</a>
+      <span class="sep">/</span>
+      <b>生成账单</b>
+    </nav>
+
+    <div class="table-card">
+      <div class="form-group" style="margin-bottom:10px">
+        <label>统计范围</label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
+            <input type="radio" name="bill-scope" value="all" checked style="accent-color:#2563eb" onchange="renderBill()"> 统计全部项目
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
+            <input type="radio" name="bill-scope" value="one" style="accent-color:#2563eb" onchange="renderBill()"> 统计单独项目
+          </label>
+          <select id="bill-project" onchange="billPickProject()" style="flex:1;min-width:130px"></select>
+        </div>
+      </div>
+      <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:14px 10px;overflow:hidden"></div>
+      <div id="billConvertBox" style="display:none;margin-top:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:10px;padding:12px">
+        <div style="font-size:13px;font-weight:700;color:#92400e">⚠️ 直接金额换算确认</div>
+        <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">以下 <b id="billConvCount">0</b> 笔为「直接金额」录入，系统按 <select id="billConvMp" onchange="billRenderConvert()" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px"></select>（<span id="billConvDate"></span>市场价）反推出货数量，请逐笔确认是否正确（数量可直接修改）：</div>
+        <div id="billConvList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+        <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;min-height:40px" onclick="billApplyConvert()">✓ 确认无误，写入数量并重新生成账单</button>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label>出货截图佐证（必传，不限张数）</label>
+        <input type="file" id="billFiles" accept="image/*" multiple style="display:none" onchange="billAddFiles(this.files);this.value=''">
+        <div style="display:flex;gap:10px;align-items:center">
+          <button type="button" class="btn btn-outline" style="min-height:38px;padding:6px 14px" onclick="document.getElementById('billFiles').click()">📤 上传截图</button>
+          <span style="font-size:12px;color:var(--text-secondary)" id="billFilesTip">未上传，保存图片前必须上传</span>
+        </div>
+        <div id="billThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
+      <button type="button" class="btn btn-primary" id="billSaveBtn" style="margin-top:4px;width:100%" onclick="saveBillImage()">📷 保存为图片</button>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">手机端生成后长按图片可保存到相册；电脑端自动下载 PNG<br>图片含唯一账单编号与身份平铺水印，编号由账单内容计算生成，内容被改动编号即失配</div>
+    </div>
+  </section>
+
   <!-- ========== 项目群聊页（站内普通页面，公共项目全员可聊） ========== -->
   <div id="chatPage" class="chat-page" style="display:none">
     <!-- 顶部导航栏：返回 + 群名 + 成员数 -->
@@ -1036,48 +1080,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   </div>
 </div>
 
-<!-- ========== 生成账单弹窗：汇总项目当日出货明细，支持保存为图片 ========== -->
-<div class="modal-mask" id="billModal">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-head">
-      <h3>🧾 生成账单</h3>
-      <button class="modal-close" onclick="closeModal('billModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>统计范围</label>
-        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
-            <input type="radio" name="bill-scope" value="all" checked style="accent-color:#2563eb" onchange="renderBill()"> 统计全部项目
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
-            <input type="radio" name="bill-scope" value="one" style="accent-color:#2563eb" onchange="renderBill()"> 统计单独项目
-          </label>
-          <select id="bill-project" onchange="billPickProject()" style="flex:1;min-width:150px"></select>
-        </div>
-      </div>
-      <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:18px 16px;overflow:hidden"></div>
-      <div id="billConvertBox" style="display:none;margin-top:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:10px;padding:12px">
-        <div style="font-size:13px;font-weight:700;color:#92400e">⚠️ 直接金额换算确认</div>
-        <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">以下 <b id="billConvCount">0</b> 笔为「直接金额」录入，系统按 <select id="billConvMp" onchange="billRenderConvert()" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px"></select>（<span id="billConvDate"></span>市场价）反推出货数量，请逐笔确认是否正确（数量可直接修改）：</div>
-        <div id="billConvList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-        <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;min-height:40px" onclick="billApplyConvert()">✓ 确认无误，写入数量并重新生成账单</button>
-      </div>
-      <div class="form-group" style="margin-top:12px">
-        <label>出货截图佐证（必传，不限张数）</label>
-        <input type="file" id="billFiles" accept="image/*" multiple style="display:none" onchange="billAddFiles(this.files);this.value=''">
-        <div style="display:flex;gap:10px;align-items:center">
-          <button type="button" class="btn btn-outline" style="min-height:38px;padding:6px 14px" onclick="document.getElementById('billFiles').click()">📤 上传截图</button>
-          <span style="font-size:12px;color:var(--text-secondary)" id="billFilesTip">未上传，保存图片前必须上传</span>
-        </div>
-        <div id="billThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-      </div>
-      <button type="button" class="btn btn-primary" id="billSaveBtn" style="margin-top:4px;width:100%" onclick="saveBillImage()">📷 保存为图片</button>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">手机端生成后长按图片可保存到相册；电脑端自动下载 PNG<br>图片含唯一账单编号与身份平铺水印，编号由账单内容计算生成，内容被改动编号即失配</div>
-    </div>
-  </div>
-</div>
-
 <!-- ========== 今日回本明细弹窗（仅展示，带账号水印） ========== -->
 <div class="modal-mask" id="todayListModal">
   <div class="modal" style="max-width:620px">
@@ -1138,16 +1140,20 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-body">
       <input type="hidden" id="uf-id">
-      <input type="hidden" id="uf-projectId">
+      <div class="form-group">
+        <label>所属项目</label>
+        <select id="uf-project" onchange="ufProjChanged()"></select>
+        <div class="form-error">请选择所属项目</div>
+      </div>
       <div class="form-group">
         <label>账户ID（可选）</label>
         <input type="text" id="uf-uid" placeholder="留空自动生成；也可自定义，项目内不可重复" maxlength="30">
         <div class="form-error">账户ID为空或与该项目下其他账户重复</div>
       </div>
       <div class="form-group">
-        <label>姓名<span class="req">*</span></label>
-        <input type="text" id="uf-name" placeholder="请输入账户姓名" maxlength="30">
-        <div class="form-error">请输入账户姓名</div>
+        <label>姓名<span style="font-size:11px;color:var(--text-secondary)">（选填，留空默认账号名）</span></label>
+        <input type="text" id="uf-name" placeholder="留空默认使用账号名" maxlength="30">
+        <div class="form-error">账户ID已被占用或格式不正确</div>
       </div>
       <div class="form-group">
         <label>投入本金（元）<span class="req">*</span></label>
@@ -1166,6 +1172,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('userModal')">取消</button>
+      <button class="btn btn-outline" id="ufSaveMoreBtn" style="display:none" onclick="saveUser(true)">＋ 保存并继续</button>
       <button class="btn btn-primary" onclick="saveUser()">保存</button>
     </div>
   </div>
@@ -1815,7 +1822,11 @@ function toast(msg, type = '') {
 
 // 通用弹窗开关
 function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  // 关闭今日明细弹窗时停止实时时钟，避免空转
+  if (id === 'todayListModal' && todayClockTimer) { clearInterval(todayClockTimer); todayClockTimer = null; }
+}
 
 // 点击遮罩关闭弹窗
 document.querySelectorAll('.modal-mask').forEach(m => {
@@ -1869,12 +1880,14 @@ function showPage(page) {
   if (cp && cp.style.display !== 'none') chat_close();
   document.getElementById('pageProjectList').classList.toggle('active', page === 'list');
   document.getElementById('pageProjectDetail').classList.toggle('active', page === 'detail');
+  document.getElementById('pageBill').classList.toggle('active', page === 'bill');
+  if (page !== 'bill') onBillPage = false;  // 离开账单页时复位标识
   if (page === 'list') {
-    histConsume();  // 若详情页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
+    histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
     batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 返回列表时退出批量模式
     renderProjectGrid();
-  } else {
+  } else if (page !== 'bill') {
     renderDetail();
   }
   window.scrollTo(0, 0);
@@ -1882,6 +1895,7 @@ function showPage(page) {
 
 /* ---------- 浏览器返回键/侧滑手势返回（SPA 视图入栈） ---------- */
 let histGuard = false;  // 程序内返回时置位，popstate 跳过处理避免重复切换
+let onBillPage = false;  // 当前是否处于生成账单页
 function histPush(tag) { try { history.pushState({ app: tag }, ''); } catch (e) {} }
 function histConsume() {  // 程序内正常返回路径：消费掉已入栈的视图历史
   if (history.state && history.state.app) { histGuard = true; try { history.back(); } catch (e) { histGuard = false; } }
@@ -1890,14 +1904,15 @@ window.addEventListener('popstate', () => {
   if (histGuard) { histGuard = false; return; }
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') { chat_close(); return; }  // 群聊页：返回=关闭群聊
+  if (onBillPage) { showPage('list'); return; }                     // 账单页：返回=回项目列表
   if (currentProjectId) showPage('list');                           // 详情页：返回=回项目列表
 });
 
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'public';
 function switchListTab(tab) {
-  // 若正处于项目详情页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
-  if (currentProjectId) showPage('list');
+  // 若正处于项目详情页/生成账单页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
+  if (currentProjectId || onBillPage) showPage('list');
   // 若群聊页已打开，先正常关闭再切换页签
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') chat_close();
@@ -1921,11 +1936,15 @@ function updateListTabUI() {
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
 }
 
-/* ---------- 主页面：项目列表渲染 ---------- */
+/* ---------- 主页面：我的项目 → 全部账户列表渲染（下拉框筛选项目） ---------- */
+let mineFilterPid = '';  // 账户列表筛选的项目 ID：'' = 全部项目
+function mineFilterChanged() {
+  mineFilterPid = document.getElementById('mineProjectFilter').value;
+  renderProjectGrid();
+}
 function renderProjectGrid() {
-  const grid = document.getElementById('projectGrid');
+  const listEl = document.getElementById('mineAccountList');
   document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">九游项目跟踪管理平台';
-  grid.innerHTML = '';
 
   // ---- 首页全局汇总：跨所有项目统计 ----
   const allUsers = projects.flatMap(p => p.users);
@@ -1956,49 +1975,59 @@ function renderProjectGrid() {
   renderPublicProjects();
   updateListTabUI();
 
+  // ---- 账户筛选下拉框：全部项目 / 单个项目 ----
+  const filterSel = document.getElementById('mineProjectFilter');
+  filterSel.innerHTML = `<option value="">📂 全部项目（${projects.length} 个项目 / ${allUsers.length} 账户）</option>` +
+    projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
+  if (mineFilterPid && !projects.some(p => p.id === mineFilterPid)) mineFilterPid = '';  // 项目被删后回落到全部
+  filterSel.value = mineFilterPid;
+
+  // ---- 全部账户平铺列表：一行一个账户，点击进入该项目详情管理 ----
+  const scope = mineFilterPid ? projects.filter(p => p.id === mineFilterPid) : projects;
+  const accRows = [];
+  scope.forEach(p => p.users.forEach(u => accRows.push({ p, u })));
   if (projects.length === 0) {
-    grid.innerHTML = `
-      <div class="empty" style="grid-column:1/-1">
+    listEl.innerHTML = `
+      <div class="empty">
         <div class="icon">📁</div>
         <div>暂无项目，点击右上角「＋ 新增项目」开始记录</div>
       </div>`;
     return;
   }
-
-  projects.forEach(p => {
-    // 项目卡片展示该项目的汇总概况
-    const userCount = p.users.length;
-    const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
-    const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
-    // 还差多少元回本：所有账户剩余未回本金额之和（最低为 0）
-    const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
-    // 利润金额：所有账户累计收益超出本金的部分
-    const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
-
-    const card = document.createElement('div');
-    card.className = 'project-card';
-    card.onclick = () => enterProject(p.id);
-    card.innerHTML = `
-      <div class="pc-name">📁 ${escapeHtml(p.name)}
-        ${userCount ? `<span class="badge badge-blue">${doneCount}/${userCount} 已回本</span>` : ''}
-      </div>
-      <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
-      <div class="pc-stats">
-        <div><div class="lbl">账户数量</div><div class="val">${userCount} 人</div></div>
-        <div><div class="lbl">总本金</div><div class="val">${fmtMoney(totalPrincipal)}</div></div>
-        <div><div class="lbl">还差回本</div><div class="val" style="color:${totalRemain > 0 ? 'var(--danger)' : 'var(--success)'}">${totalRemain > 0
-          ? fmtMoney(totalRemain) + ' 元'
-          : (totalProfit > 0 ? '利润 +' + fmtMoney(totalProfit) + ' 元' : '已回本')}</div></div>
-      </div>
-      <div class="pc-foot" onclick="event.stopPropagation()">
-        <button class="btn btn-sm btn-primary" onclick="enterProject('${p.id}')">进入管理</button>
-        <div class="pc-actions">
-          <button class="btn btn-sm btn-outline" onclick="openProjectModal('${p.id}')">编辑</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">删除</button>
+  if (accRows.length === 0) {
+    listEl.innerHTML = `
+      <div class="empty">
+        <div class="icon">👥</div>
+        <div>该项目暂无账户，进入项目后点击「＋ 添加账户」</div>
+      </div>`;
+    return;
+  }
+  listEl.innerHTML = accRows.map(({ p, u }, idx) => {
+    const earned = calcEarned(u);
+    const remain = calcRemain(u);
+    const progress = calcProgress(u);
+    const isDone = Number(u.principal) > 0 && earned >= Number(u.principal);
+    const pc = progressClass(progress, isDone);
+    return `
+      <div class="table-card" style="margin-bottom:10px;cursor:pointer" onclick="enterProject('${p.id}')" title="点击进入项目管理">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:600;font-size:14px" class="cell-main"><span style="color:var(--text-secondary);font-weight:400;font-size:11px;margin-right:4px">#${idx + 1}</span>${escapeHtml(u.name)}
+              <span style="font-size:11px;color:var(--text-secondary);font-weight:400">ID:${escapeHtml(u.id)}</span>
+              ${isDone ? '<span class="badge badge-done">已回本</span>' : '<span class="badge badge-blue">未回本</span>'}
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:3px">
+              ${mineFilterPid ? '' : `<b style="color:var(--text);font-weight:700">📁 ${escapeHtml(p.name)}</b> · `}本金 ¥${fmtMoney(u.principal)} · 已收 ¥${fmtMoney(earned)} · 剩余 ¥${fmtMoney(remain)}
+              ${u.remark ? ` · 📝 ${escapeHtml(u.remark)}` : ''}
+            </div>
+          </div>
+          <div class="progress-wrap" style="min-width:120px">
+            <div class="progress-bar"><div class="progress-fill ${pc}" style="width:${progress}%"></div></div>
+            <span class="progress-text ${pc === '' ? 'normal' : pc}">${progress.toFixed(1)}%</span>
+          </div>
         </div>
       </div>`;
-    grid.appendChild(card);
-  });
+  }).join('');
 }
 
 // 统计数字滚动动画：从 0 缓动滚动到目标值（约 0.9 秒，ease-out）
@@ -2185,8 +2214,14 @@ async function saveProject() {
     p.name = name; p.remark = remark;
     toast('项目已更新', 'success');
   } else {
-    projects.push({ id: uid(), name, remark, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] });
-    toast('项目已新增', 'success');
+    const np = { id: uid(), name, remark, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
+    projects.push(np);
+    toast('项目已新增，可立即添加账户', 'success');
+    await saveCloudData(true);
+    closeModal('projectModal');
+    renderProjectGrid();
+    openUserModal('', np.id);  // 创建后直接衔接「添加账户」，无需再进项目详情
+    return;
   }
   await saveCloudData(true);
   closeModal('projectModal');
@@ -2281,15 +2316,17 @@ async function importSharedProject() {
 }
 
 /* ---------- 生成账单：汇总项目当日出货明细，支持保存为图片 ---------- */
-async function openBillModal() {
+async function openBillPage() {
   if (projects.length === 0) { toast('暂无项目，请先新增项目', 'warn'); return; }
   const sel = document.getElementById('bill-project');
   sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
-  billShots = [];  // 每次打开重新上传佐证截图，避免混入上次账单
+  billShots = [];  // 每次进入重新上传佐证截图，避免混入上次账单
   billRenderThumbs();
   if (marketPrices.length === 0) await loadMarketPrices();  // 直接金额反推数量需要市场价
   renderBill();
-  openModal('billModal');
+  onBillPage = true;
+  showPage('bill');   // 切到独立账单页（隐藏列表页）
+  histPush('bill');   // 历史入栈：浏览器返回键/侧滑可退回列表
 }
 
 // ===== 出货截图佐证：上传 → 压缩 → 缩略图管理 → 嵌入账单并打水印 =====
@@ -2478,7 +2515,7 @@ function renderBill() {
       </div>
       <div style="margin-top:12px;font-size:13px;color:#0f172a">日期：<b>${y}年${Number(m)}月${Number(d)}日</b></div>
       <div style="margin-top:3px;font-size:13px;color:#0f172a">范围：<b>${one ? escapeHtml((scope[0] && scope[0].name) || '') : '全部项目'} · 账号 ${escapeHtml(email)}</b></div>
-      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a">
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a;table-layout:fixed;word-break:break-word">
         <thead><tr style="background:#f1f5f9">
           <th style="${cs}text-align:center;width:34px">编号</th>
           <th style="${cs}text-align:left">项目名字</th>
@@ -2594,6 +2631,11 @@ window.billDecodeWatermark = function (src) {
 
 /* ---------- 今日回本明细：点击首页/详情页「今日回本金额」卡片打开，仅展示、带账号水印 ---------- */
 // scope 可选：首页不传 = 全部项目；详情页传 [当前项目] = 仅本项目
+let todayClockTimer = null;  // 实时时钟定时器（弹窗关闭时清除）
+function todayTick() {
+  const el = document.getElementById('todayClock');
+  if (el) el.textContent = nowLocal().slice(11, 19);  // HH:mm:ss 实时跳动
+}
 function openTodayList(scope) {
   const { rows, total } = bill_collectToday(scope && scope.length ? scope : projects);
   const today = nowLocal().slice(0, 10);
@@ -2611,7 +2653,7 @@ function openTodayList(scope) {
   // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
   const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${today} 今日明细`, 'rgba(59,130,246,.16)');
   document.getElementById('todayListPaper').innerHTML = `
-    <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
+    <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} <b id="todayClock" style="color:var(--primary);font-family:Consolas,Menlo,monospace">${nowLocal().slice(11, 19)}</b> ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3">${wm}</div>
     <div style="position:relative;z-index:2">
       <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;color:var(--text)">
@@ -2627,6 +2669,9 @@ function openTodayList(scope) {
       </table>
     </div>`;
   openModal('todayListModal');
+  // 每秒刷新当前时间（HH:mm:ss）；重复打开时先清旧定时器
+  clearInterval(todayClockTimer);
+  todayClockTimer = setInterval(todayTick, 1000);
 }
 
 async function saveBillImage() {
@@ -2786,23 +2831,32 @@ function deletePublicProject(id) {
 async function copyPublicProject(id) {
   const p = publicProjects.find(x => x.id === id);
   if (!p) return;
-  projects.push({
+  const np = {
     id: uid(),
     name: p.name,
     remark: p.remark || '',
     createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     users: []
-  });
+  };
+  projects.push(np);
   await saveCloudData(true);
-  renderProjectGrid();
-  toast(`已将「${p.name}」复制到我的项目`, 'success');
+  switchListTab('mine');  // 切到我的项目页签（账户列表实时包含新项目）
+  toast(`已将「${p.name}」复制到我的项目，请添加账户`, 'success');
+  openUserModal('', np.id);  // 直接衔接添加账户，所属项目下拉自动选中新复制的项目
 }
 
 /* ---------- 新增 / 编辑账户 ---------- */
-function openUserModal(id) {
+function openUserModal(id, forcedProjectId) {
   setError('uf-uid', false); setError('uf-name', false);
   setError('uf-principal', false); setError('uf-date', false);
-  document.getElementById('uf-projectId').value = currentProjectId;
+  // 所属项目下拉框：新增时可任选项目（不再依赖先进入项目详情）；编辑时锁定归属不可改
+  const projSel = document.getElementById('uf-project');
+  projSel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
+  const targetPid = forcedProjectId || currentProjectId || (projects[0] && projects[0].id) || '';
+  projSel.value = targetPid;
+  projSel.disabled = !!id;
+  // 新增模式显示「＋ 保存并继续」，编辑模式隐藏
+  document.getElementById('ufSaveMoreBtn').style.display = id ? 'none' : '';
   if (id) {
     const p = getProject(currentProjectId);
     const u = getUser(p, id);
@@ -2827,22 +2881,25 @@ function openUserModal(id) {
   document.getElementById('uf-uid').focus();
 }
 
-async function saveUser() {
-  const projectId = document.getElementById('uf-projectId').value;
+// 切换所属项目下拉（保留钩子，当前保存直接读取下拉值）
+function ufProjChanged() {}
+
+async function saveUser(keepOpen) {
+  const projectId = document.getElementById('uf-project').value;
   const p = getProject(projectId);
-  if (!p) return;
+  if (!p) { toast('请选择所属项目', 'warn'); return; }
   const oldId = document.getElementById('uf-id').value;
   const rawId = document.getElementById('uf-uid').value.trim();
   const newId = oldId ? rawId : (rawId || uid());  // 新增时ID可留空自动生成；编辑时ID为账户标识必填
-  const name = document.getElementById('uf-name').value.trim();
+  // 姓名选填：留空默认使用当前登录账号名（邮箱 @ 前缀）
+  const name = document.getElementById('uf-name').value.trim() || String(currentUserEmail || '').split('@')[0] || '未命名';
   const principal = parseFloat(document.getElementById('uf-principal').value);
   const date = document.getElementById('uf-date').value;
   const remark = document.getElementById('uf-remark').value.trim();
 
-  // 表单验证：新增时ID留空自动生成（填写则项目内唯一）；编辑时ID必填且唯一；姓名必填、本金为正数、日期不晚于今天
+  // 表单验证：新增时ID留空自动生成（填写则项目内唯一）；编辑时ID必填且唯一；姓名可留空、本金为正数、日期不晚于今天
   let ok = true;
   ok = setError('uf-uid', oldId ? !newId : (!!rawId && p.users.some(u => u.id === rawId && u.id !== oldId))) && ok;
-  ok = setError('uf-name', !name) && ok;
   ok = setError('uf-principal', !(principal > 0)) && ok;
   ok = setError('uf-date', !date || date > todayStr()) && ok;
   if (!ok) return;
@@ -2857,8 +2914,19 @@ async function saveUser() {
     toast('账户已添加', 'success');
   }
   await saveCloudData(true);
-  closeModal('userModal');
-  renderDetail();
+  if (keepOpen && !oldId) {
+    // 连续添加：清空输入保留所选项目，无需重复打开弹窗
+    document.getElementById('uf-uid').value = '';
+    document.getElementById('uf-name').value = '';
+    document.getElementById('uf-principal').value = '';
+    document.getElementById('uf-date').value = todayStr();
+    document.getElementById('uf-remark').value = '';
+    setError('uf-uid', false); setError('uf-principal', false); setError('uf-date', false);
+    toast(`已添加「${name}」，可继续添加下一个`, 'success');
+  } else {
+    closeModal('userModal');
+  }
+  if (currentProjectId) renderDetail(); else renderProjectGrid();
 }
 
 // 删除账户（连同其所有价格记录）
