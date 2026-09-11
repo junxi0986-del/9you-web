@@ -263,11 +263,11 @@ body {
 .project-card .pc-name { font-size: 16px; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; }
 .project-card .pc-remark { color: var(--text-secondary); font-size: 13px; min-height: 20px; word-break: break-all; }
 .project-card .pc-stats {
-  display: flex; gap: 16px; border-top: 1px dashed var(--border); padding-top: 10px;
+  display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border); padding-top: 10px;
 }
-.project-card .pc-stats div { flex: 1; }
-.project-card .pc-stats .lbl { font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; }
-.project-card .pc-stats .val { font-size: 15px; font-weight: 600; }
+.project-card .pc-stats .pc-stat-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.project-card .pc-stats .lbl { font-size: 12px; color: var(--text-secondary); }
+.project-card .pc-stats .val { font-size: 14px; font-weight: 600; text-align: right; word-break: break-all; }
 .project-card .pc-foot {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   margin-top: 4px;
@@ -438,7 +438,21 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 @media (max-width: 520px) {
   .header { flex-direction: column; align-items: flex-start; }
-  .project-grid { grid-template-columns: 1fr; }
+  /* 手机端项目列表（我的项目/公共项目）：淘宝商品式双列紧凑卡片，两页展示方式一致 */
+  #projectGrid, #publicProjectGrid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  #projectGrid .project-card, #publicProjectGrid .project-card { padding: 10px 12px; border-radius: 12px; gap: 8px; }
+  #projectGrid .project-card:hover, #publicProjectGrid .project-card:hover { transform: none; }
+  #projectGrid .pc-name, #publicProjectGrid .pc-name { font-size: 13px; gap: 5px; flex-wrap: wrap; }
+  #projectGrid .pc-name .badge, #publicProjectGrid .pc-name .badge { font-size: 10px; padding: 1px 6px; }
+  #projectGrid .pc-remark, #publicProjectGrid .pc-remark {
+    font-size: 11px; min-height: 0;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  #projectGrid .pc-stats { gap: 4px; padding-top: 8px; }
+  #projectGrid .pc-stats .lbl { font-size: 10px; }
+  #projectGrid .pc-stats .val { font-size: 12px; }
+  #projectGrid .pc-foot, #publicProjectGrid .pc-foot { flex-wrap: wrap; }
+  #projectGrid .pc-foot .btn, #publicProjectGrid .pc-foot .btn { flex: 1; padding: 5px 6px; font-size: 11px; white-space: nowrap; }
 }
 
 /* ========== 批量操作 ========== */
@@ -694,10 +708,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="header-actions">
       <div class="tab-switch tab-switch-desktop">
-        <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
+        <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
-        <button id="tabBtnChat" onclick="chat_open()">💬 群聊</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
@@ -719,28 +732,25 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
     </div>
 
-    <!-- 我的项目页签：全局汇总 + 全部账户列表（下拉框筛选项目，不再展示项目卡片） -->
+    <!-- 我的项目页签：全局汇总 + 项目列表（手机端淘宝式双列卡片） -->
     <div id="tabMineSection">
       <!-- 首页全局汇总：统计所有项目的整体回本情况 -->
       <div class="summary-grid" id="homeSummary" style="margin-bottom:16px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
-        <h2 style="font-size:16px;font-weight:600">账户列表</h2>
-        <div style="display:flex;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
+        <h2 style="font-size:16px;font-weight:600">项目列表<span id="mineProjCount" style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px"></span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline" onclick="openBillPage()">🧾 生成账单</button>
           <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
-          <button class="btn btn-primary" onclick="openUserModal()">＋ 添加账户</button>
+          <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
         </div>
       </div>
-      <select id="mineProjectFilter" onchange="mineFilterChanged()" style="width:100%;margin-bottom:12px"></select>
-      <div id="mineAccountList"></div>
+      <div class="project-grid" id="projectGrid"></div>
     </div>
 
-    <!-- 公共项目页签：全员可见；普通用户可复制到自己名下，管理员可增删改查 -->
+    <!-- 公共项目页签：全员可见仅浏览；管理员可发布/编辑/删除 -->
     <div id="tabPublicSection" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
-        <h2 style="font-size:16px;font-weight:600">🌐 公共项目
-          <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击「复制」将项目添加到自己的项目列表</span>
-        </h2>
+        <h2 style="font-size:16px;font-weight:600">🌐 公共项目</h2>
         <button class="btn btn-primary" id="pubAddBtn" style="display:none" onclick="openPublicProjectModal()">＋ 发布公共项目</button>
       </div>
       <div class="project-grid" id="publicProjectGrid"></div>
@@ -786,6 +796,17 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
           <input type="text" id="myNameInput" maxlength="20" placeholder="群聊中显示的名称">
         </div>
         <button class="btn btn-outline" style="width:100%" onclick="saveMyName()">保存用户名</button>
+      </div>
+
+      <!-- 项目群聊入口（原导航栏群聊按钮移至此处） -->
+      <div class="table-card" style="margin-bottom:14px">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">💬 项目群聊</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">与全体成员实时沟通，昵称即上方用户名</div>
+          </div>
+          <button class="btn btn-primary" onclick="chat_open()">进入群聊</button>
+        </div>
       </div>
 
       <!-- 消息通知设置：桌面弹窗通知（iOS 风格开关，偏好存 localStorage） -->
@@ -864,12 +885,11 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
     </div>
 
-    <!-- 移动端底部导航：公共项目 / 我的项目 / 公告 / 我的 -->
+    <!-- 移动端底部导航：我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
     <nav class="bottom-nav">
-      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
+      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
       <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
-      <button id="bnavChat" onclick="chat_open()"><span class="ic">💬</span><span>群聊</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
@@ -958,9 +978,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:14px 10px;overflow:hidden"></div>
       <div id="billConvertBox" style="display:none;margin-top:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:10px;padding:12px">
         <div style="font-size:13px;font-weight:700;color:#92400e">⚠️ 直接金额换算确认</div>
-        <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">以下 <b id="billConvCount">0</b> 笔为「直接金额」录入，系统按 <select id="billConvMp" onchange="billRenderConvert()" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px"></select>（<span id="billConvDate"></span>市场价）反推出货数量，请逐笔确认是否正确（数量可直接修改）：</div>
+        <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">已自动识别 <b id="billConvCount">0</b> 笔「直接金额」未确认账单（<span id="billConvDate"></span> 市场价），并按「项目名 → 账户历史品名 → 今日唯一品名」自动匹配市场价反推出货数量；<b>每笔独立确认</b>，品名与数量均可修改，修改后上方账单实时联动预览：</div>
         <div id="billConvList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-        <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;min-height:40px" onclick="billApplyConvert()">✓ 确认无误，写入数量并重新生成账单</button>
+        <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;min-height:40px" onclick="billApplyConvertAll()">✓ 全部确认，写入数量并重新生成账单</button>
       </div>
       <div class="form-group" style="margin-top:12px">
         <label>出货截图佐证（必传，不限张数）</label>
@@ -1039,8 +1059,10 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
       <div class="form-group">
         <label>项目名称<span class="req">*</span></label>
-        <input type="text" id="pf-name" placeholder="请输入项目名称" maxlength="50">
-        <div class="form-error">请输入项目名称</div>
+        <!-- 新增模式：上方下拉快选公共项目（选中自动带出名称与备注），下方输入框可自定义项目名 -->
+        <select id="pf-name-sel" style="display:none" onchange="pfSelPick()"></select>
+        <input type="text" id="pf-name" placeholder="请输入自定义项目名称" maxlength="50">
+        <div class="form-error">请输入或选择项目名称</div>
       </div>
       <div class="form-group">
         <label>项目备注（可选）</label>
@@ -1063,6 +1085,13 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-body">
       <div class="form-group">
+        <label>分享范围<span class="req">*</span></label>
+        <select id="sp-scope" onchange="spScopeChange()">
+          <option value="single">单独分享（选择一个项目）</option>
+          <option value="all">全部分享（所有项目打包成一个分享码）</option>
+        </select>
+      </div>
+      <div class="form-group" id="sp-proj-group">
         <label>选择要分享的项目<span class="req">*</span></label>
         <select id="sp-project"></select>
       </div>
@@ -1146,9 +1175,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <div class="form-error">请选择所属项目</div>
       </div>
       <div class="form-group">
-        <label>账户ID（可选）</label>
-        <input type="text" id="uf-uid" placeholder="留空自动生成；也可自定义，项目内不可重复" maxlength="30">
-        <div class="form-error">账户ID为空或与该项目下其他账户重复</div>
+        <label>账户ID（选填，留空则不填）</label>
+        <input type="text" id="uf-uid" placeholder="选填；留空则不填ID，填写后项目内不可重复" maxlength="30">
+        <div class="form-error">账户ID与该项目下其他账户重复</div>
       </div>
       <div class="form-group">
         <label>姓名<span style="font-size:11px;color:var(--text-secondary)">（选填，留空默认账号名）</span></label>
@@ -1219,14 +1248,14 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
       <div class="form-group" id="pr-qtyInputGroup" style="display:none">
         <label>出货数量<span class="req">*</span></label>
-        <input type="number" id="pr-qty" placeholder="请输入出货数量" min="0.01" step="0.01" oninput="updateQtyAmount()">
-        <div class="form-tip" id="pr-qtyAmount">预计回本金额：— 元</div>
-        <div class="form-error">请输入大于 0 的出货数量</div>
+        <input type="number" id="pr-qty" placeholder="请输入整数出货数量" min="1" step="1" oninput="updateQtyAmount()">
+        <div class="form-tip" id="pr-qtyAmount">预计回本金额：— 元（数量必须为整数）</div>
+        <div class="form-error">出货数量必须为大于 0 的整数</div>
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('priceModal')">完成</button>
-      <button class="btn btn-primary" onclick="savePrice()">保存</button>
+      <button class="btn btn-ghost" onclick="closeModal('priceModal')">取消</button>
+      <button class="btn btn-primary" onclick="savePrice()">添加</button>
     </div>
   </div>
 </div>
@@ -1304,7 +1333,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div class="form-group">
         <label>账户信息（每行一位）<span class="req">*</span></label>
         <textarea id="bu-text" rows="8" placeholder="张三, 10000, 2026-01-15, ID001, 老客户&#10;李四, 8000"></textarea>
-        <div class="form-tip">格式：姓名, 本金, 上车日期, 账户ID, 备注 —— 仅姓名和本金必填；日期可省略（默认今天）且不能晚于今天；账户ID留空将自动生成且不可重复</div>
+        <div class="form-tip">格式：姓名, 本金, 上车日期, 账户ID, 备注 —— 仅姓名和本金必填；日期可省略（默认今天）且不能晚于今天；账户ID选填，留空则不填且不可重复</div>
         <div class="form-error" id="bu-error"></div>
       </div>
     </div>
@@ -1416,7 +1445,7 @@ let projects = [];
 let currentUserId = null;
 let currentProjectId = null;
 let detailAnimate = false;             // 是否为详情页汇总数字播放滚动动画（仅进入项目时播放）
-let ledgerUserId = null;
+let ledgerUserIdx = null;  // 台账当前账户行序号（账户ID可留空，改用行序号定位）
 let ledgerSort = 'desc';
 let confirmCallback = null;
 
@@ -1790,7 +1819,6 @@ function fmtDateTime(s) { return s ? s.replace('T', ' ') : '—'; }
 const fmtMoney = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const getProject = id => projects.find(p => p.id === id);
-const getUser = (proj, uid) => proj ? proj.users.find(u => u.id === uid) : null;
 
 // 计算用户累计收益（其所有价格记录之和）
 function calcEarned(u) { return u.prices.reduce((s, r) => s + Number(r.price), 0); }
@@ -1885,7 +1913,7 @@ function showPage(page) {
   if (page === 'list') {
     histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
-    batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 返回列表时退出批量模式
+    batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 返回列表时退出批量模式
     renderProjectGrid();
   } else if (page !== 'bill') {
     renderDetail();
@@ -1936,15 +1964,11 @@ function updateListTabUI() {
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
 }
 
-/* ---------- 主页面：我的项目 → 全部账户列表渲染（下拉框筛选项目） ---------- */
-let mineFilterPid = '';  // 账户列表筛选的项目 ID：'' = 全部项目
-function mineFilterChanged() {
-  mineFilterPid = document.getElementById('mineProjectFilter').value;
-  renderProjectGrid();
-}
+/* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
 function renderProjectGrid() {
-  const listEl = document.getElementById('mineAccountList');
+  const grid = document.getElementById('projectGrid');
   document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">九游项目跟踪管理平台';
+  grid.innerHTML = '';
 
   // ---- 首页全局汇总：跨所有项目统计 ----
   const allUsers = projects.flatMap(p => p.users);
@@ -1975,59 +1999,52 @@ function renderProjectGrid() {
   renderPublicProjects();
   updateListTabUI();
 
-  // ---- 账户筛选下拉框：全部项目 / 单个项目 ----
-  const filterSel = document.getElementById('mineProjectFilter');
-  filterSel.innerHTML = `<option value="">📂 全部项目（${projects.length} 个项目 / ${allUsers.length} 账户）</option>` +
-    projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
-  if (mineFilterPid && !projects.some(p => p.id === mineFilterPid)) mineFilterPid = '';  // 项目被删后回落到全部
-  filterSel.value = mineFilterPid;
+  // 标题旁项目数统计
+  document.getElementById('mineProjCount').textContent = `（共 ${projects.length} 个项目 / ${allUsers.length} 账户）`;
 
-  // ---- 全部账户平铺列表：一行一个账户，点击进入该项目详情管理 ----
-  const scope = mineFilterPid ? projects.filter(p => p.id === mineFilterPid) : projects;
-  const accRows = [];
-  scope.forEach(p => p.users.forEach(u => accRows.push({ p, u })));
   if (projects.length === 0) {
-    listEl.innerHTML = `
-      <div class="empty">
+    grid.innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
         <div class="icon">📁</div>
         <div>暂无项目，点击右上角「＋ 新增项目」开始记录</div>
       </div>`;
     return;
   }
-  if (accRows.length === 0) {
-    listEl.innerHTML = `
-      <div class="empty">
-        <div class="icon">👥</div>
-        <div>该项目暂无账户，进入项目后点击「＋ 添加账户」</div>
-      </div>`;
-    return;
-  }
-  listEl.innerHTML = accRows.map(({ p, u }, idx) => {
-    const earned = calcEarned(u);
-    const remain = calcRemain(u);
-    const progress = calcProgress(u);
-    const isDone = Number(u.principal) > 0 && earned >= Number(u.principal);
-    const pc = progressClass(progress, isDone);
-    return `
-      <div class="table-card" style="margin-bottom:10px;cursor:pointer" onclick="enterProject('${p.id}')" title="点击进入项目管理">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-          <div style="min-width:0;flex:1">
-            <div style="font-weight:600;font-size:14px" class="cell-main"><span style="color:var(--text-secondary);font-weight:400;font-size:11px;margin-right:4px">#${idx + 1}</span>${escapeHtml(u.name)}
-              <span style="font-size:11px;color:var(--text-secondary);font-weight:400">ID:${escapeHtml(u.id)}</span>
-              ${isDone ? '<span class="badge badge-done">已回本</span>' : '<span class="badge badge-blue">未回本</span>'}
-            </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:3px">
-              ${mineFilterPid ? '' : `<b style="color:var(--text);font-weight:700">📁 ${escapeHtml(p.name)}</b> · `}本金 ¥${fmtMoney(u.principal)} · 已收 ¥${fmtMoney(earned)} · 剩余 ¥${fmtMoney(remain)}
-              ${u.remark ? ` · 📝 ${escapeHtml(u.remark)}` : ''}
-            </div>
-          </div>
-          <div class="progress-wrap" style="min-width:120px">
-            <div class="progress-bar"><div class="progress-fill ${pc}" style="width:${progress}%"></div></div>
-            <span class="progress-text ${pc === '' ? 'normal' : pc}">${progress.toFixed(1)}%</span>
-          </div>
+
+  projects.forEach(p => {
+    // 项目卡片展示该项目的汇总概况
+    const userCount = p.users.length;
+    const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
+    const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+    // 还差多少元回本：所有账户剩余未回本金额之和（最低为 0）
+    const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
+    // 利润金额：所有账户累计收益超出本金的部分
+    const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
+
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.onclick = () => enterProject(p.id);
+    card.innerHTML = `
+      <div class="pc-name">📁 ${escapeHtml(p.name)}
+        ${userCount ? `<span class="badge badge-blue">${doneCount}/${userCount} 已回本</span>` : ''}
+      </div>
+      <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
+      <div class="pc-stats">
+        <div class="pc-stat-row"><span class="lbl">账户数量</span><span class="val">${userCount} 人</span></div>
+        <div class="pc-stat-row"><span class="lbl">总本金</span><span class="val">${fmtMoney(totalPrincipal)}</span></div>
+        <div class="pc-stat-row"><span class="lbl">还差回本</span><span class="val" style="color:${totalRemain > 0 ? 'var(--danger)' : 'var(--success)'}">${totalRemain > 0
+          ? fmtMoney(totalRemain) + ' 元'
+          : (totalProfit > 0 ? '利润 +' + fmtMoney(totalProfit) + ' 元' : '已回本')}</span></div>
+      </div>
+      <div class="pc-foot" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-primary" onclick="enterProject('${p.id}')">进入管理</button>
+        <div class="pc-actions">
+          <button class="btn btn-sm btn-outline" onclick="openProjectModal('${p.id}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}')">删除</button>
         </div>
       </div>`;
-  }).join('');
+    grid.appendChild(card);
+  });
 }
 
 // 统计数字滚动动画：从 0 缓动滚动到目标值（约 0.9 秒，ease-out）
@@ -2064,7 +2081,7 @@ function enterProject(id) {
   currentProjectId = id;
   detailAnimate = true;  // 进入项目时为汇总数字播放滚动动画
   document.getElementById('userSearch').value = '';  // 进入项目时清空搜索
-  batchMode = false; selectedUserIds.clear(); updateBatchUI();  // 重置批量操作状态
+  batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 重置批量操作状态
   showPage('detail');
   histPush('detail');  // 详情页入栈：浏览器返回键/手机侧滑可回到列表
 }
@@ -2117,30 +2134,31 @@ function renderDetail() {
     return;
   }
 
-  // 搜索过滤（匹配姓名 / 账户ID / 备注，不区分大小写）
+  // 搜索过滤（匹配姓名 / 账户ID / 备注，不区分大小写）；账户ID可留空，行操作定位一律使用行序号 uidx
   const kw = document.getElementById('userSearch').value.trim().toLowerCase();
+  const withIdx = p.users.map((u, uidx) => ({ u, uidx }));
   const list = kw
-    ? p.users.filter(u =>
+    ? withIdx.filter(({ u }) =>
         u.name.toLowerCase().includes(kw) ||
         u.id.toLowerCase().includes(kw) ||
         (u.remark || '').toLowerCase().includes(kw))
-    : p.users;
+    : withIdx;
 
   // 搜索时显示「筛选数 / 总数」
   document.getElementById('userCount').textContent = kw ? `${list.length} / ${userCount}` : userCount;
 
   // 同步全选框状态（全选 / 部分选中 / 未选）
-  const allSel = list.length > 0 && list.every(u => selectedUserIds.has(u.id));
+  const allSel = list.length > 0 && list.every(({ uidx }) => selectedUserIdx.has(uidx));
   const chkAll = document.getElementById('chkAll');
   chkAll.checked = allSel;
-  chkAll.indeterminate = !allSel && list.some(u => selectedUserIds.has(u.id));
+  chkAll.indeterminate = !allSel && list.some(({ uidx }) => selectedUserIdx.has(uidx));
 
   if (list.length === 0) {
     tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-secondary);padding:36px">没有符合搜索条件的账户</td></tr>';
     return;
   }
 
-  tbody.innerHTML = list.map((u, idx) => {
+  tbody.innerHTML = list.map(({ u, uidx }, idx) => {
     const earned = calcEarned(u);
     const remain = calcRemain(u);
     const progress = calcProgress(u);
@@ -2148,8 +2166,8 @@ function renderDetail() {
     const pc = progressClass(progress, isDone);
 
     return `
-      <tr class="${isDone ? 'row-done' : ''} ${selectedUserIds.has(u.id) ? 'row-selected' : ''}">
-        <td class="chk" data-label="选择"><input type="checkbox" ${selectedUserIds.has(u.id) ? 'checked' : ''} onclick="toggleSelect('${u.id}', this.checked)"></td>
+      <tr class="${isDone ? 'row-done' : ''} ${selectedUserIdx.has(uidx) ? 'row-selected' : ''}">
+        <td class="chk" data-label="选择"><input type="checkbox" ${selectedUserIdx.has(uidx) ? 'checked' : ''} onclick="toggleSelect(${uidx}, this.checked)"></td>
         <td data-label="序号">${idx + 1}</td>
         <td data-label="账户ID" style="font-size:12px;color:var(--text-secondary)">${escapeHtml(u.id)}</td>
         <td data-label="姓名" class="td-block">
@@ -2170,10 +2188,10 @@ function renderDetail() {
         <td data-label="操作" class="td-actions">
           <div class="row-actions">
             <button class="btn btn-sm btn-primary" onclick="sellAccount()">🛒 出售</button>
-            <button class="btn btn-sm btn-outline" onclick="openPriceModal('${u.id}')">添加回本金额</button>
-            <button class="btn btn-sm btn-outline" onclick="openLedger('${u.id}')">查看台账</button>
-            <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.id}')">编辑</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">删除</button>
+            <button class="btn btn-sm btn-outline" onclick="openPriceModal(${uidx})">添加回本金额</button>
+            <button class="btn btn-sm btn-outline" onclick="openLedger(${uidx})">查看台账</button>
+            <button class="btn btn-sm btn-outline" onclick="openUserModal(${uidx})">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser(${uidx})">删除</button>
           </div>
         </td>
       </tr>`;
@@ -2183,27 +2201,43 @@ function renderDetail() {
 /* ---------- 新增 / 编辑项目 ---------- */
 function openProjectModal(id) {
   setError('pf-name', false);
+  const sel = document.getElementById('pf-name-sel');
+  const inp = document.getElementById('pf-name');
   if (id) {
     const p = getProject(id);
     if (!p) return;
     document.getElementById('projectModalTitle').textContent = '编辑项目';
     document.getElementById('pf-id').value = p.id;
-    document.getElementById('pf-name').value = p.name;
+    inp.value = p.name;
     document.getElementById('pf-remark').value = p.remark || '';
+    sel.style.display = 'none'; inp.style.display = '';  // 编辑时仅手输名称
   } else {
     document.getElementById('projectModalTitle').textContent = '新增项目';
     document.getElementById('pf-id').value = '';
-    document.getElementById('pf-name').value = '';
+    // 新增模式：下拉快选公共项目 + 输入框自定义项目名（两种方式均可）
+    sel.innerHTML = '<option value="">从公共项目快选（也可直接自定义输入）</option>' + publicProjects.map(pb => `<option value="${escapeHtml(pb.name)}">${escapeHtml(pb.name)}</option>`).join('');
+    sel.value = '';
+    inp.value = '';
     document.getElementById('pf-remark').value = '';
+    sel.style.display = ''; inp.style.display = '';
   }
   openModal('projectModal');
   document.getElementById('pf-import').value = '';  // 清空上次粘贴的分享码
-  document.getElementById('pf-name').focus();
+  inp.focus();
+}
+
+// 快选公共项目：自动带出名称与备注（仍可手动修改，实现自定义）
+function pfSelPick() {
+  const name = document.getElementById('pf-name-sel').value;
+  if (!name) return;  // 选回占位项时不改动
+  const pb = publicProjects.find(x => x.name === name);
+  document.getElementById('pf-name').value = name;
+  if (pb) document.getElementById('pf-remark').value = pb.remark || '';
 }
 
 async function saveProject() {
   const id = document.getElementById('pf-id').value;
-  const name = document.getElementById('pf-name').value.trim();
+  const name = document.getElementById('pf-name').value.trim();  // 名称来自输入框（快选公共项目或自定义输入均可）
   const remark = document.getElementById('pf-remark').value.trim();
 
   // 表单验证：项目名称必填
@@ -2243,16 +2277,22 @@ function openShareProjectModal() {
   if (projects.length === 0) { toast('暂无可分享的项目，请先新增项目', 'warn'); return; }
   const sel = document.getElementById('sp-project');
   sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
+  document.getElementById('sp-scope').value = 'single';
+  spScopeChange();
   document.getElementById('sp-code').value = '';
   document.getElementById('sp-result-group').style.display = 'none';
   openModal('shareProjectModal');
 }
 
-function generateShareCode() {
-  const p = getProject(document.getElementById('sp-project').value);
-  if (!p) return;
-  const payload = {
-    v: 1,
+// 切换分享范围：全部分享隐藏单个项目选择
+function spScopeChange() {
+  const all = document.getElementById('sp-scope').value === 'all';
+  document.getElementById('sp-proj-group').style.display = all ? 'none' : '';
+}
+
+// 打包单个项目为分享载荷（字段收窄为平台结构）
+function share_packProject(p) {
+  return {
     name: p.name,
     remark: p.remark || '',
     users: p.users.map(u => ({
@@ -2264,6 +2304,18 @@ function generateShareCode() {
       prices: (u.prices || []).map(share_packPrice)
     }))
   };
+}
+
+function generateShareCode() {
+  const scope = document.getElementById('sp-scope').value;
+  let payload;
+  if (scope === 'all') {
+    payload = { v: 1, list: projects.map(share_packProject) };  // 全部分享：所有项目打包
+  } else {
+    const p = getProject(document.getElementById('sp-project').value);
+    if (!p) return;
+    payload = { v: 1, ...share_packProject(p) };
+  }
   const code = SHARE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   document.getElementById('sp-code').value = code;
   document.getElementById('sp-result-group').style.display = '';
@@ -2284,7 +2336,8 @@ function share_parseCode(raw) {
   const body = (idx >= 0 ? raw.slice(idx + SHARE_PREFIX.length) : raw).trim();
   try {
     const payload = JSON.parse(decodeURIComponent(escape(atob(body))));
-    if (payload && Array.isArray(payload.users)) return payload;
+    if (payload && Array.isArray(payload.users)) return payload;          // 单项目分享码
+    if (payload && Array.isArray(payload.list) && payload.list.length) return payload;  // 全部分享码（多项目打包）
   } catch (e) {}
   return null;
 }
@@ -2292,26 +2345,36 @@ function share_parseCode(raw) {
 async function importSharedProject() {
   const payload = share_parseCode(document.getElementById('pf-import').value);
   if (!payload) { toast('分享码无效，请确认已完整复制粘贴', 'error'); return; }
-  const name = String(payload.name || '').trim() || '导入的项目';
-  // 重建账户与记录：字段全部收窄为平台结构；项目内账户ID冲突时自动追加后缀去重
-  const users = payload.users.map(u => ({
-    id: String(u.id || '').trim() || uid(),
-    name: String(u.name || '').trim() || '未命名账户',
-    principal: Number(u.principal) || 0,
-    startDate: String(u.startDate || ''),
-    remark: String(u.remark || ''),
-    prices: Array.isArray(u.prices) ? u.prices.map(share_packPrice) : []
-  }));
-  const seen = new Set();
-  users.forEach(u => { while (seen.has(u.id)) u.id += '-2'; seen.add(u.id); });
-  const priceCount = users.reduce((s, u) => s + u.prices.length, 0);
-  confirmAction('导入分享项目', `将导入项目「${name}」：${users.length} 个账户、共 ${priceCount} 条回本记录，导入后归入你名下。确认导入？`, async () => {
-    projects.push({ id: uid(), name, remark: String(payload.remark || ''), createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users });
+  const isMulti = Array.isArray(payload.list);  // 全部分享码：多个项目打包
+  const items = isMulti ? payload.list : [payload];
+  // 重建账户与记录：字段全部收窄为平台结构；账户ID留空保持为空，非空ID项目内冲突时自动追加后缀去重
+  const packed = items.map(item => {
+    const name = String(item.name || '').trim() || '导入的项目';
+    const users = (Array.isArray(item.users) ? item.users : []).map(u => ({
+      id: String(u.id || '').trim(),
+      name: String(u.name || '').trim() || '未命名账户',
+      principal: Number(u.principal) || 0,
+      startDate: String(u.startDate || ''),
+      remark: String(u.remark || ''),
+      prices: Array.isArray(u.prices) ? u.prices.map(share_packPrice) : []
+    }));
+    const seen = new Set();
+    users.forEach(u => { if (!u.id) return; while (seen.has(u.id)) u.id += '-2'; seen.add(u.id); });  // 空ID不参与去重，保持留空
+    return { name, remark: String(item.remark || ''), users };
+  });
+  const pCount = packed.length;
+  const uCount = packed.reduce((s, x) => s + x.users.length, 0);
+  const recCount = packed.reduce((s, x) => s + x.users.reduce((a, u) => a + u.prices.length, 0), 0);
+  const msg = pCount > 1
+    ? `将导入 ${pCount} 个项目：共 ${uCount} 个账户、${recCount} 条回本记录，导入后归入你名下。确认导入？`
+    : `将导入项目「${packed[0].name}」：${uCount} 个账户、共 ${recCount} 条回本记录，导入后归入你名下。确认导入？`;
+  confirmAction('导入分享项目', msg, async () => {
+    packed.forEach(x => projects.push({ id: uid(), name: x.name, remark: x.remark, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: x.users }));
     await saveCloudData(true);
     closeModal('projectModal');
     document.getElementById('pf-import').value = '';
     renderProjectGrid();
-    toast(`已导入项目「${name}」（${users.length} 个账户）`, 'success');
+    toast(pCount > 1 ? `已导入 ${pCount} 个项目（共 ${uCount} 个账户）` : `已导入项目「${packed[0].name}」（${uCount} 个账户）`, 'success');
   });
 }
 
@@ -2431,52 +2494,162 @@ function bill_latestMp() {
   return { date, items };
 }
 
-// 「直接金额换算确认」区：按当前市场价反推数量，允许用户逐笔修改后写回记录
+// 「直接金额换算确认」区：自动识别未确认的直接金额账单，按「项目名 → 账户历史品名 → 今日唯一品名」自动匹配市场价反推数量
+// 每笔独立匹配品名、独立确认；品名与数量均可修改
+function bill_detectMpName(projName, u, items) {
+  if (items.some(it => it.name === projName)) return projName;  // 1) 项目名与品名一致
+  const hist = [...(u.prices || [])].reverse().find(r => r.mpName && items.some(it => it.name === r.mpName));
+  if (hist) return hist.mpName;                                 // 2) 该账户最近一次数量记录的品名
+  return items.length === 1 ? items[0].name : null;             // 3) 今日唯一品名，否则留空手选
+}
+
 function billRenderConvert() {
   const box = document.getElementById('billConvertBox');
   const { date, items } = bill_latestMp();
-  const directs = bill_collectToday(bill_scopeProjects()).rows.filter(x => x.qty === null && x.rec);
-  if (!directs.length || !items.length) { box.style.display = 'none'; return; }
-  const sel = document.getElementById('billConvMp');
-  const cur = sel.value;
-  sel.innerHTML = items.map(it => `<option value="${escapeHtml(it.name)}" data-price="${it.price}">${escapeHtml(it.name)}（¥${fmtMoney(it.price)}）</option>`).join('');
-  if (cur && items.some(i => i.name === cur)) sel.value = cur;
-  const rate = parseFloat(sel.selectedOptions[0].dataset.price) || 0;
+  const scope = bill_scopeProjects();
+  const directs = bill_collectToday(scope).rows.filter(x => x.qty === null && x.rec);
   document.getElementById('billConvDate').textContent = date;
+  if (!directs.length || !items.length) { box.style.display = 'none'; return; }
+  // 定位每笔记录所属账户（用于按历史品名自动匹配）
+  const owners = new Map();
+  scope.forEach(p => p.users.forEach(u => u.prices.forEach(r => owners.set(r.id, u))));
   document.getElementById('billConvCount').textContent = directs.length;
+  const optHtml = detName => items.map(it => `<option value="${escapeHtml(it.name)}" data-price="${it.price}"${it.name === detName ? ' selected' : ''}>${escapeHtml(it.name)}（¥${fmtMoney(it.price)}）</option>`).join('') +
+    `<option value=""${detName ? '' : ' selected'}>请选择品名</option>`;
   document.getElementById('billConvList').innerHTML = directs.map((x, i) => {
-    const infer = rate > 0 ? Math.round((x.price / rate) * 100) / 100 : 0;
-    return `<div style="display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-size:12px;color:#78350f;flex-wrap:wrap">
-      <span style="font-weight:700">#${i + 1}</span>
-      <span>${escapeHtml(x.proj)} · ${escapeHtml(x.userId)}</span>
-      <span>金额 ¥${fmtMoney(x.price)}</span>
-      <span>反推数量 <input type="number" id="billcv-${escapeHtml(x.rec.id)}" value="${infer}" min="0" step="0.01" style="width:82px;min-height:30px;padding:2px 6px;font-size:12px"></span>
-      ${rate > 0 ? `<span style="color:#a16207">(¥${fmtMoney(x.price)} ÷ ¥${fmtMoney(rate)})</span>` : ''}
+    const detName = bill_detectMpName(x.proj, owners.get(x.rec.id) || { prices: [] }, items);
+    const rate = detName ? (items.find(it => it.name === detName).price) : 0;
+    const infer = rate > 0 ? Math.round(x.price / rate) : 0;  // 反推数量取整（数量必须为整数）
+    const rid = escapeHtml(x.rec.id);
+    return `<div style="background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-size:12px;color:#78350f">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-weight:700">#${i + 1}</span>
+        <span>${escapeHtml(x.proj)} · ${escapeHtml(x.userId)}</span>
+        <span>金额 ¥${fmtMoney(x.price)}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+        <span>品名 <select id="billcv-mp-${rid}" onchange="billConvRowChange('${x.rec.id}', this)" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px;max-width:150px">${optHtml(detName)}</select></span>
+        <span>单价 ¥<input type="number" id="billcv-rate-${rid}" value="${rate}" min="0" step="0.01" style="width:76px;min-height:30px;padding:2px 6px;font-size:12px;${rate > 0 ? '' : 'border-color:#dc2626;color:#dc2626'}" oninput="billConvRateInput('${x.rec.id}')"></span>
+        <span>数量 <input type="number" id="billcv-${rid}" data-price="${x.price}" value="${infer}" min="0" step="0.01" style="width:82px;min-height:30px;padding:2px 6px;font-size:12px" oninput="billConvLiveUpdate('${x.rec.id}')"></span>
+        <span id="billcv-amt-${rid}" style="color:#a16207;font-weight:600">${rate > 0 && infer > 0 ? '金额 ¥' + fmtMoney(infer * rate) : `金额 ¥${fmtMoney(x.price)}`}</span>
+        <button type="button" class="btn btn-sm btn-primary" style="min-height:30px;padding:3px 10px" onclick="billApplyConvertOne('${x.rec.id}')">✓ 确认本笔</button>
+      </div>
     </div>`;
   }).join('');
   box.style.display = 'block';
 }
 
-// 确认换算：把确认/修改后的数量写回原始记录（转为数量模式记录），云端保存并刷新账单
-async function billApplyConvert() {
-  const sel = document.getElementById('billConvMp');
-  const opt = sel.selectedOptions[0];
-  const rate = opt ? parseFloat(opt.dataset.price) : 0;
-  if (!(rate > 0)) { toast('暂无市场价，无法换算数量', 'warn'); return; }
+// 行内切换品名：单价填入所选品名价格，并按新单价重算反推数量（取整），再实时联动上方账单
+function billConvRowChange(recId, sel) {
+  const rate = parseFloat(sel.selectedOptions[0].dataset.price) || 0;
+  const rid = escapeHtml(recId);
+  const rateEl = document.getElementById(`billcv-rate-${rid}`);
+  if (rateEl) rateEl.value = rate;  // 单价可再手动修改
+  const inp = document.getElementById(`billcv-${rid}`);
+  if (inp && rate > 0) inp.value = Math.round((parseFloat(inp.dataset.price) || 0) / rate);
+  billConvLiveUpdate(recId);
+}
+
+// 手动修改单价：按新单价重算反推数量（取整），实时联动上方账单（单价支持自定义）
+function billConvRateInput(recId) {
+  const rid = escapeHtml(recId);
+  const rateEl = document.getElementById(`billcv-rate-${rid}`);
+  const newRate = rateEl ? parseFloat(rateEl.value) || 0 : 0;
+  const inp = document.getElementById(`billcv-${rid}`);
+  if (inp) inp.value = newRate > 0 ? Math.round((parseFloat(inp.dataset.price) || 0) / newRate) : 0;
+  billConvLiveUpdate(recId);
+}
+
+// 实时预览：确认区品名/单价/数量修改后，立即同步更新上方账单对应行（数量/市场价/统计）与合计；数量必须为整数，非整数红标提示
+function billConvLiveUpdate(recId) {
+  const rid = escapeHtml(recId);
+  const rateEl = document.getElementById(`billcv-rate-${rid}`);
+  const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;
+  if (rateEl) { rateEl.style.borderColor = rate > 0 ? '' : '#dc2626'; rateEl.style.color = rate > 0 ? '' : '#dc2626'; }
+  const inp = document.getElementById(`billcv-${rid}`);
+  const base = inp ? parseFloat(inp.dataset.price) || 0 : 0;  // 原直接金额
+  const q = inp ? parseFloat(inp.value) : NaN;
+  const badInt = q > 0 && !Number.isInteger(q);  // 非整数：红标提示
+  if (inp) { inp.style.borderColor = badInt ? '#dc2626' : ''; inp.style.color = badInt ? '#dc2626' : ''; }
+  const ok = rate > 0 && q > 0 && !badInt;
+  const amt = ok ? Math.round(q * rate * 100) / 100 : base;
+  // 确认区行内金额预览（非整数时提示必须为整数）
+  const amtEl = document.getElementById(`billcv-amt-${rid}`);
+  if (amtEl) {
+    amtEl.textContent = badInt ? '⚠️ 数量须为整数' : '金额 ¥' + fmtMoney(amt);
+    amtEl.style.color = badInt ? '#dc2626' : '#a16207';
+  }
+  // 联动上方账单对应行（非整数时数量红标、金额保持原金额）
+  const tr = [...document.querySelectorAll('#billPaper tbody tr[data-rid]')].find(r => r.dataset.rid === recId);
+  if (!tr) return;
+  tr.dataset.amt = String(amt);
+  tr.children[2].innerHTML = q > 0 ? (badInt ? `<span style="color:#dc2626;font-weight:600">${q}</span>` : String(q)) : '—';
+  tr.children[3].textContent = rate > 0 ? '¥' + fmtMoney(rate) : '—';
+  tr.children[4].textContent = '¥' + fmtMoney(amt);
+  tr.children[4].style.color = ok ? '#b45309' : '';  // 预览中（未确认）标橙色
+  // 重算合计（各行为确认后的预览金额）
+  let total = 0;
+  document.querySelectorAll('#billPaper tbody tr[data-rid]').forEach(r => { total += parseFloat(r.dataset.amt || r.dataset.base) || 0; });
+  const tot = document.getElementById('billTotalCell');
+  if (tot) tot.textContent = '¥' + fmtMoney(total);
+}
+
+// 逐笔确认：把该笔确认/修改后的数量写回原始记录（转为数量模式记录），云端保存并刷新账单
+async function billApplyConvertOne(recId) {
+  const rid = escapeHtml(recId);
+  const sel = document.getElementById(`billcv-mp-${rid}`);
+  const opt = sel ? sel.selectedOptions[0] : null;
+  const rateEl = document.getElementById(`billcv-rate-${rid}`);
+  const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;  // 单价以输入框为准（支持自定义市场价）
+  if (!(rate > 0)) { toast('该笔还未选择品名或未填写单价，无法换算数量', 'warn'); return; }
+  const inp = document.getElementById(`billcv-${rid}`);
+  const price = inp ? parseFloat(inp.dataset.price) || 0 : 0;
+  let q = inp ? parseFloat(inp.value) : NaN;
+  if (!(q > 0)) q = Math.round(price / rate);  // 输入无效时用反推取整值兜底
+  // 数量必须为整数：优先拦截并红标提示
+  if (!Number.isInteger(q)) {
+    if (inp) { inp.style.borderColor = '#dc2626'; inp.style.color = '#dc2626'; }
+    const amtEl = document.getElementById(`billcv-amt-${rid}`);
+    if (amtEl) { amtEl.textContent = '⚠️ 数量须为整数'; amtEl.style.color = '#dc2626'; }
+    toast('出货数量必须为整数，请修改后再确认', 'error');
+    return;
+  }
+  const rec = bill_scopeProjects().flatMap(p => p.users).flatMap(u => u.prices).find(r => r.id === recId);
+  if (!rec) return;
+  rec.qty = q; rec.rate = rate; rec.mpName = opt.value;
+  await saveCloudData(true);
+  toast(`已确认 1 笔（${opt.value}：${q} × ¥${fmtMoney(rate)}），账单已重新生成`, 'success');
+  renderBill();  // 确认后该笔转为数量模式，自动从确认区移除
+}
+
+// 全部确认：每笔按各自匹配的品名/数量分别写回，未选品名或数量非整数的跳过并提示
+async function billApplyConvertAll() {
   const directs = bill_collectToday(bill_scopeProjects()).rows.filter(x => x.qty === null && x.rec);
-  let n = 0;
+  let n = 0, miss = 0, badInt = 0;
   directs.forEach(x => {
-    const inp = document.getElementById(`billcv-${x.rec.id}`);
+    const rid = escapeHtml(x.rec.id);
+    const sel = document.getElementById(`billcv-mp-${rid}`);
+    const opt = sel ? sel.selectedOptions[0] : null;
+    const rateEl = document.getElementById(`billcv-rate-${rid}`);
+    const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;  // 单价以输入框为准（支持自定义市场价）
+    if (!(rate > 0)) { miss++; return; }
+    const inp = document.getElementById(`billcv-${rid}`);
     let q = inp ? parseFloat(inp.value) : NaN;
-    if (!(q > 0)) q = Math.round((x.rec.price / rate) * 100) / 100;  // 输入无效时用反推值兜底
-    x.rec.qty = q;
-    x.rec.rate = rate;
-    x.rec.mpName = sel.value;
+    if (!(q > 0)) q = Math.round(x.price / rate);
+    if (!Number.isInteger(q)) {  // 数量必须为整数：红标跳过
+      badInt++;
+      if (inp) { inp.style.borderColor = '#dc2626'; inp.style.color = '#dc2626'; }
+      const amtEl = document.getElementById(`billcv-amt-${rid}`);
+      if (amtEl) { amtEl.textContent = '⚠️ 数量须为整数'; amtEl.style.color = '#dc2626'; }
+      return;
+    }
+    x.rec.qty = q; x.rec.rate = rate; x.rec.mpName = opt.value;
     n++;
   });
-  if (!n) return;
+  if (!n) { toast(`${miss + badInt} 笔无法确认（${[miss ? miss + ' 笔未选品名' : '', badInt ? badInt + ' 笔数量非整数' : ''].filter(Boolean).join('，')}）`, 'warn'); return; }
   await saveCloudData(true);
-  toast(`已按确认数量更新 ${n} 笔记录，账单已重新生成`, 'success');
+  const skip = [miss ? `${miss} 笔未选品名` : '', badInt ? `${badInt} 笔数量非整数` : ''].filter(Boolean).join('，');
+  toast(`已确认 ${n} 笔${skip ? `，${skip} 已跳过` : ''}，账单已重新生成`, skip ? 'warn' : 'success');
   renderBill();
 }
 
@@ -2497,14 +2670,16 @@ function renderBill() {
   billLastNo = billNo;  // 记录编号，保存图片时随盲水印隐写进像素
   const cs = 'border-bottom:1px solid #e2e8f0;padding:6px 4px;';  // 单元格通用样式（内联保证导出图片样式完整）
   const bodyRows = rows.length ? rows.map((x, i) => `
-      <tr>
+      <tr data-rid="${escapeHtml(x.rec.id)}" data-base="${x.price}" data-amt="${x.price}">
         <td style="${cs}text-align:center">${i + 1}</td>
-        <td style="${cs}text-align:left">${escapeHtml(x.proj)}${x.mpName ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}</td>
-        <td style="${cs}text-align:left">${escapeHtml(x.userId)}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.proj)}
+          <div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.userId)}</div>
+          ${x.mpName ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
+        </td>
         <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
         <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate)}</td>
         <td style="${cs}text-align:right;font-weight:600">¥${fmtMoney(x.price)}</td>
-      </tr>`).join('') : '<tr><td colspan="6" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="5" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
   const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo}`);
   document.getElementById('billPaper').innerHTML = `
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">${wm}</div>
@@ -2518,16 +2693,15 @@ function renderBill() {
       <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a;table-layout:fixed;word-break:break-word">
         <thead><tr style="background:#f1f5f9">
           <th style="${cs}text-align:center;width:34px">编号</th>
-          <th style="${cs}text-align:left">项目名字</th>
-          <th style="${cs}text-align:left">账号ID</th>
-          <th style="${cs}text-align:center">出货数量</th>
-          <th style="${cs}text-align:right">今日市场价</th>
-          <th style="${cs}text-align:right">统计</th>
+          <th style="${cs}text-align:left">项目ID</th>
+          <th style="${cs}text-align:center;width:18%">出货数量</th>
+          <th style="${cs}text-align:right;width:20%">今日市场价</th>
+          <th style="${cs}text-align:right;width:17%">统计</th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
         <tfoot><tr style="background:#f8fafc">
-          <td colspan="5" style="${cs}text-align:right;font-weight:700">今日出货合计（${rows.length} 笔）</td>
-          <td style="${cs}text-align:right;font-weight:700;color:#16a34a">¥${fmtMoney(total)}</td>
+          <td colspan="4" style="${cs}text-align:right;font-weight:700">今日出货合计（${rows.length} 笔）</td>
+          <td id="billTotalCell" style="${cs}text-align:right;font-weight:700;color:#16a34a">¥${fmtMoney(total)}</td>
         </tr></tfoot>
       </table>
       <div style="margin-top:8px;font-size:10px;color:#94a3b8;text-align:right">生成于 ${genTime} ｜ 校验码 ${digest}（编号由账单内容与佐证截图计算，被篡改即失配）</div>
@@ -2641,31 +2815,37 @@ function openTodayList(scope) {
   const today = nowLocal().slice(0, 10);
   const email = currentUserEmail || '';
   const cs = 'border-bottom:1px solid var(--border);padding:6px 4px;';
+  // 列表结构与出货账单一致：编号 | 项目ID（项目名+账户ID） | 出货数量 | 今日市场价 | 统计
   const bodyRows = rows.length ? rows.map((x, i) => `
       <tr>
         <td style="${cs}text-align:center">${i + 1}</td>
-        <td style="${cs}text-align:center">${escapeHtml(x.time)}</td>
-        <td style="${cs}text-align:left">${escapeHtml(x.proj)}</td>
-        <td style="${cs}text-align:left">${escapeHtml(x.userId)}</td>
-        <td style="${cs}text-align:left;font-size:11px">${x.qty === null ? '直接金额' : `${x.qty} × ¥${fmtMoney(x.rate)}${x.mpName ? ' · ' + escapeHtml(x.mpName) : ''}`}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.proj)}
+          <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${escapeHtml(x.userId)}</div>
+          ${x.mpName ? `<div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
+        </td>
+        <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate)}</td>
         <td style="${cs}text-align:right;font-weight:600;color:var(--success)">¥${fmtMoney(x.price)}</td>
-      </tr>`).join('') : '<tr><td colspan="6" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="5" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
   // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
   const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${today} 今日明细`, 'rgba(59,130,246,.16)');
   document.getElementById('todayListPaper').innerHTML = `
     <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} <b id="todayClock" style="color:var(--primary);font-family:Consolas,Menlo,monospace">${nowLocal().slice(11, 19)}</b> ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3">${wm}</div>
     <div style="position:relative;z-index:2">
-      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;color:var(--text)">
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px;color:var(--text);table-layout:fixed;word-break:break-word">
         <thead><tr style="background:var(--bg)">
           <th style="${cs}text-align:center;width:34px">编号</th>
-          <th style="${cs}text-align:center">时间</th>
-          <th style="${cs}text-align:left">项目</th>
-          <th style="${cs}text-align:left">账号ID</th>
-          <th style="${cs}text-align:left">方式</th>
-          <th style="${cs}text-align:right">金额</th>
+          <th style="${cs}text-align:left">项目ID</th>
+          <th style="${cs}text-align:center;width:18%">出货数量</th>
+          <th style="${cs}text-align:right;width:20%">今日市场价</th>
+          <th style="${cs}text-align:right;width:17%">统计</th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
+        <tfoot><tr style="background:var(--bg)">
+          <td colspan="4" style="${cs}text-align:right;font-weight:700">今日出货合计（${rows.length} 笔）</td>
+          <td style="${cs}text-align:right;font-weight:700;color:var(--success)">¥${fmtMoney(total)}</td>
+        </tr></tfoot>
       </table>
     </div>`;
   openModal('todayListModal');
@@ -2757,9 +2937,8 @@ function renderPublicProjects() {
       <div class="pc-name">🌐 ${escapeHtml(p.name)}${badges}</div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
-      <div class="pc-foot" onclick="event.stopPropagation()">
-        <button class="btn btn-sm btn-primary" onclick="copyPublicProject('${p.id}')" ${isAdmin ? 'style="display:none"' : ''}>⧉ 复制到我的项目</button>
-        <div class="pc-actions" ${isAdmin ? '' : 'style="display:none"'}>
+      <div class="pc-foot" onclick="event.stopPropagation()" ${isAdmin ? '' : 'style="display:none"'}>
+        <div class="pc-actions">
           <button class="btn btn-sm btn-outline" onclick="openPublicProjectModal('${p.id}')">编辑</button>
           <button class="btn btn-sm btn-danger" onclick="deletePublicProject('${p.id}')">删除</button>
         </div>
@@ -2818,7 +2997,7 @@ function deletePublicProject(id) {
   if (!isAdmin) return;
   const p = publicProjects.find(x => x.id === id);
   if (!p) return;
-  confirmAction('删除公共项目', `确定删除公共项目「${p.name}」吗？用户已复制到自己名下的副本不受影响，此操作不可恢复！`, async () => {
+  confirmAction('删除公共项目', `确定删除公共项目「${p.name}」吗？此操作不可恢复！`, async () => {
     const error = await deletePublicProjectRow(id);
     if (error) return toast('删除失败：' + error.message, 'error');
     await loadPublicProjects();
@@ -2827,26 +3006,9 @@ function deletePublicProject(id) {
   });
 }
 
-// 将公共项目复制到自己名下（复制名称、备注，不含账户和价格记录）
-async function copyPublicProject(id) {
-  const p = publicProjects.find(x => x.id === id);
-  if (!p) return;
-  const np = {
-    id: uid(),
-    name: p.name,
-    remark: p.remark || '',
-    createdAt: new Date().toLocaleString('zh-CN', { hour12: false }),
-    users: []
-  };
-  projects.push(np);
-  await saveCloudData(true);
-  switchListTab('mine');  // 切到我的项目页签（账户列表实时包含新项目）
-  toast(`已将「${p.name}」复制到我的项目，请添加账户`, 'success');
-  openUserModal('', np.id);  // 直接衔接添加账户，所属项目下拉自动选中新复制的项目
-}
-
 /* ---------- 新增 / 编辑账户 ---------- */
 function openUserModal(id, forcedProjectId) {
+  const editIdx = (id === undefined || id === null || id === '') ? -1 : Number(id);  // 行序号定位（账户ID可留空）
   setError('uf-uid', false); setError('uf-name', false);
   setError('uf-principal', false); setError('uf-date', false);
   // 所属项目下拉框：新增时可任选项目（不再依赖先进入项目详情）；编辑时锁定归属不可改
@@ -2854,16 +3016,16 @@ function openUserModal(id, forcedProjectId) {
   projSel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
   const targetPid = forcedProjectId || currentProjectId || (projects[0] && projects[0].id) || '';
   projSel.value = targetPid;
-  projSel.disabled = !!id;
+  projSel.disabled = editIdx >= 0;
   // 新增模式显示「＋ 保存并继续」，编辑模式隐藏
-  document.getElementById('ufSaveMoreBtn').style.display = id ? 'none' : '';
-  if (id) {
+  document.getElementById('ufSaveMoreBtn').style.display = editIdx >= 0 ? 'none' : '';
+  if (editIdx >= 0) {
     const p = getProject(currentProjectId);
-    const u = getUser(p, id);
+    const u = p && p.users[editIdx];
     if (!u) return;
     document.getElementById('userModalTitle').textContent = '编辑账户';
-    document.getElementById('uf-id').value = u.id;
-    document.getElementById('uf-uid').value = u.id;
+    document.getElementById('uf-id').value = editIdx;   // 存行序号，保存时按序号定位
+    document.getElementById('uf-uid').value = u.id || '';
     document.getElementById('uf-name').value = u.name;
     document.getElementById('uf-principal').value = u.principal;
     document.getElementById('uf-date').value = u.startDate || '';
@@ -2888,25 +3050,27 @@ async function saveUser(keepOpen) {
   const projectId = document.getElementById('uf-project').value;
   const p = getProject(projectId);
   if (!p) { toast('请选择所属项目', 'warn'); return; }
-  const oldId = document.getElementById('uf-id').value;
+  const oldIdxRaw = document.getElementById('uf-id').value;
+  const oldIdx = oldIdxRaw === '' ? -1 : Number(oldIdxRaw);  // 新增时为 -1，不排除任何行
   const rawId = document.getElementById('uf-uid').value.trim();
-  const newId = oldId ? rawId : (rawId || uid());  // 新增时ID可留空自动生成；编辑时ID为账户标识必填
+  const newId = rawId;  // 账户ID选填：留空保存为空，不再自动生成
   // 姓名选填：留空默认使用当前登录账号名（邮箱 @ 前缀）
   const name = document.getElementById('uf-name').value.trim() || String(currentUserEmail || '').split('@')[0] || '未命名';
   const principal = parseFloat(document.getElementById('uf-principal').value);
   const date = document.getElementById('uf-date').value;
   const remark = document.getElementById('uf-remark').value.trim();
 
-  // 表单验证：新增时ID留空自动生成（填写则项目内唯一）；编辑时ID必填且唯一；姓名可留空、本金为正数、日期不晚于今天
+  // 表单验证：账户ID选填（留空保存为空），填写时项目内唯一；姓名可留空、本金为正数、日期不晚于今天
   let ok = true;
-  ok = setError('uf-uid', oldId ? !newId : (!!rawId && p.users.some(u => u.id === rawId && u.id !== oldId))) && ok;
+  ok = setError('uf-uid', !!rawId && p.users.some((x, i) => i !== oldIdx && x.id === rawId)) && ok;
   ok = setError('uf-principal', !(principal > 0)) && ok;
   ok = setError('uf-date', !date || date > todayStr()) && ok;
   if (!ok) return;
 
-  if (oldId) {
-    // 编辑：若修改了账户ID，同步更新
-    const u = getUser(p, oldId);
+  if (oldIdxRaw !== '') {
+    // 编辑：按行序号定位；若修改了账户ID，同步更新
+    const u = p.users[oldIdx];
+    if (!u) return;
     u.id = newId; u.name = name; u.principal = principal; u.startDate = date; u.remark = remark;
     toast('账户信息已更新', 'success');
   } else {
@@ -2914,7 +3078,7 @@ async function saveUser(keepOpen) {
     toast('账户已添加', 'success');
   }
   await saveCloudData(true);
-  if (keepOpen && !oldId) {
+  if (keepOpen && oldIdxRaw === '') {
     // 连续添加：清空输入保留所选项目，无需重复打开弹窗
     document.getElementById('uf-uid').value = '';
     document.getElementById('uf-name').value = '';
@@ -2929,15 +3093,16 @@ async function saveUser(keepOpen) {
   if (currentProjectId) renderDetail(); else renderProjectGrid();
 }
 
-// 删除账户（连同其所有价格记录）
-function deleteUser(id) {
+// 删除账户（连同其所有价格记录）；按行序号定位，删除后序号前移需清空勾选
+function deleteUser(idx) {
   const p = getProject(currentProjectId);
   if (!p) return;
-  const u = getUser(p, id);
+  const i = Number(idx);
+  const u = p.users[i];
   if (!u) return;
-  confirmAction('删除账户', `确定删除账户「${u.name}」（ID：${u.id}）吗？其名下 ${u.prices.length} 条回本记录将一并清除，此操作不可恢复！`, async () => {
-    p.users = p.users.filter(x => x.id !== id);
-    selectedUserIds.delete(id);
+  confirmAction('删除账户', `确定删除账户「${u.name}」${u.id ? `（ID：${u.id}）` : ''}吗？其名下 ${u.prices.length} 条回本记录将一并清除，此操作不可恢复！`, async () => {
+    p.users.splice(i, 1);
+    selectedUserIdx.clear();
     await saveCloudData(true);
     renderDetail();
     updateBatchUI();
@@ -2976,13 +3141,16 @@ function fillMpOptions(projectName) {
   updateQtyAmount();
 }
 
-// 出货数量模式下实时计算预计回本金额：数量 × 所选品名单价
+// 出货数量模式下实时计算预计回本金额：数量 × 所选品名单价（数量必须为整数，非整数实时标红提示）
 function updateQtyAmount() {
   const sel = document.getElementById('pr-mp');
   const opt = sel.selectedOptions[0];
   const qty = parseFloat(document.getElementById('pr-qty').value);
   const tip = document.getElementById('pr-qtyAmount');
-  if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元'; return; }
+  // 数量已填但不是整数：立即红标提示（优先于金额计算提示）
+  const badInt = Number(document.getElementById('pr-qty').value) > 0 && !Number.isInteger(qty);
+  setError('pr-qty', badInt);
+  if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
   const rate = parseFloat(opt.dataset.price);
   const unit = opt.dataset.unit || '1';
   tip.textContent = Number(qty) > 0
@@ -2990,13 +3158,13 @@ function updateQtyAmount() {
     : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
 }
 
-async function openPriceModal(id) {
+async function openPriceModal(idx, preferMp) {
   const p = getProject(currentProjectId);
-  const u = getUser(p, id);
+  const u = p && p.users[Number(idx)];
   if (!u) return;
   setError('pr-date', false); setError('pr-price', false);
-  document.getElementById('pr-userName').value = `${u.name}（ID：${u.id}）`;
-  document.getElementById('pr-userName').dataset.uid = u.id;
+  document.getElementById('pr-userName').value = `${u.name}${u.id ? `（ID：${u.id}）` : ''}`;
+  document.getElementById('pr-userName').dataset.uidx = Number(idx);
   document.getElementById('pr-date').value = nowLocal();
   document.getElementById('pr-price').value = '';
   document.getElementById('pr-qty').value = '';
@@ -3005,6 +3173,11 @@ async function openPriceModal(id) {
   openModal('priceModal');
   if (marketPrices.length === 0) await loadMarketPrices();  // 品名下拉需要市场价数据
   fillMpOptions(p.name);
+  // 从出货ID进入：优先选中该条市场价的品名
+  if (preferMp && [...document.getElementById('pr-mp').options].some(o => o.value === preferMp)) {
+    document.getElementById('pr-mp').value = preferMp;
+    updateQtyAmount();
+  }
   document.getElementById('pr-price').focus();
 }
 
@@ -3017,8 +3190,7 @@ function updatePriceTip(u) {
 async function savePrice() {
   const p = getProject(currentProjectId);
   if (!p) return;
-  const uidVal = document.getElementById('pr-userName').dataset.uid;
-  const u = getUser(p, uidVal);
+  const u = p.users[Number(document.getElementById('pr-userName').dataset.uidx)];
   if (!u) return;
   const date = document.getElementById('pr-date').value;
 
@@ -3031,10 +3203,11 @@ async function savePrice() {
   let extra = {};
   if (prMode === 'qty') {
     const qty = parseFloat(document.getElementById('pr-qty').value);
+    // 数量必须为整数：优先校验并提示
+    ok = setError('pr-qty', !(qty > 0) || !Number.isInteger(qty)) && ok;
     const opt = document.getElementById('pr-mp').selectedOptions[0];
     const mpName = opt ? opt.value : '';
     ok = setError('pr-mp', !mpName || !opt || !opt.dataset.price) && ok;
-    ok = setError('pr-qty', !(qty > 0)) && ok;
     if (ok && mpName && opt.dataset.price) {
       const rate = parseFloat(opt.dataset.price);
       price = qty * rate;
@@ -3063,11 +3236,12 @@ async function savePrice() {
 }
 
 /* ---------- 台账 ---------- */
-function openLedger(id) {
-  ledgerUserId = id;
+function openLedger(idx) {
+  ledgerUserIdx = Number(idx);
   ledgerSort = 'desc';
   const p = getProject(currentProjectId);
-  const u = getUser(p, id);
+  const u = p && p.users[ledgerUserIdx];
+  if (!u) return;
   document.getElementById('ledgerTitle').textContent = `回本台账 - ${u.name}`;
   renderLedger();
   openModal('ledgerModal');
@@ -3077,7 +3251,7 @@ function setLedgerSort(sort) { ledgerSort = sort; renderLedger(); }
 
 function renderLedger() {
   const p = getProject(currentProjectId);
-  const u = getUser(p, ledgerUserId);
+  const u = p.users[ledgerUserIdx];
   if (!u) return;
   const records = [...u.prices].sort((a, b) =>
     ledgerSort === 'asc' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
@@ -3103,7 +3277,7 @@ function renderLedger() {
 // 删除单条价格记录
 function deletePrice(priceId) {
   const p = getProject(currentProjectId);
-  const u = getUser(p, ledgerUserId);
+  const u = p.users[ledgerUserIdx];
   if (!u) return;
   const r = u.prices.find(x => x.id === priceId);
   if (!r) return;
@@ -3118,35 +3292,37 @@ function deletePrice(priceId) {
 
 /* ---------- 批量操作 ---------- */
 let batchMode = false;                 // 是否处于批量操作模式
-const selectedUserIds = new Set();     // 已勾选的账户ID
+const selectedUserIdx = new Set();     // 已勾选的账户行序号（账户ID可留空，改用行序号定位）
 
 // 进入 / 退出批量操作模式
 function toggleBatchMode() {
   batchMode = !batchMode;
-  selectedUserIds.clear();
+  selectedUserIdx.clear();
   updateBatchUI();
   if (currentProjectId) renderDetail();
 }
 
-// 勾选 / 取消勾选单个账户
-function toggleSelect(id, checked) {
-  checked ? selectedUserIds.add(id) : selectedUserIds.delete(id);
+// 勾选 / 取消勾选单个账户（按行序号）
+function toggleSelect(idx, checked) {
+  const i = Number(idx);
+  checked ? selectedUserIdx.add(i) : selectedUserIdx.delete(i);
   updateBatchUI();
   renderDetail();
 }
 
-// 全选 / 全不选（仅针对当前搜索结果中的账户）
+// 全选 / 全不选（仅针对当前搜索结果中的账户，按行序号）
 function toggleSelectAll(checked) {
   const p = getProject(currentProjectId);
   if (!p) return;
   const kw = document.getElementById('userSearch').value.trim().toLowerCase();
-  const list = kw
-    ? p.users.filter(u =>
-        u.name.toLowerCase().includes(kw) ||
+  p.users.forEach((u, i) => {
+    const hit = kw
+      ? u.name.toLowerCase().includes(kw) ||
         u.id.toLowerCase().includes(kw) ||
-        (u.remark || '').toLowerCase().includes(kw))
-    : p.users;
-  list.forEach(u => checked ? selectedUserIds.add(u.id) : selectedUserIds.delete(u.id));
+        (u.remark || '').toLowerCase().includes(kw)
+      : true;
+    if (hit) { checked ? selectedUserIdx.add(i) : selectedUserIdx.delete(i); }
+  });
   renderDetail();
 }
 
@@ -3158,16 +3334,16 @@ function updateBatchUI() {
     btn.classList.toggle('btn-danger', batchMode);
     btn.classList.toggle('btn-outline', !batchMode);
   }
-  document.getElementById('batchCount').textContent = selectedUserIds.size;
-  document.getElementById('batchBar').classList.toggle('show', batchMode && selectedUserIds.size > 0);
+  document.getElementById('batchCount').textContent = selectedUserIdx.size;
+  document.getElementById('batchBar').classList.toggle('show', batchMode && selectedUserIdx.size > 0);
 }
 
 /* ---------- 批量添加回本金额 ---------- */
 function openBatchPriceModal() {
-  if (!selectedUserIds.size) { toast('请先勾选要操作的账户', 'warn'); return; }
+  if (!selectedUserIdx.size) { toast('请先勾选要操作的账户', 'warn'); return; }
   const p = getProject(currentProjectId);
   document.getElementById('bp-users').value =
-    p.users.filter(u => selectedUserIds.has(u.id)).map(u => u.name).join('、');
+    p.users.filter((u, i) => selectedUserIdx.has(i)).map(u => u.name).join('、');
   setError('bp-date', false); setError('bp-price', false);
   document.getElementById('bp-date').value = nowLocal();
   document.getElementById('bp-price').value = '';
@@ -3189,8 +3365,8 @@ async function saveBatchPrice() {
 
   // 为每位选中的账户单独添加一条记录
   let n = 0;
-  p.users.forEach(u => {
-    if (selectedUserIds.has(u.id)) { u.prices.push({ id: uid(), date, price }); n++; }
+  p.users.forEach((u, i) => {
+    if (selectedUserIdx.has(i)) { u.prices.push({ id: uid(), date, price }); n++; }
   });
   await saveCloudData(true);
   closeModal('batchPriceModal');
@@ -3201,12 +3377,12 @@ async function saveBatchPrice() {
 /* ---------- 批量删除账户 ---------- */
 function batchDeleteUsers() {
   const p = getProject(currentProjectId);
-  if (!p || !selectedUserIds.size) return;
-  const targets = p.users.filter(u => selectedUserIds.has(u.id));
+  if (!p || !selectedUserIdx.size) return;
+  const targets = p.users.filter((u, i) => selectedUserIdx.has(i));
   const priceCount = targets.reduce((s, u) => s + u.prices.length, 0);
   confirmAction('批量删除账户', `确定删除选中的 ${targets.length} 位账户吗？其名下共 ${priceCount} 条回本记录将一并清除，此操作不可恢复！`, async () => {
-    p.users = p.users.filter(u => !selectedUserIds.has(u.id));
-    selectedUserIds.clear();
+    p.users = p.users.filter((u, i) => !selectedUserIdx.has(i));
+    selectedUserIdx.clear();
     await saveCloudData(true);
     renderDetail();
     updateBatchUI();
@@ -3239,12 +3415,12 @@ async function saveBatchUsers() {
     const name = parts[0];
     const principal = parseFloat(parts[1]);
     const date = parts[2] || today;        // 日期可省略，默认今天
-    const sid = parts[3] || uid();         // 账户ID可省略，自动生成
+    const sid = parts[3] || '';            // 账户ID可省略，留空保存为空
     const remark = parts.slice(4).join('，');
     if (!name) errors.push(`第 ${i + 1} 行：缺少姓名`);
     else if (!(principal > 0)) errors.push(`第 ${i + 1} 行：本金必须是大于 0 的数字`);
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) errors.push(`第 ${i + 1} 行：上车日期格式应为 YYYY-MM-DD 且不晚于今天`);
-    else if (p.users.some(u => u.id === sid) || parsed.some(x => x.id === sid)) errors.push(`第 ${i + 1} 行：账户ID「${sid}」重复`);
+    else if (sid && (p.users.some(u => u.id === sid) || parsed.some(x => x.id === sid))) errors.push(`第 ${i + 1} 行：账户ID「${sid}」重复`);
     else parsed.push({ id: sid, name, principal, startDate: date, remark, prices: [] });
   });
 
@@ -3356,7 +3532,64 @@ function copySellId(id, tr) {
     if (!ok) return toast('复制失败，请手动复制', 'error');
     toast(`已复制出货ID：${r.sell_id}`, 'success');
     if (tr) { tr.classList.add('copied'); setTimeout(() => tr.classList.remove('copied'), 600); }
+    sellIdPrompt(r);  // 监测到复制出货ID：按品名匹配到自己的项目时提示一键添加出货账单
   });
+}
+
+// 监测到复制的出货ID后，按市场价品名匹配自己的项目（项目名 = 品名），提示是否直接添加今天的出货账单
+function sellIdPrompt(r) {
+  const matches = [];
+  projects.forEach(p => { if (p.name === r.name) p.users.forEach((u, i) => matches.push({ p, u, i })); });
+  if (!matches.length) return;  // 无匹配项目，仅保留复制提示
+  if (matches.length === 1) {
+    const { p, u, i } = matches[0];
+    confirmAction('添加出货账单',
+      `监测到您复制出货ID「${r.sell_id}」，匹配到项目「${p.name}」${p.users.length > 1 ? `的账户「${u.name}」` : ''}。是否跳转到该项目添加今天的出货账单？`,
+      () => jumpToSellBill(p.id, i, r.name), '确认添加');
+    return;
+  }
+  // 多个账户匹配同一出货ID：弹表格由用户选择
+  let layer = document.getElementById('sellPickLayer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'sellPickLayer';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    layer.addEventListener('click', e => { if (e.target === layer) closeSellPick(); });
+    document.body.appendChild(layer);
+  }
+  layer.innerHTML = `
+    <div style="background:var(--card);color:var(--text);border-radius:12px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px 16px">
+      <div style="font-weight:700;font-size:15px">📦 监测到您复制出货ID：${escapeHtml(r.sell_id)}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">品名「${escapeHtml(r.name)}」匹配到 ${matches.length} 个账户，请选择要添加出货账单的项目：</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;table-layout:fixed;word-break:break-word">
+        <thead><tr style="background:var(--bg)">
+          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">项目</th>
+          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">账户</th>
+          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:right">操作</th>
+        </tr></thead>
+        <tbody>
+          ${matches.map(m => `
+          <tr>
+            <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.p.name)}</td>
+            <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.u.name)}</td>
+            <td style="border-bottom:1px solid var(--border);padding:7px 4px;text-align:right">
+              <button class="btn btn-sm btn-primary" onclick="closeSellPick();jumpToSellBill('${m.p.id}',${m.i},'${escapeHtml(r.name)}')">选择</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <button class="btn btn-outline" style="width:100%;margin-top:12px;min-height:40px" onclick="closeSellPick()">取消</button>
+    </div>`;
+  layer.style.display = 'flex';
+}
+function closeSellPick() { const l = document.getElementById('sellPickLayer'); if (l) l.style.display = 'none'; }
+
+// 跳转到对应项目的「添加回本金额」，默认出货数量模式（数量 × 今日市场价自动算金额）
+async function jumpToSellBill(pid, uidx, mpName) {
+  enterProject(pid);
+  await openPriceModal(uidx, mpName);
+  setPriceMode('qty');  // 从出货ID进入：默认按出货数量录入
+  document.getElementById('pr-qty').focus();
 }
 function renderMarketPage() {
   const body = document.getElementById('marketBody');
