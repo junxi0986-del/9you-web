@@ -726,6 +726,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px">
         <h2 style="font-size:16px;font-weight:600">项目列表</h2>
         <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="openBillModal()">🧾 生成账单</button>
           <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
           <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
         </div>
@@ -1031,6 +1032,62 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('shareProjectModal')">取消</button>
       <button class="btn btn-primary" onclick="generateShareCode()">生成分享码</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 生成账单弹窗：汇总项目当日出货明细，支持保存为图片 ========== -->
+<div class="modal-mask" id="billModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h3>🧾 生成账单</h3>
+      <button class="modal-close" onclick="closeModal('billModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>统计范围</label>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
+            <input type="radio" name="bill-scope" value="all" checked style="accent-color:#2563eb" onchange="renderBill()"> 统计全部项目
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
+            <input type="radio" name="bill-scope" value="one" style="accent-color:#2563eb" onchange="renderBill()"> 统计单独项目
+          </label>
+          <select id="bill-project" onchange="billPickProject()" style="flex:1;min-width:150px"></select>
+        </div>
+      </div>
+      <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:18px 16px;overflow:hidden"></div>
+      <div id="billConvertBox" style="display:none;margin-top:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:10px;padding:12px">
+        <div style="font-size:13px;font-weight:700;color:#92400e">⚠️ 直接金额换算确认</div>
+        <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">以下 <b id="billConvCount">0</b> 笔为「直接金额」录入，系统按 <select id="billConvMp" onchange="billRenderConvert()" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px"></select>（<span id="billConvDate"></span>市场价）反推出货数量，请逐笔确认是否正确（数量可直接修改）：</div>
+        <div id="billConvList" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+        <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;min-height:40px" onclick="billApplyConvert()">✓ 确认无误，写入数量并重新生成账单</button>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label>出货截图佐证（必传，不限张数）</label>
+        <input type="file" id="billFiles" accept="image/*" multiple style="display:none" onchange="billAddFiles(this.files);this.value=''">
+        <div style="display:flex;gap:10px;align-items:center">
+          <button type="button" class="btn btn-outline" style="min-height:38px;padding:6px 14px" onclick="document.getElementById('billFiles').click()">📤 上传截图</button>
+          <span style="font-size:12px;color:var(--text-secondary)" id="billFilesTip">未上传，保存图片前必须上传</span>
+        </div>
+        <div id="billThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
+      <button type="button" class="btn btn-primary" id="billSaveBtn" style="margin-top:4px;width:100%" onclick="saveBillImage()">📷 保存为图片</button>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">手机端生成后长按图片可保存到相册；电脑端自动下载 PNG<br>图片含唯一账单编号与身份平铺水印，编号由账单内容计算生成，内容被改动编号即失配</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 今日回本明细弹窗（仅展示，带账号水印） ========== -->
+<div class="modal-mask" id="todayListModal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-head">
+      <h3>📋 今日回本明细</h3>
+      <button class="modal-close" onclick="closeModal('todayListModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="todayListPaper" style="position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 14px;overflow:hidden"></div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">本列表仅作展示核对用途，带账号水印，不可修改数据</div>
     </div>
   </div>
 </div>
@@ -1887,7 +1944,7 @@ function renderProjectGrid() {
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${gUserCount}" data-decimals="0">0</span><small>人</small></div></div>
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
-    <div class="summary-card"><div class="label">今日回本金额</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card" onclick="openTodayList()" style="cursor:pointer" title="点击查看今日回本明细"><div class="label">今日回本金额 👁</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
     ${gRemain > 0
       ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
@@ -2004,10 +2061,14 @@ function renderDetail() {
   // 已回本 / 未回本人数统计
   const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
 
+  // 今日回本金额：本项目今天录入的回本/出货合计（点击查看本项目今日明细）
+  const pToday = bill_collectToday([p]).total;
+
   document.getElementById('detailSummary').innerHTML = `
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${userCount}" data-decimals="0">${userCount.toLocaleString('zh-CN')}</span><small>人</small></div></div>
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${totalPrincipal}" data-decimals="2">${fmtMoney(totalPrincipal)}</span><small>元</small></div></div>
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${totalEarned}" data-decimals="2">${fmtMoney(totalEarned)}</span><small>元</small></div></div>
+    <div class="summary-card" onclick="openTodayList([getProject(currentProjectId)])" style="cursor:pointer" title="点击查看本项目今日回本明细"><div class="label">今日回本金额 👁</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${pToday}" data-decimals="2">${fmtMoney(pToday)}</span><small>元</small></div></div>
     ${totalRemain > 0
       ? `<div class="summary-card"><div class="label">距回本</div><div class="value" style="color:var(--danger)">${fmtMoney(totalRemain)}<small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value" style="color:var(--success)">${fmtMoney(totalProfit)}<small>元</small></div></div>`}
@@ -2217,6 +2278,392 @@ async function importSharedProject() {
     renderProjectGrid();
     toast(`已导入项目「${name}」（${users.length} 个账户）`, 'success');
   });
+}
+
+/* ---------- 生成账单：汇总项目当日出货明细，支持保存为图片 ---------- */
+async function openBillModal() {
+  if (projects.length === 0) { toast('暂无项目，请先新增项目', 'warn'); return; }
+  const sel = document.getElementById('bill-project');
+  sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
+  billShots = [];  // 每次打开重新上传佐证截图，避免混入上次账单
+  billRenderThumbs();
+  if (marketPrices.length === 0) await loadMarketPrices();  // 直接金额反推数量需要市场价
+  renderBill();
+  openModal('billModal');
+}
+
+// ===== 出货截图佐证：上传 → 压缩 → 缩略图管理 → 嵌入账单并打水印 =====
+let billShots = [];  // 佐证截图 dataURL 列表（必传，嵌入账单图片）
+
+function billAddFiles(files) {
+  const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+  if (!list.length) return;
+  list.forEach(f => {
+    const rd = new FileReader();
+    rd.onload = () => billCompress(String(rd.result), url => { billShots.push(url); billRenderThumbs(); renderBill(); });
+    rd.onerror = () => toast('图片读取失败', 'error');
+    rd.readAsDataURL(f);
+  });
+}
+
+// 压缩到最长边 1200px 的 JPEG，避免账单图片体积过大
+function billCompress(dataUrl, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const max = 1200;
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(img.width * scale));
+    cv.height = Math.max(1, Math.round(img.height * scale));
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    cb(cv.toDataURL('image/jpeg', 0.82));
+  };
+  img.onerror = () => toast('图片解析失败，请换一张试试', 'error');
+  img.src = dataUrl;
+}
+
+function billRenderThumbs() {
+  document.getElementById('billFilesTip').textContent = billShots.length ? `已上传 ${billShots.length} 张` : '未上传，保存图片前必须上传';
+  document.getElementById('billThumbs').innerHTML = billShots.map((s, i) => `
+    <div style="position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <img src="${s}" style="width:100%;height:100%;object-fit:cover" alt="截图${i + 1}">
+      <span onclick="billDelShot(${i})" style="position:absolute;top:0;right:0;background:rgba(239,68,68,.92);color:#fff;font-size:11px;line-height:16px;width:16px;height:16px;text-align:center;cursor:pointer;border-radius:0 0 0 6px">×</span>
+    </div>`).join('');
+}
+
+function billDelShot(i) { billShots.splice(i, 1); billRenderThumbs(); renderBill(); }
+
+// 选择单独项目下拉时自动切到「统计单独项目」
+function billPickProject() {
+  document.querySelector('input[name="bill-scope"][value="one"]').checked = true;
+  renderBill();
+}
+
+// djb2 内容哈希：账单数据任何变化都会得到不同编号（用于唯一编号/校验）
+function bill_hash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) + h + str.charCodeAt(i)) >>> 0; }
+  return h.toString(16).toUpperCase().padStart(8, '0');
+}
+
+// 平铺水印：倾斜半透明铺满容器（导出图片一并带入）；color 可调（明细展示页用更显眼的水印色）
+function bill_watermark(text, color = 'rgba(37,99,235,.09)') {
+  let s = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 3; c++) {
+      s += `<span style="position:absolute;left:${c * 34 + 3}%;top:${r * 11 + 1}%;transform:rotate(-22deg);font-size:10.5px;font-weight:600;color:${color};white-space:nowrap">${text}</span>`;
+    }
+  }
+  return s;
+}
+
+// 汇总指定项目范围今天（本地时区）的出货记录，逐笔一行：{ rec, proj, userId, 数量, 市场价, 金额 }
+function bill_collectToday(scope) {
+  const t = new Date();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const rows = [];
+  scope.forEach(p => p.users.forEach(u => (u.prices || []).forEach(r => {
+    // 日期字段为 datetime-local（含时间），取前 10 位与今天比较
+    if (String(r.date || '').slice(0, 10) !== today) return;
+    const qty = (r.qty !== undefined && r.qty !== null && Number(r.qty) > 0) ? Number(r.qty) : null;
+    rows.push({
+      rec: r,  // 原始记录引用，供「直接金额换算确认」写回数量
+      proj: p.name,
+      userId: u.id || '—',
+      time: String(r.date || '').slice(11, 16) || '—',  // 录入时间（HH:mm）
+      mpName: r.mpName || '',
+      qty,
+      rate: qty ? (Number(r.rate) || 0) : null,
+      price: Number(r.price) || 0
+    });
+  })));
+  return { today, rows, total: rows.reduce((s, x) => s + x.price, 0) };
+}
+
+// 账单统计范围对应的项目列表（全部 / 单独）
+function bill_scopeProjects() {
+  const one = document.querySelector('input[name="bill-scope"]:checked').value === 'one';
+  return one ? [getProject(document.getElementById('bill-project').value)].filter(Boolean) : projects;
+}
+
+// 当前市场价：今天有价用今天，否则取最近有价的一天（同一日期可能多个品名）
+function bill_latestMp() {
+  if (!marketPrices.length) return { date: '', items: [] };
+  const date = marketPrices[0].price_date;
+  const items = marketPrices.filter(x => x.price_date === date).map(x => ({ name: x.name, price: Number(x.price) || 0 }));
+  return { date, items };
+}
+
+// 「直接金额换算确认」区：按当前市场价反推数量，允许用户逐笔修改后写回记录
+function billRenderConvert() {
+  const box = document.getElementById('billConvertBox');
+  const { date, items } = bill_latestMp();
+  const directs = bill_collectToday(bill_scopeProjects()).rows.filter(x => x.qty === null && x.rec);
+  if (!directs.length || !items.length) { box.style.display = 'none'; return; }
+  const sel = document.getElementById('billConvMp');
+  const cur = sel.value;
+  sel.innerHTML = items.map(it => `<option value="${escapeHtml(it.name)}" data-price="${it.price}">${escapeHtml(it.name)}（¥${fmtMoney(it.price)}）</option>`).join('');
+  if (cur && items.some(i => i.name === cur)) sel.value = cur;
+  const rate = parseFloat(sel.selectedOptions[0].dataset.price) || 0;
+  document.getElementById('billConvDate').textContent = date;
+  document.getElementById('billConvCount').textContent = directs.length;
+  document.getElementById('billConvList').innerHTML = directs.map((x, i) => {
+    const infer = rate > 0 ? Math.round((x.price / rate) * 100) / 100 : 0;
+    return `<div style="display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-size:12px;color:#78350f;flex-wrap:wrap">
+      <span style="font-weight:700">#${i + 1}</span>
+      <span>${escapeHtml(x.proj)} · ${escapeHtml(x.userId)}</span>
+      <span>金额 ¥${fmtMoney(x.price)}</span>
+      <span>反推数量 <input type="number" id="billcv-${escapeHtml(x.rec.id)}" value="${infer}" min="0" step="0.01" style="width:82px;min-height:30px;padding:2px 6px;font-size:12px"></span>
+      ${rate > 0 ? `<span style="color:#a16207">(¥${fmtMoney(x.price)} ÷ ¥${fmtMoney(rate)})</span>` : ''}
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+// 确认换算：把确认/修改后的数量写回原始记录（转为数量模式记录），云端保存并刷新账单
+async function billApplyConvert() {
+  const sel = document.getElementById('billConvMp');
+  const opt = sel.selectedOptions[0];
+  const rate = opt ? parseFloat(opt.dataset.price) : 0;
+  if (!(rate > 0)) { toast('暂无市场价，无法换算数量', 'warn'); return; }
+  const directs = bill_collectToday(bill_scopeProjects()).rows.filter(x => x.qty === null && x.rec);
+  let n = 0;
+  directs.forEach(x => {
+    const inp = document.getElementById(`billcv-${x.rec.id}`);
+    let q = inp ? parseFloat(inp.value) : NaN;
+    if (!(q > 0)) q = Math.round((x.rec.price / rate) * 100) / 100;  // 输入无效时用反推值兜底
+    x.rec.qty = q;
+    x.rec.rate = rate;
+    x.rec.mpName = sel.value;
+    n++;
+  });
+  if (!n) return;
+  await saveCloudData(true);
+  toast(`已按确认数量更新 ${n} 笔记录，账单已重新生成`, 'success');
+  renderBill();
+}
+
+function renderBill() {
+  const one = document.querySelector('input[name="bill-scope"]:checked').value === 'one';
+  const scope = bill_scopeProjects();
+  const { today, rows, total } = bill_collectToday(scope);
+  billDateStr = today;
+  const [y, m, d] = today.split('-');
+  // 生成时间精确到秒（YYYY-MM-DD HH:mm:ss），参与唯一编号哈希
+  const now = new Date();
+  const genTime = `${today} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  const email = currentUserEmail || '';
+  // 唯一编号：日期 + 账号 + 生成时间 + 全部明细 + 佐证截图内容共同哈希，任何一项不同编号即不同
+  const shotsSig = bill_hash(billShots.join('|'));
+  const digest = bill_hash(today + '|' + email + '|' + genTime + '|' + JSON.stringify(rows) + '|' + shotsSig);
+  const billNo = 'JY' + today.replace(/-/g, '') + '-' + digest;
+  billLastNo = billNo;  // 记录编号，保存图片时随盲水印隐写进像素
+  const cs = 'border-bottom:1px solid #e2e8f0;padding:6px 4px;';  // 单元格通用样式（内联保证导出图片样式完整）
+  const bodyRows = rows.length ? rows.map((x, i) => `
+      <tr>
+        <td style="${cs}text-align:center">${i + 1}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.proj)}${x.mpName ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.userId)}</td>
+        <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate)}</td>
+        <td style="${cs}text-align:right;font-weight:600">¥${fmtMoney(x.price)}</td>
+      </tr>`).join('') : '<tr><td colspan="6" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
+  const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo}`);
+  document.getElementById('billPaper').innerHTML = `
+    <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">${wm}</div>
+    <div style="position:relative">
+      <div style="text-align:center">
+        <div style="font-size:17px;font-weight:700;color:#0f172a">出货账单</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">九游项目跟踪管理平台 · 账单编号 ${billNo}</div>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:#0f172a">日期：<b>${y}年${Number(m)}月${Number(d)}日</b></div>
+      <div style="margin-top:3px;font-size:13px;color:#0f172a">范围：<b>${one ? escapeHtml((scope[0] && scope[0].name) || '') : '全部项目'} · 账号 ${escapeHtml(email)}</b></div>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a">
+        <thead><tr style="background:#f1f5f9">
+          <th style="${cs}text-align:center;width:34px">编号</th>
+          <th style="${cs}text-align:left">项目名字</th>
+          <th style="${cs}text-align:left">账号ID</th>
+          <th style="${cs}text-align:center">出货数量</th>
+          <th style="${cs}text-align:right">今日市场价</th>
+          <th style="${cs}text-align:right">统计</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+        <tfoot><tr style="background:#f8fafc">
+          <td colspan="5" style="${cs}text-align:right;font-weight:700">今日出货合计（${rows.length} 笔）</td>
+          <td style="${cs}text-align:right;font-weight:700;color:#16a34a">¥${fmtMoney(total)}</td>
+        </tr></tfoot>
+      </table>
+      <div style="margin-top:8px;font-size:10px;color:#94a3b8;text-align:right">生成于 ${genTime} ｜ 校验码 ${digest}（编号由账单内容与佐证截图计算，被篡改即失配）</div>
+      ${billShots.length ? `
+      <div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px">出货截图佐证（${billShots.length} 张）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${billShots.map((s, i) => `
+          <div style="position:relative;width:${billShots.length === 1 ? '100%' : 'calc(50% - 4px)'};border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+            <img src="${s}" style="width:100%;display:block" alt="出货截图${i + 1}">
+            <div style="position:absolute;inset:0;pointer-events:none">${bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo} · 截图${i + 1}`)}</div>
+          </div>`).join('')}
+        </div>
+      </div>` : '<div style="margin-top:12px;font-size:11px;color:#f59e0b;text-align:center;background:#fffbeb;border:1px dashed #fbbf24;border-radius:6px;padding:10px">⚠️ 请先上传出货截图佐证，才能保存账单图片</div>'}
+    </div>`;
+  billRenderConvert();  // 同步刷新「直接金额换算确认」区（上传截图/切换范围后保持最新）
+}
+
+// 懒加载 html2canvas（首次保存图片时才请求 CDN）
+function loadHtml2Canvas() {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = resolve; s.onerror = () => reject(new Error('html2canvas 加载失败'));
+    document.head.appendChild(s);
+  });
+}
+
+let billImgData = '';   // 当前生成的账单图片 dataURL，供手机端长按保存
+let billDateStr = '';   // 当前账单对应日期（YYYY-MM-DD），用作图片文件名
+let billLastNo = '';    // 最近一次渲染的账单编号（盲水印写入用）
+
+// ===== 盲水印（LSB 隐写）：账号+账单编号写入图片像素最低位，肉眼不可见 =====
+// 帧结构：16 位同步帧(0xA5,0x5A) + 16 位长度 + 内容字节；整图冗余重复，前段被裁剪仍可恢复
+function bill_wm_bits(str) {
+  const bytes = Array.from(new TextEncoder().encode(str));
+  const all = [0xA5, 0x5A, (bytes.length >> 8) & 0xff, bytes.length & 0xff, ...bytes];
+  const bits = [];
+  all.forEach(b => { for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1); });
+  return bits;
+}
+
+function bill_embedLSB(canvas, payload) {
+  try {
+    const ctx = canvas.getContext('2d');
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data;
+    const n = d.length / 4;  // 像素数
+    const bits = bill_wm_bits(payload);
+    if (bits.length + 8 > n) return false;
+    const repeat = Math.max(1, Math.min(5, Math.floor(n / bits.length)));  // 冗余重复（最多 5 份）
+    for (let r = 0; r < repeat; r++) {
+      for (let b = 0; b < bits.length; b++) {
+        const px = r * bits.length + b;
+        d[px * 4] = (d[px * 4] & 0xfe) | bits[b];  // 写入 R 通道最低位
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return true;
+  } catch (e) { return false; }
+}
+
+// 解码盲水印：传入 canvas 返回隐写内容，失败返回 null
+function bill_decodeLSB(canvas) {
+  try {
+    const ctx = canvas.getContext('2d');
+    const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const n = d.length / 4;
+    const bits = new Uint8Array(n);
+    for (let i = 0; i < n; i++) bits[i] = d[i * 4] & 1;
+    const byte = (off) => { let v = 0; for (let k = 0; k < 8; k++) v = (v << 1) | bits[off + k]; return v; };
+    for (let s = 0; s + 48 <= n; s++) {
+      if (bits[s] !== 1) continue;  // 快速过滤：同步帧首比特为 1
+      if (byte(s) !== 0xA5 || byte(s + 8) !== 0x5A) continue;  // 同步帧 0xA5,0x5A
+      const len = (byte(s + 16) << 8) | byte(s + 24);
+      if (len <= 0 || len > 512) continue;  // 长度合理性校验
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = byte(s + 32 + i * 8);
+      const text = new TextDecoder().decode(bytes);
+      if (/^[\x20-\x7e\u4e00-\u9fa5@.|_-]+$/.test(text)) return text;  // 内容合法性校验
+      return null;
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+// 验水印工具：控制台执行 billDecodeWatermark(图片文件|图片URL|dataURL) 返回「账号|账单编号」
+window.billDecodeWatermark = function (src) {
+  const load = new Promise((res, rej) => {
+    if (typeof src === 'string') { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }
+    else { const rd = new FileReader(); rd.onload = () => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = String(rd.result); }; rd.onerror = rej; rd.readAsDataURL(src); }
+  });
+  return load.then(img => {
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    cv.getContext('2d').drawImage(img, 0, 0);
+    return bill_decodeLSB(cv);
+  });
+};
+
+/* ---------- 今日回本明细：点击首页/详情页「今日回本金额」卡片打开，仅展示、带账号水印 ---------- */
+// scope 可选：首页不传 = 全部项目；详情页传 [当前项目] = 仅本项目
+function openTodayList(scope) {
+  const { rows, total } = bill_collectToday(scope && scope.length ? scope : projects);
+  const today = nowLocal().slice(0, 10);
+  const email = currentUserEmail || '';
+  const cs = 'border-bottom:1px solid var(--border);padding:6px 4px;';
+  const bodyRows = rows.length ? rows.map((x, i) => `
+      <tr>
+        <td style="${cs}text-align:center">${i + 1}</td>
+        <td style="${cs}text-align:center">${escapeHtml(x.time)}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.proj)}</td>
+        <td style="${cs}text-align:left">${escapeHtml(x.userId)}</td>
+        <td style="${cs}text-align:left;font-size:11px">${x.qty === null ? '直接金额' : `${x.qty} × ¥${fmtMoney(x.rate)}${x.mpName ? ' · ' + escapeHtml(x.mpName) : ''}`}</td>
+        <td style="${cs}text-align:right;font-weight:600;color:var(--success)">¥${fmtMoney(x.price)}</td>
+      </tr>`).join('') : '<tr><td colspan="6" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
+  // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
+  const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${today} 今日明细`, 'rgba(59,130,246,.16)');
+  document.getElementById('todayListPaper').innerHTML = `
+    <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
+    <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3">${wm}</div>
+    <div style="position:relative;z-index:2">
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;color:var(--text)">
+        <thead><tr style="background:var(--bg)">
+          <th style="${cs}text-align:center;width:34px">编号</th>
+          <th style="${cs}text-align:center">时间</th>
+          <th style="${cs}text-align:left">项目</th>
+          <th style="${cs}text-align:left">账号ID</th>
+          <th style="${cs}text-align:left">方式</th>
+          <th style="${cs}text-align:right">金额</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>`;
+  openModal('todayListModal');
+}
+
+async function saveBillImage() {
+  const btn = document.getElementById('billSaveBtn');
+  if (!billShots.length) { toast('请先上传出货截图佐证，再保存账单图片', 'warn'); return; }
+  try {
+    btn.disabled = true; btn.textContent = '正在生成图片…';
+    await loadHtml2Canvas();
+    const canvas = await window.html2canvas(document.getElementById('billPaper'), { scale: 2, backgroundColor: '#ffffff' });
+    bill_embedLSB(canvas, `${currentUserEmail || ''}|${billLastNo}`);  // 盲水印：隐写账号+账单编号（肉眼不可见）
+    billImgData = canvas.toDataURL('image/png');
+    const touch = matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window;
+    if (touch) {
+      // 手机端：全屏展示图片，长按保存到相册（iOS Safari 不支持 download 属性）
+      let layer = document.getElementById('billImgLayer');
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.id = 'billImgLayer';
+        layer.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px';
+        layer.innerHTML = '<img id="billImg" style="max-width:100%;max-height:78vh;border-radius:8px;background:#fff"><div style="color:#fff;font-size:13px;margin-top:10px">长按图片保存到相册 · 点击空白处关闭</div>';
+        layer.addEventListener('click', (e) => { if (e.target === layer) layer.style.display = 'none'; });
+        document.body.appendChild(layer);
+      }
+      document.getElementById('billImg').src = billImgData;
+      layer.style.display = 'flex';
+    } else {
+      const a = document.createElement('a');
+      a.href = billImgData;
+      a.download = `出货账单_${billDateStr}.png`;
+      a.click();
+      toast('账单图片已下载', 'success');
+    }
+  } catch (e) {
+    toast('图片生成失败，请检查网络后重试', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '📷 保存为图片';
+  }
 }
 
 // 删除项目（连同其下所有用户及价格记录）
@@ -2571,13 +3018,18 @@ function renderLedger() {
     `共 ${records.length} 笔 ｜ 累计已收回 ${fmtMoney(total)} 元 ｜ 剩余未回本 ${fmtMoney(calcRemain(u))} 元`;
   document.getElementById('ledgerBody').innerHTML = records.length === 0
     ? '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);padding:24px">暂无记录，点击「添加回本金额」开始录入</td></tr>'
-    : records.map((r, i) => `
-      <tr>
-        <td data-label="序号">${i + 1}</td>
+    : records.map((r, i) => {
+        // 今天录入的记录用浅蓝底高亮（深色模式自动适配主题变量），提升当日数据可读性
+        const isToday = String(r.date || '').slice(0, 10) === nowLocal().slice(0, 10);
+        const bg = isToday ? ' style="background:var(--accent-soft, rgba(59,130,246,.08))"' : '';
+        return `
+      <tr${bg}>
+        <td data-label="序号">${i + 1}${isToday ? ' <span style="font-size:10px;color:var(--primary);font-weight:600">今</span>' : ''}</td>
         <td data-label="日期">${fmtDateTime(r.date)}</td>
         <td data-label="回本金额">${fmtMoney(r.price)} 元${r.qty ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${r.qty} × ¥${fmtMoney(r.rate)}/${r.mpName || ''}</div>` : ''}</td>
         <td data-label="操作"><button class="btn btn-sm btn-danger" onclick="deletePrice('${r.id}')">删除</button></td>
-      </tr>`).join('');
+      </tr>`;
+      }).join('');
 }
 
 // 删除单条价格记录
