@@ -2177,7 +2177,7 @@ function renderDetail() {
         <td data-label="投入本金">${fmtMoney(u.principal)}</td>
         <td data-label="上车日期">${u.startDate || '—'}</td>
         <td data-label="累计已收回" class="money gain">${fmtMoney(earned)}</td>
-        <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${fmtMoney(remain)}${isDone ? ' <span class="badge badge-done">已回本</span>' : ''}</td>
+        <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${isDone ? `已润 ${fmtMoney(earned - Number(u.principal))}` : fmtMoney(remain)}</td>
         <td data-label="回本进度" class="td-progress">
           <div class="progress-wrap">
             <div class="progress-bar"><div class="progress-fill ${pc}" style="width:${progress}%"></div></div>
