@@ -835,7 +835,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 
         <div class="table-card">
           <h2 style="font-size:16px;font-weight:600;margin-bottom:4px">💰 市场价管理</h2>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">每日可添加多条；首页按日期倒序滚动展示最新一天的价格</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">每日可添加多条；首页按日期倒序滚动展示最新一天的价格。按份计价：单位填「2100个」表示 2100个 = 单价金额，如饕鬄王填 单价10 + 单位2100个</div>
           <input type="hidden" id="mf-id">
           <div class="mf-form" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
             <div class="form-group" style="margin:0;flex:1;min-width:125px">
@@ -848,11 +848,11 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:95px">
               <label>单价（元）<span class="req">*</span></label>
-              <input type="number" id="mf-price" placeholder="0.00" min="0.01" step="0.01">
+              <input type="number" id="mf-price" placeholder="0.123" min="0.001" step="0.001">
             </div>
             <div class="form-group" style="margin:0;flex:0.9;min-width:85px">
               <label>数量单位</label>
-              <input type="text" id="mf-unit" placeholder="如：1个" maxlength="20">
+              <input type="text" id="mf-unit" placeholder="如：1个 或 2100个" maxlength="20">
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:95px">
               <label>出货ID（可选）</label>
@@ -967,12 +967,12 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <label>统计范围</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
-            <input type="radio" name="bill-scope" value="all" checked style="accent-color:#2563eb" onchange="renderBill()"> 统计全部项目
+            <input type="radio" name="bill-scope" value="all" checked style="accent-color:#2563eb" onchange="billScopeChange('all')"> 统计全部项目
           </label>
           <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400">
-            <input type="radio" name="bill-scope" value="one" style="accent-color:#2563eb" onchange="renderBill()"> 统计单独项目
+            <input type="radio" name="bill-scope" value="one" style="accent-color:#2563eb" onchange="billScopeChange('one')"> 统计单独项目
           </label>
-          <select id="bill-project" onchange="billPickProject()" style="flex:1;min-width:130px"></select>
+          <select id="bill-project" onchange="billPickProject()" style="flex:1;min-width:130px;display:none"></select>
         </div>
       </div>
       <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:14px 10px;overflow:hidden"></div>
@@ -1236,7 +1236,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
       <div class="form-group" id="pr-amountGroup">
         <label>回本金额（元）<span class="req">*</span></label>
-        <input type="number" id="pr-price" placeholder="请输入回本金额" min="0.01" step="0.01">
+        <input type="number" id="pr-price" placeholder="请输入回本金额" min="0.001" step="0.001">
         <div class="form-tip">同一天可多次录入，每次添加单独记录</div>
         <div class="form-error">请输入大于 0 的回本金额</div>
       </div>
@@ -1816,7 +1816,15 @@ function nowLocal() {
 }
 // 台账时间展示：YYYY-MM-DD HH:MM（兼容旧的纯日期记录）
 function fmtDateTime(s) { return s ? s.replace('T', ' ') : '—'; }
-const fmtMoney = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// 金额格式化：最多 3 位小数（市场价支持 0.123，数量 × 单价计算结果保留 3 位精度）
+const fmtMoney = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+// 金额计算统一取整到 3 位小数，避免浮点误差（如 10 × 0.123 = 1.2300000000000002）
+const round3 = n => Math.round(Number(n) * 1000) / 1000;
+// 解析市场价单位中的对应数量："2100个" → 2100（表示 2100 个 = 单价金额）；"1个"/"个"/空 → 1
+function mpRefQty(unit) {
+  const m = String(unit || '').match(/^\s*(\d+(?:\.\d+)?)/);
+  return m && Number(m[1]) > 0 ? Number(m[1]) : 1;
+}
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const getProject = id => projects.find(p => p.id === id);
 
@@ -2386,7 +2394,9 @@ async function openBillPage() {
   billShots = [];  // 每次进入重新上传佐证截图，避免混入上次账单
   billRenderThumbs();
   if (marketPrices.length === 0) await loadMarketPrices();  // 直接金额反推数量需要市场价
-  renderBill();
+  // 每次进入账单页恢复默认：统计全部项目（隐藏单独项目下拉框）
+  document.querySelector('input[name="bill-scope"][value="all"]').checked = true;
+  billScopeChange('all');
   onBillPage = true;
   showPage('bill');   // 切到独立账单页（隐藏列表页）
   histPush('bill');   // 历史入栈：浏览器返回键/侧滑可退回列表
@@ -2433,9 +2443,14 @@ function billRenderThumbs() {
 
 function billDelShot(i) { billShots.splice(i, 1); billRenderThumbs(); renderBill(); }
 
-// 选择单独项目下拉时自动切到「统计单独项目」
+// 切换统计范围：仅「统计单独项目」时显示项目选择下拉框，默认全部项目隐藏
+function billScopeChange(val) {
+  document.getElementById('bill-project').style.display = val === 'one' ? '' : 'none';
+  renderBill();
+}
+
+// 选择单独项目下拉时重新生成账单
 function billPickProject() {
-  document.querySelector('input[name="bill-scope"][value="one"]').checked = true;
   renderBill();
 }
 
@@ -2474,6 +2489,7 @@ function bill_collectToday(scope) {
       mpName: r.mpName || '',
       qty,
       rate: qty ? (Number(r.rate) || 0) : null,
+      refQty: qty ? (Number(r.refQty) || 1) : null,
       price: Number(r.price) || 0
     });
   })));
@@ -2490,7 +2506,7 @@ function bill_scopeProjects() {
 function bill_latestMp() {
   if (!marketPrices.length) return { date: '', items: [] };
   const date = marketPrices[0].price_date;
-  const items = marketPrices.filter(x => x.price_date === date).map(x => ({ name: x.name, price: Number(x.price) || 0 }));
+  const items = marketPrices.filter(x => x.price_date === date).map(x => ({ name: x.name, price: Number(x.price) || 0, ref: mpRefQty(x.unit), unit: x.unit || '1' }));
   return { date, items };
 }
 
@@ -2514,12 +2530,14 @@ function billRenderConvert() {
   const owners = new Map();
   scope.forEach(p => p.users.forEach(u => u.prices.forEach(r => owners.set(r.id, u))));
   document.getElementById('billConvCount').textContent = directs.length;
-  const optHtml = detName => items.map(it => `<option value="${escapeHtml(it.name)}" data-price="${it.price}"${it.name === detName ? ' selected' : ''}>${escapeHtml(it.name)}（¥${fmtMoney(it.price)}）</option>`).join('') +
+  const optHtml = detName => items.map(it => `<option value="${escapeHtml(it.name)}" data-price="${it.price}" data-ref="${it.ref}"${it.name === detName ? ' selected' : ''}>${escapeHtml(it.name)}（¥${fmtMoney(it.price)}/${escapeHtml(it.unit)}）</option>`).join('') +
     `<option value=""${detName ? '' : ' selected'}>请选择品名</option>`;
   document.getElementById('billConvList').innerHTML = directs.map((x, i) => {
     const detName = bill_detectMpName(x.proj, owners.get(x.rec.id) || { prices: [] }, items);
-    const rate = detName ? (items.find(it => it.name === detName).price) : 0;
-    const infer = rate > 0 ? Math.round(x.price / rate) : 0;  // 反推数量取整（数量必须为整数）
+    const det = detName ? items.find(it => it.name === detName) : null;
+    const rate = det ? det.price : 0;   // 单价为市场价原值（如 10），数量换算自动除以对应数量（如 2100）
+    const ref = det ? det.ref : 1;
+    const infer = rate > 0 ? Math.round(x.price * ref / rate) : 0;  // 金额 ÷ 单价 × 对应数量，取整（数量必须为整数）
     const rid = escapeHtml(x.rec.id);
     return `<div style="background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-size:12px;color:#78350f">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -2529,9 +2547,9 @@ function billRenderConvert() {
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
         <span>品名 <select id="billcv-mp-${rid}" onchange="billConvRowChange('${x.rec.id}', this)" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px;max-width:150px">${optHtml(detName)}</select></span>
-        <span>单价 ¥<input type="number" id="billcv-rate-${rid}" value="${rate}" min="0" step="0.01" style="width:76px;min-height:30px;padding:2px 6px;font-size:12px;${rate > 0 ? '' : 'border-color:#dc2626;color:#dc2626'}" oninput="billConvRateInput('${x.rec.id}')"></span>
+        <span>单价 ¥<input type="number" id="billcv-rate-${rid}" data-ref="${ref}" value="${rate}" min="0" step="0.01" style="width:76px;min-height:30px;padding:2px 6px;font-size:12px;${rate > 0 ? '' : 'border-color:#dc2626;color:#dc2626'}" oninput="billConvRateInput('${x.rec.id}')"></span>
         <span>数量 <input type="number" id="billcv-${rid}" data-price="${x.price}" value="${infer}" min="0" step="0.01" style="width:82px;min-height:30px;padding:2px 6px;font-size:12px" oninput="billConvLiveUpdate('${x.rec.id}')"></span>
-        <span id="billcv-amt-${rid}" style="color:#a16207;font-weight:600">${rate > 0 && infer > 0 ? '金额 ¥' + fmtMoney(infer * rate) : `金额 ¥${fmtMoney(x.price)}`}</span>
+        <span id="billcv-amt-${rid}" style="color:#a16207;font-weight:600">${rate > 0 && infer > 0 ? '金额 ¥' + fmtMoney(round3(infer * rate / ref)) : `金额 ¥${fmtMoney(x.price)}`}</span>
         <button type="button" class="btn btn-sm btn-primary" style="min-height:30px;padding:3px 10px" onclick="billApplyConvertOne('${x.rec.id}')">✓ 确认本笔</button>
       </div>
     </div>`;
@@ -2539,24 +2557,27 @@ function billRenderConvert() {
   box.style.display = 'block';
 }
 
-// 行内切换品名：单价填入所选品名价格，并按新单价重算反推数量（取整），再实时联动上方账单
+// 行内切换品名：单价填入所选品名价格（带对应数量），并按新单价重算反推数量（取整），再实时联动上方账单
 function billConvRowChange(recId, sel) {
-  const rate = parseFloat(sel.selectedOptions[0].dataset.price) || 0;
+  const opt = sel.selectedOptions[0];
+  const rate = parseFloat(opt.dataset.price) || 0;
+  const ref = Number(opt.dataset.ref) || 1;
   const rid = escapeHtml(recId);
   const rateEl = document.getElementById(`billcv-rate-${rid}`);
-  if (rateEl) rateEl.value = rate;  // 单价可再手动修改
+  if (rateEl) { rateEl.value = rate; rateEl.dataset.ref = ref; }  // 单价可再手动修改
   const inp = document.getElementById(`billcv-${rid}`);
-  if (inp && rate > 0) inp.value = Math.round((parseFloat(inp.dataset.price) || 0) / rate);
+  if (inp && rate > 0) inp.value = Math.round((parseFloat(inp.dataset.price) || 0) * ref / rate);
   billConvLiveUpdate(recId);
 }
 
-// 手动修改单价：按新单价重算反推数量（取整），实时联动上方账单（单价支持自定义）
+// 手动修改单价：按新单价重算反推数量（取整，自动除以对应数量），实时联动上方账单（单价支持自定义）
 function billConvRateInput(recId) {
   const rid = escapeHtml(recId);
   const rateEl = document.getElementById(`billcv-rate-${rid}`);
   const newRate = rateEl ? parseFloat(rateEl.value) || 0 : 0;
+  const ref = rateEl ? (Number(rateEl.dataset.ref) || 1) : 1;
   const inp = document.getElementById(`billcv-${rid}`);
-  if (inp) inp.value = newRate > 0 ? Math.round((parseFloat(inp.dataset.price) || 0) / newRate) : 0;
+  if (inp) inp.value = newRate > 0 ? Math.round((parseFloat(inp.dataset.price) || 0) * ref / newRate) : 0;
   billConvLiveUpdate(recId);
 }
 
@@ -2565,6 +2586,7 @@ function billConvLiveUpdate(recId) {
   const rid = escapeHtml(recId);
   const rateEl = document.getElementById(`billcv-rate-${rid}`);
   const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;
+  const ref = rateEl ? (Number(rateEl.dataset.ref) || 1) : 1;
   if (rateEl) { rateEl.style.borderColor = rate > 0 ? '' : '#dc2626'; rateEl.style.color = rate > 0 ? '' : '#dc2626'; }
   const inp = document.getElementById(`billcv-${rid}`);
   const base = inp ? parseFloat(inp.dataset.price) || 0 : 0;  // 原直接金额
@@ -2572,7 +2594,7 @@ function billConvLiveUpdate(recId) {
   const badInt = q > 0 && !Number.isInteger(q);  // 非整数：红标提示
   if (inp) { inp.style.borderColor = badInt ? '#dc2626' : ''; inp.style.color = badInt ? '#dc2626' : ''; }
   const ok = rate > 0 && q > 0 && !badInt;
-  const amt = ok ? Math.round(q * rate * 100) / 100 : base;
+  const amt = ok ? round3(q * rate / ref) : base;  // 数量 × 单价 ÷ 对应数量
   // 确认区行内金额预览（非整数时提示必须为整数）
   const amtEl = document.getElementById(`billcv-amt-${rid}`);
   if (amtEl) {
@@ -2584,7 +2606,7 @@ function billConvLiveUpdate(recId) {
   if (!tr) return;
   tr.dataset.amt = String(amt);
   tr.children[2].innerHTML = q > 0 ? (badInt ? `<span style="color:#dc2626;font-weight:600">${q}</span>` : String(q)) : '—';
-  tr.children[3].textContent = rate > 0 ? '¥' + fmtMoney(rate) : '—';
+  tr.children[3].textContent = rate > 0 ? '¥' + fmtMoney(rate) + (ref > 1 ? '/' + fmtMoney(ref) : '') : '—';
   tr.children[4].textContent = '¥' + fmtMoney(amt);
   tr.children[4].style.color = ok ? '#b45309' : '';  // 预览中（未确认）标橙色
   // 重算合计（各行为确认后的预览金额）
@@ -2601,11 +2623,12 @@ async function billApplyConvertOne(recId) {
   const opt = sel ? sel.selectedOptions[0] : null;
   const rateEl = document.getElementById(`billcv-rate-${rid}`);
   const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;  // 单价以输入框为准（支持自定义市场价）
+  const ref = rateEl ? (Number(rateEl.dataset.ref) || 1) : 1;  // 对应数量（单位如「2100个」）
   if (!(rate > 0)) { toast('该笔还未选择品名或未填写单价，无法换算数量', 'warn'); return; }
   const inp = document.getElementById(`billcv-${rid}`);
   const price = inp ? parseFloat(inp.dataset.price) || 0 : 0;
   let q = inp ? parseFloat(inp.value) : NaN;
-  if (!(q > 0)) q = Math.round(price / rate);  // 输入无效时用反推取整值兜底
+  if (!(q > 0)) q = Math.round(price * ref / rate);  // 输入无效时用反推取整值兜底
   // 数量必须为整数：优先拦截并红标提示
   if (!Number.isInteger(q)) {
     if (inp) { inp.style.borderColor = '#dc2626'; inp.style.color = '#dc2626'; }
@@ -2616,9 +2639,10 @@ async function billApplyConvertOne(recId) {
   }
   const rec = bill_scopeProjects().flatMap(p => p.users).flatMap(u => u.prices).find(r => r.id === recId);
   if (!rec) return;
-  rec.qty = q; rec.rate = rate; rec.mpName = opt.value;
+  rec.qty = q; rec.rate = rate; rec.refQty = ref; rec.mpName = opt.value;
+  rec.price = round3(q * rate / ref);  // 确认后金额 = 数量 × 单价 ÷ 对应数量（3 位小数精度）
   await saveCloudData(true);
-  toast(`已确认 1 笔（${opt.value}：${q} × ¥${fmtMoney(rate)}），账单已重新生成`, 'success');
+  toast(`已确认 1 笔（${opt.value}：${q} × ¥${fmtMoney(rate)}${ref > 1 ? '/' + ref : ''}），账单已重新生成`, 'success');
   renderBill();  // 确认后该笔转为数量模式，自动从确认区移除
 }
 
@@ -2632,10 +2656,11 @@ async function billApplyConvertAll() {
     const opt = sel ? sel.selectedOptions[0] : null;
     const rateEl = document.getElementById(`billcv-rate-${rid}`);
     const rate = rateEl ? parseFloat(rateEl.value) || 0 : 0;  // 单价以输入框为准（支持自定义市场价）
+    const ref = rateEl ? (Number(rateEl.dataset.ref) || 1) : 1;  // 对应数量（单位如「2100个」）
     if (!(rate > 0)) { miss++; return; }
     const inp = document.getElementById(`billcv-${rid}`);
     let q = inp ? parseFloat(inp.value) : NaN;
-    if (!(q > 0)) q = Math.round(x.price / rate);
+    if (!(q > 0)) q = Math.round(x.price * ref / rate);
     if (!Number.isInteger(q)) {  // 数量必须为整数：红标跳过
       badInt++;
       if (inp) { inp.style.borderColor = '#dc2626'; inp.style.color = '#dc2626'; }
@@ -2643,7 +2668,8 @@ async function billApplyConvertAll() {
       if (amtEl) { amtEl.textContent = '⚠️ 数量须为整数'; amtEl.style.color = '#dc2626'; }
       return;
     }
-    x.rec.qty = q; x.rec.rate = rate; x.rec.mpName = opt.value;
+    x.rec.qty = q; x.rec.rate = rate; x.rec.refQty = ref; x.rec.mpName = opt.value;
+    x.rec.price = round3(q * rate / ref);  // 确认后金额 = 数量 × 单价 ÷ 对应数量（3 位小数精度）
     n++;
   });
   if (!n) { toast(`${miss + badInt} 笔无法确认（${[miss ? miss + ' 笔未选品名' : '', badInt ? badInt + ' 笔数量非整数' : ''].filter(Boolean).join('，')}）`, 'warn'); return; }
@@ -2677,7 +2703,7 @@ function renderBill() {
           ${x.mpName ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
         </td>
         <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
-        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate)}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? '/' + fmtMoney(x.refQty) : '')}</td>
         <td style="${cs}text-align:right;font-weight:600">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
   const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo}`);
@@ -2824,7 +2850,7 @@ function openTodayList(scope) {
           ${x.mpName ? `<div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
         </td>
         <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
-        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate)}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? '/' + fmtMoney(x.refQty) : '')}</td>
         <td style="${cs}text-align:right;font-weight:600;color:var(--success)">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
   // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
@@ -3135,13 +3161,13 @@ function fillMpOptions(projectName) {
   }
   sel.innerHTML = opts.length === 0
     ? '<option value="">暂无市场价数据，请管理员在「市场价管理」录入</option>'
-    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
+    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
   // 默认选中与项目名相同的品名（若有）
   if ([...sel.options].some(o => o.value === projectName)) sel.value = projectName;
   updateQtyAmount();
 }
 
-// 出货数量模式下实时计算预计回本金额：数量 × 所选品名单价（数量必须为整数，非整数实时标红提示）
+// 出货数量模式下实时计算预计回本金额：数量 × 单价 ÷ 对应数量（单位含数量如「2100个」时按份换算；数量必须为整数，非整数实时标红提示）
 function updateQtyAmount() {
   const sel = document.getElementById('pr-mp');
   const opt = sel.selectedOptions[0];
@@ -3152,9 +3178,10 @@ function updateQtyAmount() {
   setError('pr-qty', badInt);
   if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
   const rate = parseFloat(opt.dataset.price);
+  const ref = Number(opt.dataset.ref) || 1;
   const unit = opt.dataset.unit || '1';
   tip.textContent = Number(qty) > 0
-    ? `预计回本金额：${fmtMoney(qty * rate)} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
+    ? `预计回本金额：${fmtMoney(round3(qty * rate / ref))} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
     : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
 }
 
@@ -3210,8 +3237,9 @@ async function savePrice() {
     ok = setError('pr-mp', !mpName || !opt || !opt.dataset.price) && ok;
     if (ok && mpName && opt.dataset.price) {
       const rate = parseFloat(opt.dataset.price);
-      price = qty * rate;
-      extra = { qty, rate, mpName };  // 附加数量与单价信息，供台账展示
+      const ref = Number(opt.dataset.ref) || 1;
+      price = round3(qty * rate / ref);  // 数量 × 单价 ÷ 对应数量，3 位小数精度
+      extra = { qty, rate, refQty: ref, mpName };  // 附加数量/单价/对应数量信息，供台账与账单展示
     }
   } else {
     price = parseFloat(document.getElementById('pr-price').value);
@@ -3268,7 +3296,7 @@ function renderLedger() {
       <tr${bg}>
         <td data-label="序号">${i + 1}${isToday ? ' <span style="font-size:10px;color:var(--primary);font-weight:600">今</span>' : ''}</td>
         <td data-label="日期">${fmtDateTime(r.date)}</td>
-        <td data-label="回本金额">${fmtMoney(r.price)} 元${r.qty ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${r.qty} × ¥${fmtMoney(r.rate)}/${r.mpName || ''}</div>` : ''}</td>
+        <td data-label="回本金额">${fmtMoney(r.price)} 元${r.qty ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${r.qty} × ¥${fmtMoney(r.rate)}${Number(r.refQty) > 1 ? '/' + r.refQty : ''}/${r.mpName || ''}</div>` : ''}</td>
         <td data-label="操作"><button class="btn btn-sm btn-danger" onclick="deletePrice('${r.id}')">删除</button></td>
       </tr>`;
       }).join('');
@@ -3693,13 +3721,13 @@ async function saveMarketPrice() {
   const id = document.getElementById('mf-id').value;
   const date = document.getElementById('mf-date').value;
   const name = document.getElementById('mf-name').value.trim();
-  const price = parseFloat(document.getElementById('mf-price').value);
+  const price = round3(parseFloat(document.getElementById('mf-price').value));
   const unit = document.getElementById('mf-unit').value.trim();
   const sellId = document.getElementById('mf-sellid').value.trim();
   const note = document.getElementById('mf-note').value.trim();
   if (!date) return toast('请选择日期', 'warn');
   if (!name) return toast('请输入品名', 'warn');
-  if (!(price > 0)) return toast('请输入大于 0 的单价', 'warn');
+  if (!(price > 0)) return toast('请输入大于 0 的单价（最多 3 位小数）', 'warn');
   const error = await upsertMarketPriceRow({ id: id || uid(), price_date: date, name, price, unit, sell_id: sellId, note });
   if (error) return toast('保存失败：' + error.message, 'error');
   await loadMarketPrices();
