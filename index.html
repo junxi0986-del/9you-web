@@ -408,6 +408,14 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 #confirmInputText:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 #confirmInputText.invalid { border-color: var(--danger); }
+/* 6格验证码输入框（.form-group .otp-box 提高优先级，避免被 .form-group input 的移动端 16px 规则覆盖） */
+.form-group .otp-box {
+  flex: 1; min-width: 0; text-align: center; padding: 10px 0;
+  font-size: 20px; font-weight: 600; font-family: inherit;
+  border: 1px solid var(--border); border-radius: 8px; outline: none;
+  background: var(--input-bg); color: var(--text); transition: border-color .15s;
+}
+.form-group .otp-box:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 .form-tip { font-size: 12px; color: var(--text-secondary); margin-top: 5px; }
 .form-error { font-size: 12px; color: var(--danger); margin-top: 5px; display: none; }
 .form-group.show-error .form-error { display: block; }
@@ -698,10 +706,15 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="form-group">
       <label>验证码</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="loginCode" placeholder="数字验证码" inputmode="numeric" maxlength="10" style="flex:1">
-        <button class="btn btn-outline" id="sendCodeBtn" style="white-space:nowrap" onclick="sendLoginCode()">发送验证码</button>
+      <div style="display:flex;gap:6px" id="otpBoxes">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
       </div>
+      <button class="btn btn-outline" id="sendCodeBtn" style="margin-top:8px;width:100%" onclick="sendLoginCode()">发送验证码</button>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
@@ -1649,12 +1662,46 @@ function cap_reset() {
   handle.addEventListener('pointerup', finish);
   handle.addEventListener('pointercancel', finish);
 })();
+// ---------- 6格验证码输入：自动跳格 / 退格回退 / 粘贴与自动填充整段分发 ----------
+function getOtpCode(){ return [...document.querySelectorAll('.otp-box')].map(b => b.value.trim()).join(''); }
+(function(){
+  const boxes = [...document.querySelectorAll('.otp-box')];
+  if (!boxes.length) return;
+  const focusAt = i => { const b = boxes[Math.max(0, Math.min(boxes.length - 1, i))]; if (b) { b.focus(); b.select(); } };
+  const fillAll = digits => {
+    boxes.forEach((b, j) => { b.value = digits[j] || ''; });
+    focusAt(Math.min(digits.length, boxes.length - 1));
+  };
+  boxes.forEach((box, i) => {
+    box.addEventListener('input', () => {
+      const v = box.value.replace(/\D/g, '');
+      if (v.length > 1) { fillAll(v.slice(0, boxes.length)); return; }  // iOS 自动填充/键盘粘贴整段验证码
+      box.value = v;
+      if (v && i < boxes.length - 1) focusAt(i + 1);
+    });
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
+      else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); focusAt(i - 1); }
+      else if (e.key === 'ArrowRight' && i < boxes.length - 1) { e.preventDefault(); focusAt(i + 1); }
+      // Enter 交给全局 keydown 处理（会调用 supabaseSignIn），此处不重复触发
+    });
+    box.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const digits = text.replace(/\D/g, '').slice(0, boxes.length);
+      if (digits) fillAll(digits);
+    });
+    box.addEventListener('focus', () => box.select());
+  });
+})();
+
 // 验证码校验登录
 async function supabaseSignIn(){
   const email = getLoginEmail();
-  const token = document.getElementById("loginCode").value.trim();
+  const token = getOtpCode();
   if(!email) return toast("请输入邮箱","warn");
-  if(!token) return toast("请输入邮箱收到的验证码","warn");
+  if(!token) return toast("请输入邮箱收到的6位数字验证码","warn");
+  if(!/^\d{6}$/.test(token)) return toast("请输入完整的6位数字验证码","warn");
   const {data,error} = await sb.auth.verifyOtp({ email, token, type: 'email' });
   if(error) return toast("登录失败："+authError(error.message),"error");
   await afterLogin(data.user);
@@ -1914,7 +1961,7 @@ document.addEventListener('keydown', e => {
   else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
   else if (shown('batchUserModal')) { e.preventDefault(); saveBatchUsers(); }
   else if (shown('confirmModal')) { e.preventDefault(); document.getElementById('confirmOkBtn').click(); }
-  else if (t && (t.id === 'loginEmail' || t.id === 'loginCode')) { e.preventDefault(); t.id === 'loginEmail' ? sendLoginCode() : supabaseSignIn(); }  // 登录框：邮箱回车发验证码，验证码回车直接登录
+  else if (t && (t.id === 'loginEmail' || t.classList.contains('otp-box'))) { e.preventDefault(); t.id === 'loginEmail' ? sendLoginCode() : supabaseSignIn(); }  // 登录框：邮箱回车发验证码，验证码回车直接登录
   else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
 });
 
