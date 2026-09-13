@@ -705,6 +705,11 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
       </div>
     </div>
     <div class="form-group">
+      <button class="btn btn-outline" id="sendCodeBtn" style="width:100%" onclick="sendLoginCode()">发送验证码</button>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
+    </div>
+    <!-- 验证码输入区：点击发送验证码成功后才显示 -->
+    <div class="form-group" id="otpGroup" style="display:none">
       <label>验证码</label>
       <div style="display:flex;gap:6px" id="otpBoxes">
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
@@ -714,8 +719,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
       </div>
-      <button class="btn btn-outline" id="sendCodeBtn" style="margin-top:8px;width:100%" onclick="sendLoginCode()">发送验证码</button>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
@@ -1545,6 +1548,13 @@ async function doSendLoginCode(){
   const {error} = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if(error){ btn.disabled = false; btn.textContent = '发送验证码'; return toast("发送失败："+authError(error.message),"error"); }
   toast("验证码已发送，请查收邮箱","success");
+  // 发送成功后显示6格验证码输入区并聚焦第一格
+  const otpGroup = document.getElementById('otpGroup');
+  if (otpGroup) {
+    otpGroup.style.display = 'block';
+    const first = document.querySelector('.otp-box');
+    if (first) first.focus();
+  }
   // 60 秒倒计时，防止频繁发送
   let seconds = 60;
   const timer = setInterval(() => {
@@ -1781,6 +1791,8 @@ function showMainApp(){
 function hideMainApp(){
   document.getElementById("loginWrap").style.display = "flex";
   document.getElementById("mainApp").style.display = "none";
+  const og = document.getElementById('otpGroup');  // 重置登录页验证码输入区为隐藏
+  if (og) og.style.display = 'none';
 }
 
 // =========云端读写函数（替代localStorage）=========
