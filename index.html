@@ -22,6 +22,7 @@
   --primary-light: #dbeafe;
   --bg: #f1f5f9;             /* 页面背景灰 */
   --card-bg: #ffffff;
+  --nav-glass: rgba(255,255,255,.72);  /* iOS 柔光玻璃导航：半透明白 + 背景模糊（不支持时回退纯色） */
   --text: #1e293b;
   --text-secondary: #64748b;
   --border: #e2e8f0;
@@ -52,6 +53,7 @@ html.dark-mode {
   --primary-light: rgba(59,130,246,.22);
   --bg: #0f172a;
   --card-bg: #1e293b;
+  --nav-glass: rgba(30,41,59,.72);  /* 深色模式柔光玻璃导航 */
   --text: #e2e8f0;
   --text-secondary: #94a3b8;
   --border: #334155;
@@ -202,6 +204,7 @@ body {
   transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
 }
 .btn:active { transform: scale(.97); }
+.btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }
 .btn-outline { background: var(--card-bg); color: var(--primary); border: 1px solid var(--primary); }
@@ -396,6 +399,15 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 .form-group input.invalid, .form-group textarea.invalid { border-color: var(--danger); }
 .form-group input[readonly] { background: var(--input-bg); color: var(--text-secondary); }
+/* 确认弹窗输入验证框（防误删） */
+#confirmInputText {
+  width: 100%; padding: 9px 12px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 6px; outline: none;
+  transition: border-color .15s; background: var(--input-bg); color: var(--text);
+  font-family: inherit; margin-top: 6px;
+}
+#confirmInputText:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+#confirmInputText.invalid { border-color: var(--danger); }
 .form-tip { font-size: 12px; color: var(--text-secondary); margin-top: 5px; }
 .form-error { font-size: 12px; color: var(--danger); margin-top: 5px; display: none; }
 .form-group.show-error .form-error { display: block; }
@@ -486,7 +498,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   /* 手机端：隐藏顶部切换，改用底部导航栏 */
   .tab-switch-desktop { display: none !important; }
   .header-left .welcome-email { margin-left: 0; max-width: 100%; }
-  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--card-bg); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; background: var(--nav-glass, var(--card-bg)); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,.08); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
   .bottom-nav button { flex: 1; min-width: 0; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 2px; font-size: 10px; color: var(--text-secondary); border-radius: 8px; transition: all .15s; }
   .bottom-nav button .ic { font-size: 17px; line-height: 1; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; background: var(--primary-light); }
@@ -713,7 +725,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
-      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="clearAllData()">清空数据</button>
       <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="confirmAction('退出登录','确定要退出当前账号吗？退出后需重新登录才能查看项目数据。',supabaseLogout,'退出登录')">退出登录</button>
     </div>
   </header>
@@ -740,7 +751,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <h2 style="font-size:16px;font-weight:600">项目列表<span id="mineProjCount" style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px"></span></h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline" onclick="openBillPage()">🧾 生成账单</button>
-          <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
           <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
         </div>
       </div>
@@ -880,6 +890,20 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
               <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">清空全部群聊天记录，对所有成员生效且不可恢复</div>
             </div>
             <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 数据管理（全员可见）：分享项目 + 清空本地全部项目数据 -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">🗂️ 数据管理</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">生成分享码发送给对方导入项目；清空本机全部项目数据，操作不可恢复</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
+            <button class="btn btn-danger" onclick="clearAllData()">清空数据</button>
           </div>
         </div>
       </div>
@@ -1348,7 +1372,13 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 <div class="modal-mask" id="confirmModal">
   <div class="modal" style="max-width:380px">
     <div class="modal-head"><h3 id="confirmTitle">确认操作</h3><button class="modal-close" onclick="closeModal('confirmModal')">×</button></div>
-    <div class="modal-body"><p id="confirmMsg" style="line-height:1.7"></p></div>
+    <div class="modal-body">
+      <p id="confirmMsg" style="line-height:1.7"></p>
+      <div id="confirmInputWrap" style="display:none;margin-top:10px">
+        <label id="confirmInputLabel" style="font-size:12px;color:var(--text-secondary)"></label>
+        <input id="confirmInputText" style="width:100%;margin-top:6px" autocomplete="off">
+      </div>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('confirmModal')">取消</button>
       <button class="btn btn-danger-solid" id="confirmOkBtn">确认删除</button>
@@ -1889,10 +1919,26 @@ document.addEventListener('keydown', e => {
 });
 
 // 二次确认框（okText：确认按钮自定义文案，默认「确认删除」）
-function confirmAction(title, msg, cb, okText = '确认删除') {
+function confirmAction(title, msg, cb, okText = '确认删除', keyword = '') {
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
   document.getElementById('confirmOkBtn').textContent = okText;
+  // 输入验证模式：须输入指定关键字才能点击确认按钮（防误删）
+  const wrap = document.getElementById('confirmInputWrap');
+  const inp = document.getElementById('confirmInputText');
+  const okBtn = document.getElementById('confirmOkBtn');
+  if (keyword) {
+    wrap.style.display = 'block';
+    document.getElementById('confirmInputLabel').textContent = `请输入「${keyword}」以确认执行`;
+    inp.value = '';
+    inp.classList.remove('invalid');
+    okBtn.disabled = true;
+    inp.oninput = () => { okBtn.disabled = inp.value.trim() !== keyword; };
+  } else {
+    wrap.style.display = 'none';
+    inp.value = '';
+    okBtn.disabled = false;
+  }
   confirmCallback = cb;
   openModal('confirmModal');
 }
@@ -1971,6 +2017,45 @@ function updateListTabUI() {
   // 群聊按钮不在 tabs 数组内，切换页签时必须手动清除其高亮（否则退出群聊后仍显示选中）
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
 }
+
+/* ---------- 手机端：首页左右滑动切换底部导航页签（避免误触导致退出网页） ---------- */
+(function () {
+  const ORDER = ['mine', 'public', 'market', 'me'];  // 与底部导航排列一致：我的项目/公共项目/市场价/我的
+  let sx = 0, sy = 0, tracking = false, touchId = null;
+  const touchable = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
+  // 仅在项目列表主页可滑动：详情页/账单页/群聊页/弹窗打开时不触发
+  const canSwipe = () => {
+    if (!touchable()) return false;
+    if (currentProjectId || onBillPage) return false;
+    const cp = document.getElementById('chatPage');
+    if (cp && cp.style.display !== 'none') return false;
+    if (document.querySelector('.modal-mask.show')) return false;
+    return true;
+  };
+  // 起始点落在表单控件/按钮/链接/横向滚动表格/弹窗/导航栏上时不拦截
+  const onBlocker = el => !!(el && el.closest && el.closest(
+    'input,textarea,select,button,a,label,.table-wrap,.modal-mask,.bottom-nav,#sellPickLayer,.ann-item'));
+  document.addEventListener('touchstart', e => {
+    tracking = false;
+    if (!canSwipe() || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (onBlocker(t.target)) return;
+    tracking = true; touchId = t.identifier; sx = t.clientX; sy = t.clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = [...e.changedTouches].find(x => x.identifier === touchId) || e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;  // 横向主导且超过阈值才算翻页
+    const i = ORDER.indexOf(listTab);
+    if (i < 0) return;
+    const next = dx < 0 ? ORDER[i + 1] : ORDER[i - 1];  // 左滑→右侧页签，右滑→左侧页签
+    if (next) switchListTab(next);
+  }, { passive: true });
+  document.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+})();
 
 /* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
 function renderProjectGrid() {
@@ -3819,14 +3904,14 @@ async function saveMyName() {
 }
 
 /* ---------- 数据备份：清空 ---------- */
-// 清空所有数据
+// 清空所有数据（需输入「清空」二次确认，防误删）
 function clearAllData() {
   confirmAction('清空所有数据', '确定清空所有项目和账户数据吗？此操作不可恢复！', async () => {
     projects = [];
     await saveCloudData(true);
     showPage('list');
     toast('所有数据已清空', 'success');
-  });
+  }, '确认清空', '清空');
 }
 
 /* ===================== 平台群聊（导航栏入口，全站一个大群） =====================
