@@ -4938,6 +4938,29 @@ function chat_fmtTime(iso) {
 
 // 启动：检测登录状态（刷新后自动恢复会话）
 checkAuth();
+
+// APP 更新检测：从 UA 解析 APP 版本号，对比 app-version.json，有更新弹窗引导下载
+(function () {
+  var m = /JiyouApp\/(\d+)/.exec(navigator.userAgent);   // UA 中携带的 APP 版本号（整数）
+  if (!m) return;                                           // 非APP环境不检测
+  var appVersionCode = parseInt(m[1], 10);
+  fetch('/app-version.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (info) {
+      if (!info || !info.versionCode) return;
+      if (info.versionCode > appVersionCode) {
+        var v = info.versionName || ('v' + info.versionCode);
+        var log = info.changelog ? '\n\n更新内容：\n' + info.changelog : '';
+        confirmAction(
+          '发现新版本 ' + v,
+          '检测到 APP 有新版本，建议更新以获得最新功能。' + log,
+          function () { window.location.href = info.downloadUrl || '/jiuyou.apk'; },
+          '立即下载'
+        );
+      }
+    })
+    .catch(function () { });  // 静默失败，不影响正常使用
+})();
 </script>
 <script>
 /* ---------- PWA：Service Worker 注册 + 安装引导 ---------- */
