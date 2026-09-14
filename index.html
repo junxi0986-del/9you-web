@@ -879,10 +879,10 @@ html.in-app #loginWrap {
     </div>
     <div class="header-actions">
       <div class="tab-switch tab-switch-desktop">
-        <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
-        <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
-        <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
-        <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
+        <button id="tabBtnMine" onclick="animateTabSwitch('mine')">📁 我的项目</button>
+        <button id="tabBtnPublic" onclick="animateTabSwitch('public')">🌐 公共项目</button>
+        <button id="tabBtnMarket" onclick="animateTabSwitch('market')">💰 市场价</button>
+        <button id="tabBtnMe" onclick="animateTabSwitch('me')">👤 我的</button>
       </div>
     </div>
   </header>
@@ -2312,9 +2312,11 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   function swipeTo(next) {
     if (animating) return;
     const cur = listTab;
+    if (next === cur) { switchListTab(next); return; }   // 点击已选中页签：仅刷新不播动画
     const curEl = sectionEl(cur), newEl = sectionEl(next);
-    if (!newEl) return;
-    const goingLeft = ORDER.indexOf(next) > ORDER.indexOf(cur);  // true：左滑切到右侧页签
+    if (!newEl) { switchListTab(next); return; }          // 非主导航页签（如公告）无动画直接切换
+    const iCur = ORDER.indexOf(cur), iNext = ORDER.indexOf(next);
+    const goingLeft = iNext > iCur;  // true：切到右侧页签（左滑方向）；当前页不在导航序列时默认向左
     animating = true;
     if (curEl) curEl.classList.add(goingLeft ? 'tab-swipe-out-l' : 'tab-swipe-out-r');
     setTimeout(() => {
@@ -2360,6 +2362,9 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
 
   document.addEventListener('touchend', () => { reset(); }, { passive: true });
   document.addEventListener('touchcancel', () => { reset(); }, { passive: true });
+
+  // 暴露给 PC 端顶部导航按钮使用，与手机端滑动切换同一套平移动画
+  window.animateTabSwitch = swipeTo;
 })();
 
 /* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
@@ -2585,7 +2590,6 @@ function renderDetail() {
         <td data-label="状态">${isDone ? '<span class="badge badge-done">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
         <td data-label="操作" class="td-actions">
           <div class="row-actions">
-            <button class="btn btn-sm btn-primary" onclick="sellAccount()">🛒 出售</button>
             <button class="btn btn-sm btn-outline" onclick="openPriceModal(${uidx})">添加回本金额</button>
             <button class="btn btn-sm btn-outline" onclick="openLedger(${uidx})">查看台账</button>
             <button class="btn btn-sm btn-outline" onclick="openUserModal(${uidx})">编辑</button>
@@ -3913,12 +3917,6 @@ try {
     applyThemeUI();
   });
 } catch (e) {}
-
-/* ---------- 出售：跳转到市场价页，对照最新市场参考价 ---------- */
-function sellAccount() {
-  showPage('list');          // 从项目详情页退回列表页
-  switchListTab('market');   // 切换到市场价页
-}
 
 /* ---------- 首页顶部：市场价滚动条 + 公告横幅 ---------- */
 function renderHomeTop() {
