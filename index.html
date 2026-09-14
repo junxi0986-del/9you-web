@@ -175,6 +175,7 @@ body {
   color: var(--text);
   font-size: 14px;
   min-height: 100vh;
+  overflow-x: hidden;   /* WebView 内横向滑动切页签时避免页面跟着横向滚动 */
 }
 
 .container { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; }
@@ -662,6 +663,9 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   /* 「我的」Tab 手机端优化 */
   .me-row { flex-direction: column; align-items: stretch; }
   .me-row .btn { width: 100%; justify-content: center; min-height: 44px; }
+  /* 数据管理：两个按钮手机端保持左右等宽摆放，不上下堆叠 */
+  .me-actions-row { flex-wrap: nowrap !important; justify-content: stretch !important; }
+  .me-actions-row .btn { flex: 1 1 0; width: auto; min-width: 0; padding-left: 8px; padding-right: 8px; }
   .me-row h2 { display: flex; align-items: center; min-height: 36px; }
   /* 市场价录入表单：两列网格，添加按钮占满整行 */
   .mf-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; align-items: end; }
@@ -1055,7 +1059,7 @@ html.in-app #loginWrap {
             <h2 style="font-size:15px;font-weight:600">🗂️ 数据管理</h2>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">生成分享码发送给对方导入项目；清空本机全部项目数据，操作不可恢复</div>
           </div>
-          <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+          <div class="me-actions-row" style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
             <button class="btn btn-danger" onclick="clearAllData()">清空数据</button>
           </div>
