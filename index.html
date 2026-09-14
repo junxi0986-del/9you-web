@@ -850,6 +850,11 @@ th { background: var(--th-bg); }
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
+      <!-- Android 手机专属：推荐下载 APP（JS 检测平台，仅 Android 显示） -->
+      <div id="androidAppTip" style="display:none;font-size:12px;color:var(--text-secondary);text-align:center;line-height:1.6">
+        📲 推荐下载 Android APP，全屏体验更流畅，相册权限完整<br>
+        <a href="/jiuyou.apk" download="九游跟踪.apk" style="color:var(--primary);text-decoration:none;font-weight:600">点击下载 APK</a>
+      </div>
     </div>
   </div>
 </div>
@@ -4938,6 +4943,13 @@ function chat_fmtTime(iso) {
 
 // 启动：检测登录状态（刷新后自动恢复会话）
 checkAuth();
+
+// 登录页：Android 设备显示 APP 下载提示（iOS 不显示，走 Safari 添加到主屏幕）
+(function () {
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  var tip = document.getElementById('androidAppTip');
+  if (isAndroid && tip) tip.style.display = '';
+})();
 </script>
 <script>
 /* ---------- PWA：Service Worker 注册 + 安装引导 ---------- */
@@ -4954,10 +4966,11 @@ checkAuth();
   var apkCard = document.getElementById('apkDownloadCard');    // Android APK 下载卡片
   var iosCard = document.getElementById('iosInstallCard');     // iOS 引导卡片
 
-  // 是否已从主屏幕全屏打开（Android APK/TWA 或 iOS Web Clip）
+  // 是否已从主屏幕全屏打开（Android APK/TWA 或 iOS Web Clip）；JiyouApp 为安卓壳 APP 内置 UA 标识
   function alreadyInstalled() {
     return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;
+      || window.navigator.standalone === true
+      || /JiyouApp\//.test(navigator.userAgent);
   }
   // 检测 iOS / iPadOS（iPadOS 13+ 伪装 Mac UA，用触屏特征识别）
   var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
