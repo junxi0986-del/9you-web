@@ -1,7 +1,11 @@
-/* 九游平台 Service Worker：最简缓存优先策略（cache-first，网络兜底） */
-const CACHE_NAME = 'jiuyou-cache-v1';
+/* 九游平台 Service Worker
+   策略：
+   - 页面导航请求（HTML）：网络优先，保证用户每次刷新拿到最新版；离线时回退缓存
+   - 其他静态资源（图标/CSS/JS等）：缓存优先，未命中走网络并写入缓存
+   更新代码后无需手动改版本：HTML 网络优先即自动生效 */
+const CACHE_NAME = 'jiuyou-cache-v2';
 
-/* 预缓存资源：核心页面 + 图标 + 清单 */
+/* 预缓存资源：核心页面 + 图标 + 清单（单个失败不阻塞安装） */
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -11,7 +15,7 @@ const PRECACHE_URLS = [
   '/icon-512.png'
 ];
 
-/* 安装阶段：预缓存核心资源（单个失败不阻塞安装，跳过即可） */
+/* 安装阶段：预缓存核心资源，立即激活新 SW */
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -20,7 +24,7 @@ self.addEventListener('install', event => {
   );
 });
 
-/* 激活阶段：清理旧版本缓存 */
+/* 激活阶段：清理旧版本缓存并立即接管所有标签页 */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -29,24 +33,36 @@ self.addEventListener('activate', event => {
   );
 });
 
-/* 请求拦截：缓存优先，未命中走网络；网络失败回退缓存 */
 self.addEventListener('fetch', event => {
   const req = event.request;
-  if (req.method !== 'GET') return;                     // 只处理 GET（Supabase API 均为非缓存请求）
+  if (req.method !== 'GET') return;                     // 只处理 GET（Supabase API 不缓存）
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;     // 跨域请求（Supabase/CDN）直接放行，不拦截
 
+  /* 页面导航：网络优先，保证代码更新即时生效；离线回退缓存首页 */
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clone));
+          return res;
+        })
+        .catch(() => caches.match(req).then(c => c || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  /* 同源静态资源：缓存优先，未命中走网络并缓存 */
   event.respondWith(
     caches.match(req).then(cached => {
-      if (cached) return cached;                        // 命中缓存直接返回
+      if (cached) return cached;
       return fetch(req).then(res => {
-        // 仅缓存同源成功响应，避免把 Supabase/CDN 响应写入缓存
-        if (res && res.ok && new URL(req.url).origin === self.location.origin) {
+        if (res && res.ok) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
         }
         return res;
-      }).catch(() => {
-        // 网络失败（离线）：页面导航请求回退到缓存的首页
-        if (req.mode === 'navigate') return caches.match('/index.html');
       });
     })
   );
