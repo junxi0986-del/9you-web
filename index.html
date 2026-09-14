@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
-<!-- PWA：Android Chrome 添加到桌面 / iOS 添加到主屏幕 -->
+<!-- manifest + Service Worker：离线缓存；Android APK（TWA）打包依赖 manifest；iOS 添加到主屏幕 -->
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#4a6cf7">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -1051,14 +1051,14 @@ th { background: var(--th-bg); }
         </div>
       </div>
 
-      <!-- 安装到桌面（PWA）：仅当浏览器触发安装事件时显示；已安装（standalone 模式）自动隐藏 -->
-      <div class="table-card" id="pwaInstallCard" style="display:none">
+      <!-- Android APP 下载：APK 安装包方式（替代 PWA 添加到桌面）；已全屏安装（standalone）自动隐藏 -->
+      <div class="table-card" id="apkDownloadCard" style="display:none">
         <div class="me-row">
           <div style="min-width:0">
-            <h2 style="font-size:15px;font-weight:600">📲 安装到桌面</h2>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">安装为桌面应用，打开后全屏无地址栏，体验更接近原生 App</div>
+            <h2 style="font-size:15px;font-weight:600">📲 下载 Android APP</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.7">下载 APK 安装，首次安装需在系统弹窗允许「安装未知应用」；安装后从桌面打开，全屏无地址栏，相册等权限完整</div>
           </div>
-          <button class="btn btn-primary" style="flex-shrink:0" onclick="pwaInstallPrompt()">安装应用</button>
+          <a class="btn btn-primary" style="flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center" href="/jiuyou.apk" download="九游跟踪.apk">下载 APK</a>
         </div>
       </div>
 
@@ -1196,7 +1196,7 @@ th { background: var(--th-bg); }
         <label>出货截图佐证（必传，不限张数）</label>
         <input type="file" id="billFiles" accept="image/*" multiple style="display:none" onchange="billAddFiles(this.files);this.value=''">
         <div style="display:flex;gap:10px;align-items:center">
-          <button type="button" class="btn btn-outline" style="min-height:38px;padding:6px 14px" onclick="document.getElementById('billFiles').click()">📤 上传截图</button>
+          <label for="billFiles" class="btn btn-outline" style="min-height:38px;padding:6px 14px;display:inline-flex;align-items:center;cursor:pointer">📤 上传截图</label>
           <span style="font-size:12px;color:var(--text-secondary)" id="billFilesTip">未上传，保存图片前必须上传</span>
         </div>
         <div id="billThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
@@ -3101,7 +3101,7 @@ function renderBill() {
           ${x.mpName ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
         </td>
         <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
-        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? '/' + fmtMoney(x.refQty) : '')}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">/${fmtMoney(x.refQty)}</div>` : '')}</td>
         <td style="${cs}text-align:right;font-weight:600">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
   const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo}`);
@@ -3250,7 +3250,7 @@ function openTodayList(scope) {
           ${x.mpName ? `<div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${escapeHtml(x.mpName)}</div>` : ''}
         </td>
         <td style="${cs}text-align:center">${x.qty === null ? '—' : x.qty}</td>
-        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? '/' + fmtMoney(x.refQty) : '')}</td>
+        <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? `<div style="font-size:10px;color:var(--text-secondary);margin-top:1px">/${fmtMoney(x.refQty)}</div>` : '')}</td>
         <td style="${cs}text-align:right;font-weight:600;color:var(--success)">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
   // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
@@ -4951,11 +4951,10 @@ checkAuth();
     });
   }
 
-  var deferredPrompt = null;                                   // Chrome 安装事件对象
-  var card = document.getElementById('pwaInstallCard');        // Android 安装卡片
+  var apkCard = document.getElementById('apkDownloadCard');    // Android APK 下载卡片
   var iosCard = document.getElementById('iosInstallCard');     // iOS 引导卡片
 
-  // 是否已从主屏幕全屏打开（Android PWA 或 iOS Web Clip）
+  // 是否已从主屏幕全屏打开（Android APK/TWA 或 iOS Web Clip）
   function alreadyInstalled() {
     return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
       || window.navigator.standalone === true;
@@ -4963,45 +4962,23 @@ checkAuth();
   // 检测 iOS / iPadOS（iPadOS 13+ 伪装 Mac UA，用触屏特征识别）
   var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // 检测 Android
+  var isAndroid = /Android/i.test(navigator.userAgent);
 
   if (alreadyInstalled()) {
-    // 已安装：两类卡片都隐藏
-    if (card) card.style.display = 'none';
+    // 已全屏安装：两类卡片都隐藏
+    if (apkCard) apkCard.style.display = 'none';
     if (iosCard) iosCard.style.display = 'none';
     return;
   }
 
   if (isIOS) {
-    // iOS Safari 不支持自动唤起安装，显示手动操作指引
+    // iOS Safari 无法自动唤起安装，显示手动操作指引（保持不变）
     if (iosCard) iosCard.style.display = '';
-  } else {
-    // Android 等平台：安装卡片常驻显示；Chrome 就绪后点击直接弹系统安装框，未就绪给文字引导
-    if (card) card.style.display = '';
-    window.addEventListener('beforeinstallprompt', function (e) {
-      e.preventDefault();
-      deferredPrompt = e;   // 保存事件，点击按钮时 prompt() 直接弹出安装框
-    });
+  } else if (isAndroid) {
+    // Android：显示 APK 下载卡片（替代 PWA 添加到桌面，避开 WebView 文件选择器受限问题）
+    if (apkCard) apkCard.style.display = '';
   }
-
-  // 安装完成（用户确认安装）后隐藏安装卡片
-  window.addEventListener('appinstalled', function () {
-    deferredPrompt = null;
-    if (card) card.style.display = 'none';
-    toast('安装成功，可从桌面打开', 'success');
-  });
-
-  // 「安装到桌面」按钮点击
-  window.pwaInstallPrompt = function () {
-    if (isIOS) { toast('iOS 请点击 Safari 的分享按钮 → 添加到主屏幕', 'info'); return; }
-    if (deferredPrompt) {
-      // Chrome 已确认可安装：直接弹出系统安装确认框
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
-      return;
-    }
-    // 安装能力尚未就绪（首次访问 SW 未激活等）：给手动引导
-    toast('安装组件准备中，请刷新页面后重试；或用 Chrome 菜单 →「添加到主屏幕」', 'info');
-  };
 })();
 </script>
 </body>
