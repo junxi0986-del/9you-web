@@ -1,9 +1,11 @@
 /* 九游平台 Service Worker
    策略：
    - 页面导航请求（HTML）：网络优先，保证用户每次刷新拿到最新版；离线时回退缓存
+   - APP 版本检查（app-version.json）：网络优先，确保老用户能及时收到更新提示；离线回退缓存
+   - APK 安装包：不缓存（由系统 DownloadManager 下载，避免占空间/下到旧包）
    - 其他静态资源（图标/CSS/JS等）：缓存优先，未命中走网络并写入缓存
    更新代码后无需手动改版本：HTML 网络优先即自动生效 */
-const CACHE_NAME = 'jiuyou-cache-v2';
+const CACHE_NAME = 'jiuyou-cache-v3';
 
 /* 预缓存资源：核心页面 + 图标 + 清单（单个失败不阻塞安装） */
 const PRECACHE_URLS = [
@@ -52,6 +54,23 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
+
+  /* APP 版本文件：网络优先，拿到最新版本号才能正确触发更新弹窗；离线回退缓存 */
+  if (url.pathname === '/app-version.json') {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  /* APK 安装包：不拦截，直接交给网络/系统下载器 */
+  if (url.pathname.endsWith('.apk')) return;
 
   /* 同源静态资源：缓存优先，未命中走网络并缓存 */
   event.respondWith(
