@@ -801,6 +801,16 @@ th { background: var(--th-bg); }
     padding-bottom: calc(110px + env(safe-area-inset-bottom));
   }
 }
+
+/* ===== 手机端页签左右滑动：平移切换动画 ===== */
+@keyframes tabSlideOutL { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-14%); opacity: 0; } }
+@keyframes tabSlideInR  { from { transform: translateX(14%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes tabSlideOutR { from { transform: translateX(0); opacity: 1; } to { transform: translateX(14%); opacity: 0; } }
+@keyframes tabSlideInL  { from { transform: translateX(-14%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.tab-swipe-out-l { animation: tabSlideOutL .18s ease forwards; will-change: transform, opacity; }
+.tab-swipe-in-r  { animation: tabSlideInR .26s cubic-bezier(.22,.61,.36,1) forwards; will-change: transform, opacity; }
+.tab-swipe-out-r { animation: tabSlideOutR .18s ease forwards; will-change: transform, opacity; }
+.tab-swipe-in-l  { animation: tabSlideInL .26s cubic-bezier(.22,.61,.36,1) forwards; will-change: transform, opacity; }
 </style>
 </head>
 <body>
@@ -2260,10 +2270,13 @@ function bnavMoveHighlight(animate) {
 }
 window.addEventListener('resize', () => bnavMoveHighlight(false));
 
-/* ---------- 手机端：首页左右滑动切换底部导航页签（避免误触导致退出网页） ---------- */
+/* ---------- 手机端：首页左右滑动切换底部导航页签（实时跟手 + 平移动画） ---------- */
 (function () {
   const ORDER = ['mine', 'public', 'market', 'me'];  // 与底部导航排列一致：我的项目/公共项目/市场价/我的
-  let sx = 0, sy = 0, tracking = false, touchId = null;
+  const sectionEl = tab => document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Section');
+  const SWIPE_CLS = ['tab-swipe-out-l', 'tab-swipe-in-r', 'tab-swipe-out-r', 'tab-swipe-in-l'];
+
+  let sx = 0, sy = 0, tracking = false, locked = false, touchId = null, animating = false;
   const touchable = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
   // 仅在项目列表主页可滑动：详情页/账单页/群聊页/弹窗打开时不触发
   const canSwipe = () => {
@@ -2277,26 +2290,61 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   // 起始点落在表单控件/按钮/链接/横向滚动表格/弹窗/导航栏上时不拦截
   const onBlocker = el => !!(el && el.closest && el.closest(
     'input,textarea,select,button,a,label,.table-wrap,.modal-mask,.bottom-nav,#sellPickLayer,.ann-item'));
+
+  function reset() { tracking = false; locked = false; touchId = null; }
+
+  // 带平移动画的页签切换：当前页滑出 → 切换 → 新页从对侧滑入
+  function swipeTo(next) {
+    if (animating) return;
+    const cur = listTab;
+    const curEl = sectionEl(cur), newEl = sectionEl(next);
+    if (!newEl) return;
+    const goingLeft = ORDER.indexOf(next) > ORDER.indexOf(cur);  // true：左滑切到右侧页签
+    animating = true;
+    if (curEl) curEl.classList.add(goingLeft ? 'tab-swipe-out-l' : 'tab-swipe-out-r');
+    setTimeout(() => {
+      if (curEl) curEl.classList.remove('tab-swipe-out-l', 'tab-swipe-out-r');
+      switchListTab(next);  // 中途切换数据/状态
+      newEl.classList.remove(...SWIPE_CLS);
+      void newEl.offsetWidth;  // 强制回流，保证入场动画从起点播放
+      newEl.classList.add(goingLeft ? 'tab-swipe-in-r' : 'tab-swipe-in-l');
+    }, 170);
+    setTimeout(() => {
+      newEl.classList.remove(...SWIPE_CLS);
+      animating = false;
+    }, 460);
+  }
+
   document.addEventListener('touchstart', e => {
-    tracking = false;
-    if (!canSwipe() || e.touches.length !== 1) return;
+    tracking = false; locked = false;
+    if (animating || !canSwipe() || e.touches.length !== 1) return;
     const t = e.touches[0];
     if (onBlocker(t.target)) return;
     tracking = true; touchId = t.identifier; sx = t.clientX; sy = t.clientY;
   }, { passive: true });
-  document.addEventListener('touchend', e => {
+
+  // touchmove 实时判定：方向锁定后达到阈值立即切换，比等 touchend 更灵敏
+  document.addEventListener('touchmove', e => {
     if (!tracking) return;
-    tracking = false;
-    const t = [...e.changedTouches].find(x => x.identifier === touchId) || e.changedTouches[0];
+    const t = [...e.touches].find(x => x.identifier === touchId) || e.touches[0];
     if (!t) return;
     const dx = t.clientX - sx, dy = t.clientY - sy;
-    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;  // 横向主导且超过阈值才算翻页
+    if (!locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;   // 抖动区，先不定向
+      if (Math.abs(dy) >= Math.abs(dx)) { tracking = false; return; }  // 纵向主导：放弃，让页面正常滚动
+      locked = true;  // 横向手势锁定
+    }
+    if (Math.abs(dx) < 36) return;                          // 平移阈值 36px（更跟手）
     const i = ORDER.indexOf(listTab);
-    if (i < 0) return;
-    const next = dx < 0 ? ORDER[i + 1] : ORDER[i - 1];  // 左滑→右侧页签，右滑→左侧页签
-    if (next) switchListTab(next);
+    if (i < 0) { reset(); return; }
+    const next = dx < 0 ? ORDER[i + 1] : ORDER[i - 1];      // 左滑→右侧页签，右滑→左侧页签
+    if (!next) { reset(); return; }                         // 边界无相邻页签
+    reset();
+    swipeTo(next);
   }, { passive: true });
-  document.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+
+  document.addEventListener('touchend', () => { reset(); }, { passive: true });
+  document.addEventListener('touchcancel', () => { reset(); }, { passive: true });
 })();
 
 /* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
