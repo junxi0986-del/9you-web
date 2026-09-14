@@ -719,6 +719,8 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 
 /* ========== 我的Tab ========== */
 .me-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* 「我的」页卡片容器：flex 纵向布局 + 统一间距（JS 切换 display 时回退到此规则） */
+#tabMeSection { display: flex; flex-direction: column; gap: 12px; }
 .badge-done { background: var(--done-bg-strong); color: var(--success); }
 /* 公共项目置顶（金色）/ 重点（蓝色）高亮：普通模式实色，深色模式半透明 */
 .project-card.pub-pinned { border-color: #f59e0b; background: #fffbeb; }
@@ -736,8 +738,8 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal {
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -920,7 +922,7 @@ th { background: var(--th-bg); }
     </div>
 
     <!-- 我的页签：账号信息 + 深色模式 + 管理员后台（公告/市场价管理） -->
-    <div id="tabMeSection" style="display:none;display:flex;flex-direction:column;gap:12px">
+    <div id="tabMeSection" style="display:none">
       <div class="table-card">
         <div class="me-row">
           <div style="min-width:0">
