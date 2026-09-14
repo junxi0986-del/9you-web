@@ -4899,49 +4899,57 @@ checkAuth();
     });
   }
 
-  // 保存浏览器触发的安装事件，供「安装到桌面」按钮使用
-  var deferredPrompt = null;
-  var card = document.getElementById('pwaInstallCard');
+  var deferredPrompt = null;                                   // Chrome 安装事件对象
+  var card = document.getElementById('pwaInstallCard');        // Android 安装卡片
+  var iosCard = document.getElementById('iosInstallCard');     // iOS 引导卡片
 
+  // 是否已从主屏幕全屏打开（Android PWA 或 iOS Web Clip）
   function alreadyInstalled() {
     return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;   // iOS Safari 添加到主屏幕后
+      || window.navigator.standalone === true;
+  }
+  // 检测 iOS / iPadOS（iPadOS 13+ 伪装 Mac UA，用触屏特征识别）
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (alreadyInstalled()) {
+    // 已安装：两类卡片都隐藏
+    if (card) card.style.display = 'none';
+    if (iosCard) iosCard.style.display = 'none';
+    return;
   }
 
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault();
-    deferredPrompt = e;
-    if (card && !alreadyInstalled()) card.style.display = '';
+  if (isIOS) {
+    // iOS Safari 不支持自动唤起安装，显示手动操作指引
+    if (iosCard) iosCard.style.display = '';
+  } else {
+    // Android 等平台：安装卡片常驻显示；Chrome 就绪后点击直接弹系统安装框，未就绪给文字引导
+    if (card) card.style.display = '';
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferredPrompt = e;   // 保存事件，点击按钮时 prompt() 直接弹出安装框
+    });
+  }
+
+  // 安装完成（用户确认安装）后隐藏安装卡片
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+    if (card) card.style.display = 'none';
+    toast('安装成功，可从桌面打开', 'success');
   });
 
+  // 「安装到桌面」按钮点击
   window.pwaInstallPrompt = function () {
-    if (!deferredPrompt) { toast('当前浏览器不支持一键安装，请使用 Chrome 菜单中的「添加到主屏幕」', 'info'); return; }
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function () { deferredPrompt = null; if (card) card.style.display = 'none'; });
-  };
-
-  // 已安装（standalone 模式）时确保隐藏按钮
-  if (alreadyInstalled() && card) card.style.display = 'none';
-
-  // ---------- iOS 专属：添加到主屏幕引导 ----------
-  // iOS Safari 不支持 beforeinstallprompt，无法自动触发安装，只能显示手动操作指引
-  var iosCard = document.getElementById('iosInstallCard');
-  if (iosCard) {
-    // 检测 iOS / iPadOS（iPadOS 13+ 伪装 Mac UA，需用触屏特征识别）
-    var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
-      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    // 仅 iOS 浏览器内运行时显示指引；已从主屏幕全屏打开（standalone）则隐藏
-    if (isIOS && !alreadyInstalled() && !('onbeforeinstallprompt' in window)) {
-      iosCard.style.display = '';
-    }
-    // iOS 用户误点 Android 安装按钮时给出正确指引
-    window.pwaInstallPrompt = function () {
-      if (isIOS) { toast('iOS 请点击 Safari 的分享按钮 → 添加到主屏幕', 'info'); return; }
-      if (!deferredPrompt) { toast('当前浏览器不支持一键安装，请使用 Chrome 菜单中的「添加到主屏幕」', 'info'); return; }
+    if (isIOS) { toast('iOS 请点击 Safari 的分享按钮 → 添加到主屏幕', 'info'); return; }
+    if (deferredPrompt) {
+      // Chrome 已确认可安装：直接弹出系统安装确认框
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function () { deferredPrompt = null; if (card) card.style.display = 'none'; });
-    };
-  }
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+      return;
+    }
+    // 安装能力尚未就绪（首次访问 SW 未激活等）：给手动引导
+    toast('安装组件准备中，请刷新页面后重试；或用 Chrome 菜单 →「添加到主屏幕」', 'info');
+  };
 })();
 </script>
 </body>
