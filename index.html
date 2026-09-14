@@ -20,29 +20,35 @@
   --primary: #2563eb;        /* 主色蓝 */
   --primary-dark: #1d4ed8;
   --primary-light: #dbeafe;
-  --bg: #f1f5f9;             /* 页面背景灰 */
-  --card-bg: #ffffff;
-  --nav-glass: rgba(255,255,255,.72);  /* iOS 柔光玻璃导航：半透明白 + 背景模糊（不支持时回退纯色） */
-  --nav-border: rgba(255,255,255,.65);   /* 导航 pill 边框 */
-  --nav-shadow: 0 8px 32px rgba(0,0,0,.12);  /* 导航/高亮块阴影（亮色柔和） */
-  --pill-bg: rgba(255,255,255,.75);      /* 导航高亮块玻璃背景 */
+  --primary-grad: linear-gradient(135deg, #4a6cf7, #3b5bdb);  /* 头部/主按钮渐变蓝 */
+  --bg: #f2f2f7;             /* 页面基础灰（渐变起点） */
+  --bg-grad: linear-gradient(180deg, #f2f2f7 0%, #e8e8ed 100%);  /* iOS 浅灰渐变背景 */
+  --card-bg: rgba(255,255,255,0.72);          /* 液态玻璃卡片背景 */
+  --card-border: rgba(255,255,255,0.6);       /* 卡片极淡描边 */
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8);  /* 柔和阴影+顶部内高光 */
+  --nav-glass: rgba(255,255,255,.55);  /* iOS 柔光玻璃导航：更透 + 背景模糊 */
+  --nav-border: rgba(255,255,255,.65);
+  --nav-shadow: 0 8px 32px rgba(0,0,0,.12);
+  --pill-bg: rgba(255,255,255,.68);
   --pill-border: rgba(255,255,255,.9);
-  --pill-inset: rgba(255,255,255,.9);    /* 高亮块顶部内高光 */
+  --pill-inset: rgba(255,255,255,.9);
   --text: #1e293b;
   --text-secondary: #64748b;
-  --border: #e2e8f0;
+  --border: rgba(15,23,42,.08);   /* 极淡分隔线 */
   --success: #16a34a;        /* 绿：已回本 */
   --danger: #dc2626;
   --orange: #ea580c;         /* 橙：进度较慢 */
-  --radius: 10px;
-  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
-  --input-bg: #ffffff;        /* 输入框背景 */
-  --th-bg: #f8fafc;           /* 表头 / 只读输入框背景 */
-  --row-hover: #f8fafc;       /* 表格行悬停背景 */
-  --done-bg: #f0fdf4;         /* 已回本行背景 */
-  --done-bg-strong: #dcfce7;  /* 已回本行悬停 / 徽章背景 */
-  --selected-bg: #eff6ff;     /* 批量勾选行背景 */
-  --danger-soft: #fef2f2;     /* 危险按钮悬停背景 */
+  --radius: 20px;            /* 卡片大圆角 */
+  --radius-btn: 14px;        /* 按钮圆角 */
+  --radius-sm: 10px;         /* 小标签圆角 */
+  --shadow: 0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+  --input-bg: rgba(255,255,255,0.65);   /* 输入框背景（玻璃上的半透明白） */
+  --th-bg: rgba(255,255,255,0.55);      /* 表头 / 只读输入框背景 */
+  --row-hover: rgba(37,99,235,.05);     /* 表格行悬停背景 */
+  --done-bg: rgba(34,197,94,.08);       /* 已回本行背景 */
+  --done-bg-strong: rgba(34,197,94,.18);  /* 已回本行悬停 / 徽章背景 */
+  --selected-bg: rgba(59,130,246,.10);  /* 批量勾选行背景 */
+  --danger-soft: rgba(220,38,38,.08);   /* 危险按钮悬停背景 */
   /* 群聊气泡配色（浅色模式） */
   --chat-bubble-me: #2563eb;      /* 自己的气泡：品牌蓝 */
   --chat-bubble-me-text: #ffffff;
@@ -56,25 +62,29 @@ html.dark-mode {
   --primary: #3b82f6;         /* 品牌色适当调亮 */
   --primary-dark: #2563eb;
   --primary-light: rgba(59,130,246,.22);
-  --bg: #0f172a;
-  --card-bg: #1e293b;
-  --nav-glass: rgba(30,41,59,.72);  /* 深色模式柔光玻璃导航 */
-  --nav-border: rgba(255,255,255,.12);
+  --primary-grad: linear-gradient(135deg, #4a6cf7, #3b5bdb);
+  --bg: #000;
+  --bg-grad: linear-gradient(180deg, #000 0%, #1c1c1e 100%);  /* 深色渐变背景 */
+  --card-bg: rgba(255,255,255,0.06);          /* 深色玻璃卡片 */
+  --card-border: rgba(255,255,255,0.1);
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  --nav-glass: rgba(28,28,30,.55);  /* 深色模式柔光玻璃导航（更透） */
+  --nav-border: rgba(255,255,255,.14);
   --nav-shadow: 0 8px 32px rgba(0,0,0,.5);  /* 深色模式深阴影 */
-  --pill-bg: rgba(255,255,255,.12);
-  --pill-border: rgba(255,255,255,.18);
-  --pill-inset: rgba(255,255,255,.25);
+  --pill-bg: rgba(255,255,255,.14);
+  --pill-border: rgba(255,255,255,.2);
+  --pill-inset: rgba(255,255,255,.28);
   --text: #e2e8f0;
   --text-secondary: #94a3b8;
-  --border: #334155;
-  --input-bg: #2d3a4f;
-  --th-bg: #26334a;
-  --row-hover: #26334a;
+  --border: rgba(255,255,255,.1);
+  --input-bg: rgba(255,255,255,0.08);
+  --th-bg: rgba(255,255,255,0.05);
+  --row-hover: rgba(255,255,255,.06);
   --done-bg: rgba(22,163,74,.12);
   --done-bg-strong: rgba(22,163,74,.22);
   --selected-bg: rgba(59,130,246,.18);
   --danger-soft: rgba(220,38,38,.15);
-  --shadow: 0 1px 3px rgba(0,0,0,.45), 0 4px 12px rgba(0,0,0,.35);
+  --shadow: 0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
   /* 群聊气泡配色（深色模式） */
   --chat-bubble-me: #1e40af;      /* 自己的气泡：深蓝 */
   --chat-bubble-me-text: #e2e8f0;
@@ -150,8 +160,9 @@ th, tbody tr, .empty {
 }
 
 body {
-  font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
-  background: var(--bg);
+  font-family: -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg-grad);
+  background-attachment: fixed;
   color: var(--text);
   font-size: 14px;
   min-height: 100vh;
@@ -177,17 +188,18 @@ body {
 }
 /* ========== 顶部标题栏 ========== */
 .header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  background: linear-gradient(135deg, #4a6cf7, #3b5bdb);
   color: #fff;
-  padding: 22px 24px;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  padding: 24px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(74,108,247,.35), inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 48px rgba(255,255,255,.07);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  transition: box-shadow .3s ease;
 }
 .header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; }
 .header-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; margin-right: 10px; background: #fff; flex-shrink: 0; }
@@ -209,23 +221,24 @@ body {
 
 /* ========== 按钮通用样式 ========== */
 .btn {
-  border: none; cursor: pointer; border-radius: 6px;
-  padding: 8px 14px; font-size: 13px; font-weight: 500;
-  transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
+  border: none; cursor: pointer; border-radius: var(--radius-btn, 14px);
+  padding: 8px 14px; font-size: 13px; font-weight: 500; white-space: nowrap;
+  transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease, transform .15s ease;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-dark); }
-.btn-outline { background: var(--card-bg); color: var(--primary); border: 1px solid var(--primary); }
+.btn-primary { background: var(--primary-grad, var(--primary)); color: #fff; box-shadow: 0 4px 14px rgba(74,108,247,.35); }
+.btn-primary:hover { background: var(--primary-grad, var(--primary)); filter: brightness(1.07); }
+.btn-outline { background: var(--input-bg); color: var(--primary); border: none; }
 .btn-outline:hover { background: var(--primary-light); }
-.btn-danger { background: var(--card-bg); color: var(--danger); border: 1px solid var(--danger); }
-.btn-danger:hover { background: var(--danger-soft); }
+.btn-danger { background: var(--danger-soft); color: var(--danger); border: none; }
+.btn-danger:hover { background: rgba(220,38,38,.16); }
 .btn-danger-solid { background: var(--danger); color: #fff; }
 .btn-danger-solid:hover { background: #b91c1c; }
 .btn-ghost { background: transparent; color: var(--text-secondary); }
 .btn-ghost:hover { background: var(--primary-light); color: var(--primary); }
-.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm, 10px); }
 
 /* ========== 面包屑导航 ========== */
 .breadcrumb {
@@ -241,18 +254,21 @@ body {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 .summary-card {
   background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  padding: 16px 18px;
-  box-shadow: var(--shadow);
+  padding: 18px;
+  box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
   border-top: 3px solid var(--primary);
 }
-.summary-card .label { color: var(--text-secondary); font-size: 13px; margin-bottom: 6px; }
-.summary-card .value { font-size: 22px; font-weight: 700; color: var(--text); }
+.summary-card .label { color: var(--text-secondary); font-size: 13px; margin-bottom: 10px; }
+.summary-card .value { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -.02em; }
 .summary-card .value small { font-size: 12px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
 .summary-card.accent .value { color: var(--primary); }
 
@@ -260,19 +276,21 @@ body {
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 .project-card {
   background: var(--card-bg);
-  border: 1px solid transparent;   /* 预留边框位，置顶/重点高亮时不抖动 */
+  border: 1px solid var(--card-border);   /* 极淡描边；置顶/重点高亮时由专属规则覆盖边框色 */
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
   padding: 18px;
   cursor: pointer;
-  transition: box-shadow .2s, transform .2s;
+  transition: box-shadow .3s ease, transform .2s ease, background-color .3s ease, border-color .3s ease;
   display: flex; flex-direction: column; gap: 10px;
 }
-.project-card:hover { box-shadow: 0 6px 20px rgba(37,99,235,.15); transform: translateY(-2px); }
+.project-card:hover { box-shadow: 0 8px 28px rgba(37,99,235,.14); transform: translateY(-2px); }
 .project-card .pc-name { font-size: 16px; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; }
 .project-card .pc-remark { color: var(--text-secondary); font-size: 13px; min-height: 20px; word-break: break-all; }
 .project-card .pc-stats {
@@ -287,9 +305,10 @@ body {
 }
 .project-card .pc-actions { display: flex; gap: 6px; }
 .badge {
-  font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; white-space: nowrap;
+  font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 500; white-space: nowrap;
 }
-.badge-blue { background: var(--primary-light); color: var(--primary); }
+.badge-blue { background: rgba(37,99,235,.1); color: #1d4ed8; }
+html.dark-mode .badge-blue { background: rgba(59,130,246,.2); color: #93c5fd; }
 
 /* ========== 用户表格（详情页） ========== */
 .table-card {
@@ -527,7 +546,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
     border: 1px solid var(--nav-border, var(--border));
     border-radius: 999px;
     box-shadow: var(--nav-shadow, 0 8px 32px rgba(0,0,0,.12));
-    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(28px); backdrop-filter: saturate(180%) blur(28px);
     transition: background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
   /* 独立高亮块：略微上移错位，探出容器形成分层悬浮感 */
@@ -541,7 +560,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
     position: absolute; inset: 3px 4px; border-radius: 999px;
     background: var(--pill-bg, rgba(255,255,255,.75));
     border: 1px solid var(--pill-border, rgba(255,255,255,.9));
-    box-shadow: inset 0 1px 0 var(--pill-inset, rgba(255,255,255,.9)), var(--nav-shadow, 0 8px 32px rgba(0,0,0,.12));
+    box-shadow: inset 0 1px 0 var(--pill-inset, rgba(255,255,255,.9)), inset 0 -2px 6px rgba(0,0,0,.06), inset 0 0 10px rgba(255,255,255,.25), var(--nav-shadow, 0 8px 32px rgba(0,0,0,.12));
     -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
     transition: background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
@@ -551,7 +570,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
     position: relative; z-index: 2; flex: 1; min-width: 0;
     border: none; background: transparent; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    font-size: 10px; color: var(--text-secondary); border-radius: 999px;
+    font-size: 10px; color: #8e8e93; border-radius: 999px;
     -webkit-tap-highlight-color: transparent;
     transition: color .3s ease, transform .3s ease;
   }
@@ -706,9 +725,16 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .btn { min-height: 44px; }
   .row-actions .btn { min-height: 40px; }
   .market-chip { width: 100%; justify-content: space-between; }
-  /* 弹窗手机端全屏显示 */
+  /* 弹窗手机端全屏显示（小窗确认弹窗除外） */
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+  /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
+  #confirmModal, #todayListModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal {
+    max-height: 86vh;
+    border-radius: 24px;
+  }
+  #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   .modal-body { padding: 16px; }
 }
 
@@ -730,6 +756,32 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask#captchaModal { padding: 24px 16px; align-items: center; }
   #captchaModal .modal { max-width: 340px; width: 100%; height: auto; max-height: none; border-radius: var(--radius); }
 }
+
+/* ===== iOS 果味玻璃质感统一覆盖（仅视觉，不改类名与功能） ===== */
+.table-card, .login-card, .modal, .chat-page, .empty {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
+}
+.table-card { border-radius: var(--radius); }
+.login-card { border-radius: 24px; }
+.modal { border-radius: 24px; }
+@media (max-width: 520px) {
+  .modal { border-radius: 0; }  /* 保持手机端弹窗全屏样式 */
+}
+/* 弹窗遮罩更通透 + 轻模糊 */
+.modal-mask { background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* 置顶/重点高亮改半透明，保留玻璃质感 */
+.project-card.pub-pinned { border-color: rgba(245,158,11,.55); background: rgba(255,251,235,.7); }
+.project-card.pub-starred { border-color: rgba(37,99,235,.5); background: rgba(219,234,254,.55); }
+/* 输入控件与小标签平滑过渡 */
+.form-group input, .form-group textarea, .search-input, select, .chat-text,
+.badge, .seg-control button, .tab-switch button {
+  transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease;
+}
+th { background: var(--th-bg); }
 </style>
 </head>
 <body>
@@ -788,7 +840,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
-      <button class="btn btn-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.6)" onclick="confirmAction('退出登录','确定要退出当前账号吗？退出后需重新登录才能查看项目数据。',supabaseLogout,'退出登录')">退出登录</button>
     </div>
   </header>
 
@@ -964,10 +1015,21 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
             <h2 style="font-size:15px;font-weight:600">🗂️ 数据管理</h2>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">生成分享码发送给对方导入项目；清空本机全部项目数据，操作不可恢复</div>
           </div>
-          <div style="display:flex;gap:8px;flex-shrink:0">
+          <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
             <button class="btn btn-danger" onclick="clearAllData()">清空数据</button>
           </div>
+        </div>
+      </div>
+
+      <!-- 退出登录（全员可见）：从顶部栏移至此处 -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">🚪 退出登录</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">退出当前账号，退出后需重新登录才能查看项目数据</div>
+          </div>
+          <button class="btn btn-danger" style="flex-shrink:0" onclick="confirmAction('退出登录','确定要退出当前账号吗？退出后需重新登录才能查看项目数据。',supabaseLogout,'退出登录')">退出登录</button>
         </div>
       </div>
     </div>
