@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script>/* 尽早标记 Android 壳 APP 环境，配合 CSS 避让状态栏（避免布局闪烁） */
+if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.add('in-app');</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
@@ -800,6 +802,15 @@ th { background: var(--th-bg); }
     padding-top: calc(20px + env(safe-area-inset-top));
     padding-bottom: calc(110px + env(safe-area-inset-bottom));
   }
+}
+
+/* ===== Android 壳 APP（JiyouApp UA）：edge-to-edge 下同样避让状态栏与底部横条 ===== */
+html.in-app .container {
+  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+html.in-app #loginWrap {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ===== 手机端页签左右滑动：平移切换动画 ===== */
