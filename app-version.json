@@ -1,6 +1,6 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0",
+  "versionCode": 2,
+  "versionName": "2.0",
   "downloadUrl": "/jiuyou.apk",
-  "changelog": "首次发布：WebView 壳 APP，支持文件上传、长按保存图片到相册"
+  "changelog": "1. 适配状态栏沉浸式显示；2. 修复左右边缘滑动误退出，支持边缘滑动切换页签"
 }
