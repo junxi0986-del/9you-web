@@ -2,9 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>九游项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
+<!-- PWA：Android Chrome 添加到桌面 / iOS 添加到主屏幕 -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#4a6cf7">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="九游跟踪">
 <!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
@@ -782,6 +789,14 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease;
 }
 th { background: var(--th-bg); }
+
+/* ===== PWA standalone 全屏模式：避开刘海屏/状态栏与底部横条（浏览器内不受影响） ===== */
+@media (display-mode: standalone), (display-mode: minimal-ui) {
+  .container {
+    padding-top: calc(20px + env(safe-area-inset-top));
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+}
 </style>
 </head>
 <body>
@@ -1018,6 +1033,36 @@ th { background: var(--th-bg); }
           <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-outline" onclick="openShareProjectModal()">🔗 分享项目</button>
             <button class="btn btn-danger" onclick="clearAllData()">清空数据</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 安装到桌面（PWA）：仅当浏览器触发安装事件时显示；已安装（standalone 模式）自动隐藏 -->
+      <div class="table-card" id="pwaInstallCard" style="display:none">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">📲 安装到桌面</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">安装为桌面应用，打开后全屏无地址栏，体验更接近原生 App</div>
+          </div>
+          <button class="btn btn-primary" style="flex-shrink:0" onclick="pwaInstallPrompt()">安装应用</button>
+        </div>
+      </div>
+
+      <!-- 添加到主屏幕（iOS 专属引导）：Safari 无法自动触发安装，只能指引用户手动操作；全屏模式运行时隐藏 -->
+      <div class="table-card" id="iosInstallCard" style="display:none">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px">
+              添加到主屏幕
+              <!-- 模拟 Safari 分享按钮图标 -->
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px">
+                <path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M8 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/>
+              </svg>
+            </h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.7">
+              点击 Safari 底部工具栏的<b style="display:inline-flex;vertical-align:-3px;margin:0 2px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M8 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/></svg></b><b>分享按钮</b> → 选择「添加到主屏幕」<br>
+              添加后从主屏幕打开即可全屏运行，无地址栏
+            </div>
           </div>
         </div>
       </div>
@@ -4841,6 +4886,63 @@ function chat_fmtTime(iso) {
 
 // 启动：检测登录状态（刷新后自动恢复会话）
 checkAuth();
+</script>
+<script>
+/* ---------- PWA：Service Worker 注册 + 安装引导 ---------- */
+(function () {
+  // 注册 Service Worker（需 HTTPS 或 localhost）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function (err) {
+        console.warn('[PWA] Service Worker 注册失败：', err);
+      });
+    });
+  }
+
+  // 保存浏览器触发的安装事件，供「安装到桌面」按钮使用
+  var deferredPrompt = null;
+  var card = document.getElementById('pwaInstallCard');
+
+  function alreadyInstalled() {
+    return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;   // iOS Safari 添加到主屏幕后
+  }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (card && !alreadyInstalled()) card.style.display = '';
+  });
+
+  window.pwaInstallPrompt = function () {
+    if (!deferredPrompt) { toast('当前浏览器不支持一键安装，请使用 Chrome 菜单中的「添加到主屏幕」', 'info'); return; }
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function () { deferredPrompt = null; if (card) card.style.display = 'none'; });
+  };
+
+  // 已安装（standalone 模式）时确保隐藏按钮
+  if (alreadyInstalled() && card) card.style.display = 'none';
+
+  // ---------- iOS 专属：添加到主屏幕引导 ----------
+  // iOS Safari 不支持 beforeinstallprompt，无法自动触发安装，只能显示手动操作指引
+  var iosCard = document.getElementById('iosInstallCard');
+  if (iosCard) {
+    // 检测 iOS / iPadOS（iPadOS 13+ 伪装 Mac UA，需用触屏特征识别）
+    var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    // 仅 iOS 浏览器内运行时显示指引；已从主屏幕全屏打开（standalone）则隐藏
+    if (isIOS && !alreadyInstalled() && !('onbeforeinstallprompt' in window)) {
+      iosCard.style.display = '';
+    }
+    // iOS 用户误点 Android 安装按钮时给出正确指引
+    window.pwaInstallPrompt = function () {
+      if (isIOS) { toast('iOS 请点击 Safari 的分享按钮 → 添加到主屏幕', 'info'); return; }
+      if (!deferredPrompt) { toast('当前浏览器不支持一键安装，请使用 Chrome 菜单中的「添加到主屏幕」', 'info'); return; }
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; if (card) card.style.display = 'none'; });
+    };
+  }
+})();
 </script>
 </body>
 </html>

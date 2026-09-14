@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  九游跟踪 Web Clip 描述文件模板（iOS）
+  ═══════════════════════════════════════════
+  使用步骤：
+  1. 把下方 <data> 占位替换为 icon-192.png 的 Base64 编码：
+     PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("icon-192.png"))
+  2. 如有签名证书（苹果开发者或 ADT 证书），用 codesign 签名避免安装时提示"未签名"
+  3. 将本文件托管在 HTTPS 服务器上（如 https://9you.help/9you.mobileconfig）
+  4. iOS 用户用 Safari 访问该地址下载，前往「设置 → 通用 → VPN与设备管理」手动安装
+  ═══════════════════════════════════════════
+-->
+<plist version="1.0">
+<dict>
+  <!-- 描述文件头部信息 -->
+  <key>PayloadDisplayName</key>
+  <string>九游跟踪 Web Clip</string>
+  <key>PayloadDescription</key>
+  <string>添加九游项目跟踪管理平台到主屏幕</string>
+  <key>PayloadIdentifier</key>
+  <string>help.9you.webclip</string>
+  <key>PayloadOrganization</key>
+  <string>九游项目跟踪管理平台</string>
+  <key>PayloadRemovalDisallowed</key>
+  <false/>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadUUID</key>
+  <string>替换为任意大写UUID，如 9A1B2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+
+  <!-- Web Clip 载荷（可含多个） -->
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key>
+      <string>com.apple.webClip.managed</string>
+      <key>PayloadUUID</key>
+      <string>替换为另一个不同的大写UUID</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+      <key>PayloadIdentifier</key>
+      <string>help.9you.webclip.main</string>
+      <key>PayloadOrganization</key>
+      <string>九游项目跟踪管理平台</string>
+
+      <!-- 主屏幕显示名称 -->
+      <key>Label</key>
+      <string>九游跟踪</string>
+      <!-- 打开的网址 -->
+      <key>URL</key>
+      <string>https://9you.help</string>
+      <!-- 全屏运行（隐藏 Safari 地址栏） -->
+      <key>FullScreen</key>
+      <true/>
+      <!-- 图标：替换为 icon-192.png 的 Base64 字符串（不带 data: 前缀） -->
+      <key>Icon</key>
+      <data>这里粘贴 icon-192.png 的 Base64 编码内容</data>
+      <!-- true = 不可删除（仅监管设备生效）；false = 用户可自行删除 -->
+      <key>Removable</key>
+      <true/>
+    </dict>
+  </array>
+</dict>
+</plist>
