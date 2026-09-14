@@ -1,0 +1,12 @@
+{
+  "target": {
+    "namespace": "android_app",
+    "package_name": "help.app_9you.twa",
+    "sha256_cert_fingerprints": [
+      "8a0b5c99258d9b7d799e0ce3c3e0c3b37efe927887399f27c74d9795021368b5"
+    ]
+  },
+  "relation": [
+    "delegate_permission/common.handle_all_urls"
+  ]
+}
