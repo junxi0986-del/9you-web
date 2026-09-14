@@ -1016,6 +1016,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
         </div>
       </div>
       <div id="billPaper" style="position:relative;background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:14px 10px;overflow:hidden"></div>
+      <button type="button" class="btn btn-outline" style="margin-top:10px;width:100%;min-height:38px" onclick="billCopyQty(bill_scopeProjects())">📋 复制今日出货数</button>
       <div id="billConvertBox" style="display:none;margin-top:12px;border:1px solid #fbbf24;background:#fffbeb;border-radius:10px;padding:12px">
         <div style="font-size:13px;font-weight:700;color:#92400e">⚠️ 直接金额换算确认</div>
         <div style="font-size:12px;color:#92400e;margin-top:3px;line-height:1.7">已自动识别 <b id="billConvCount">0</b> 笔「直接金额」未确认账单（<span id="billConvDate"></span> 市场价），并按「项目名 → 账户历史品名 → 今日唯一品名」自动匹配市场价反推出货数量；<b>每笔独立确认</b>，品名与数量均可修改，修改后上方账单实时联动预览：</div>
@@ -1158,6 +1159,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
     </div>
     <div class="modal-body">
       <div id="todayListPaper" style="position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 14px;overflow:hidden"></div>
+      <button type="button" class="btn btn-outline" style="margin-top:10px;width:100%;min-height:38px" onclick="billCopyQty(todayListScope)">📋 复制今日出货数</button>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">本列表仅作展示核对用途，带账号水印，不可修改数据</div>
     </div>
   </div>
@@ -2640,17 +2642,40 @@ function bill_collectToday(scope) {
   return { today, rows, total: rows.reduce((s, x) => s + x.price, 0) };
 }
 
+// 复制今日出货数（按项目汇总数量），格式：一共 / 「项目 数量」表头 / 每项目一行「项目名 数量个」
+async function billCopyQty(scope) {
+  const { rows } = bill_collectToday(scope && scope.length ? scope : projects);
+  const map = new Map();
+  let skipped = 0;
+  rows.forEach(x => {
+    if (!x.qty) { skipped++; return; }  // 直接金额未确认（无数量）不计入
+    map.set(x.proj, (map.get(x.proj) || 0) + x.qty);
+  });
+  if (!map.size) { toast('今天暂无出货数量可复制', 'warn'); return; }
+  const lines = ['一共', '项目    数量'];
+  map.forEach((qty, proj) => lines.push(`${proj}    ${qty}个`));
+  const ok = await copyToClipboard(lines.join('\n'));
+  const extra = skipped ? `（${skipped} 笔未确认数量未计入）` : '';
+  toast(ok ? `已复制 ${map.size} 个项目的今日出货数${extra}` : '复制失败，请重试', ok ? 'success' : 'error');
+}
+
 // 账单统计范围对应的项目列表（全部 / 单独）
 function bill_scopeProjects() {
   const one = document.querySelector('input[name="bill-scope"]:checked').value === 'one';
   return one ? [getProject(document.getElementById('bill-project').value)].filter(Boolean) : projects;
 }
 
-// 当前市场价：今天有价用今天，否则取最近有价的一天（同一日期可能多个品名）
+// 换算确认品名数据源：全部市场价品名（跨日期，列表已按日期倒序），每个品名只取最近一条的价格/单位
 function bill_latestMp() {
   if (!marketPrices.length) return { date: '', items: [] };
-  const date = marketPrices[0].price_date;
-  const items = marketPrices.filter(x => x.price_date === date).map(x => ({ name: x.name, price: Number(x.price) || 0, ref: mpRefQty(x.unit), unit: x.unit || '1' }));
+  const date = marketPrices[0].price_date;  // 最近有价日期（仅用于展示）
+  const seen = new Set();
+  const items = [];
+  marketPrices.forEach(x => {
+    if (seen.has(x.name)) return;  // 同名重复只保留最近一条
+    seen.add(x.name);
+    items.push({ name: x.name, price: Number(x.price) || 0, ref: mpRefQty(x.unit), unit: x.unit || '1' });
+  });
   return { date, items };
 }
 
@@ -2660,7 +2685,7 @@ function bill_detectMpName(projName, u, items) {
   if (items.some(it => it.name === projName)) return projName;  // 1) 项目名与品名一致
   const hist = [...(u.prices || [])].reverse().find(r => r.mpName && items.some(it => it.name === r.mpName));
   if (hist) return hist.mpName;                                 // 2) 该账户最近一次数量记录的品名
-  return items.length === 1 ? items[0].name : null;             // 3) 今日唯一品名，否则留空手选
+  return items.length === 1 ? items[0].name : null;             // 3) 全部品名仅一个时自动选中，否则留空手选
 }
 
 function billRenderConvert() {
@@ -2838,7 +2863,7 @@ function renderBill() {
   const digest = bill_hash(today + '|' + email + '|' + genTime + '|' + JSON.stringify(rows) + '|' + shotsSig);
   const billNo = 'JY' + today.replace(/-/g, '') + '-' + digest;
   billLastNo = billNo;  // 记录编号，保存图片时随盲水印隐写进像素
-  const cs = 'border-bottom:1px solid #e2e8f0;padding:6px 4px;';  // 单元格通用样式（内联保证导出图片样式完整）
+  const cs = 'border-bottom:1px solid #e2e8f0;padding:6px 6px;';  // 单元格通用样式（内联保证导出图片样式完整）
   const bodyRows = rows.length ? rows.map((x, i) => `
       <tr data-rid="${escapeHtml(x.rec.id)}" data-base="${x.price}" data-amt="${x.price}">
         <td style="${cs}text-align:center">${i + 1}</td>
@@ -2864,9 +2889,9 @@ function renderBill() {
         <thead><tr style="background:#f1f5f9">
           <th style="${cs}text-align:center;width:34px">编号</th>
           <th style="${cs}text-align:left">项目ID</th>
-          <th style="${cs}text-align:center;width:18%">出货数量</th>
-          <th style="${cs}text-align:right;width:20%">今日市场价</th>
-          <th style="${cs}text-align:right;width:17%">统计</th>
+          <th style="${cs}text-align:center;width:20%">出货数量</th>
+          <th style="${cs}text-align:right;width:26%">今日市场价</th>
+          <th style="${cs}text-align:right;width:20%">统计</th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
         <tfoot><tr style="background:#f8fafc">
@@ -2975,16 +3000,18 @@ window.billDecodeWatermark = function (src) {
 
 /* ---------- 今日回本明细：点击首页/详情页「今日回本金额」卡片打开，仅展示、带账号水印 ---------- */
 // scope 可选：首页不传 = 全部项目；详情页传 [当前项目] = 仅本项目
+let todayListScope = null;   // 明细弹窗当前统计范围（复制今日出货数复用）
 let todayClockTimer = null;  // 实时时钟定时器（弹窗关闭时清除）
 function todayTick() {
   const el = document.getElementById('todayClock');
   if (el) el.textContent = nowLocal().slice(11, 19);  // HH:mm:ss 实时跳动
 }
 function openTodayList(scope) {
-  const { rows, total } = bill_collectToday(scope && scope.length ? scope : projects);
+  todayListScope = scope && scope.length ? scope : projects;  // 记录范围供复制按钮使用
+  const { rows, total } = bill_collectToday(todayListScope);
   const today = nowLocal().slice(0, 10);
   const email = currentUserEmail || '';
-  const cs = 'border-bottom:1px solid var(--border);padding:6px 4px;';
+  const cs = 'border-bottom:1px solid var(--border);padding:6px 6px;';
   // 列表结构与出货账单一致：编号 | 项目ID（项目名+账户ID） | 出货数量 | 今日市场价 | 统计
   const bodyRows = rows.length ? rows.map((x, i) => `
       <tr>
@@ -3007,9 +3034,9 @@ function openTodayList(scope) {
         <thead><tr style="background:var(--bg)">
           <th style="${cs}text-align:center;width:34px">编号</th>
           <th style="${cs}text-align:left">项目ID</th>
-          <th style="${cs}text-align:center;width:18%">出货数量</th>
-          <th style="${cs}text-align:right;width:20%">今日市场价</th>
-          <th style="${cs}text-align:right;width:17%">统计</th>
+          <th style="${cs}text-align:center;width:20%">出货数量</th>
+          <th style="${cs}text-align:right;width:26%">今日市场价</th>
+          <th style="${cs}text-align:right;width:20%">统计</th>
         </tr></thead>
         <tbody>${bodyRows}</tbody>
         <tfoot><tr style="background:var(--bg)">
