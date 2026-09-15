@@ -830,7 +830,7 @@ html.in-app #loginWrap {
 .tab-swipe-out-r { animation: tabSlideOutR .18s ease forwards; will-change: transform, opacity; }
 .tab-swipe-in-l  { animation: tabSlideInL .26s cubic-bezier(.22,.61,.36,1) forwards; will-change: transform, opacity; }
 
-/* ========== 开屏广告（仅手机端，JS 控制显示） ========== */
+/* ========== 开屏广告（仅手机端，CSS 默认显示避免闪烁） ========== */
 #splashAd { position: fixed; inset: 0; z-index: 9999; background: #000; display:flex;align-items:center;justify-content:center; }
 #splashAd img { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:block; }
 /* 右上角磨砂跳过按钮 */
@@ -841,12 +841,16 @@ html.in-app #loginWrap {
   -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
 }
 #splashSkip:active { transform: scale(.96); }
+/* PC 端隐藏广告（CSS 优先，页面渲染第一帧就生效，不闪登录页） */
+@media (min-width: 769px), (not (pointer: coarse)) and (min-width: 769px) {
+  #splashAd { display: none !important; }
+}
 </style>
 </head>
 <body>
 
 <!-- 开屏广告（仅手机端显示）：全屏展示 open.png，右上角磨砂「跳过 Ns」按钮，5秒倒计时自动关闭 -->
-<div id="splashAd" style="display:none">
+<div id="splashAd">
   <img src="open.png" alt="开屏广告">
   <button id="splashSkip" onclick="closeSplashAd()">跳过 <span id="splashCount">5</span>s</button>
 </div>
@@ -5253,7 +5257,7 @@ checkAuth();
 })();
 </script>
 <script>
-/* ---------- 开屏广告：仅手机端显示，3秒倒计时自动关闭，可点击跳过 ---------- */
+/* ---------- 开屏广告：手机端 CSS 默认显示（避免闪登录页），JS 仅负责倒计时和关闭 ---------- */
 var splashTimer = null;
 function closeSplashAd() {
   if (splashTimer) { clearInterval(splashTimer); splashTimer = null; }
@@ -5262,12 +5266,7 @@ function closeSplashAd() {
 }
 (function () {
   var ad = document.getElementById('splashAd');
-  if (!ad) return;
-  // 仅手机端：触屏设备 且 屏宽≤768px
-  var isMobile = window.innerWidth <= 768
-    && (window.matchMedia && window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
-  if (!isMobile) return;
-  ad.style.display = '';
+  if (!ad || ad.style.display === 'none') return;  // PC 端 CSS 已隐藏，不启动倒计时
   var left = 5, el = document.getElementById('splashCount');
   splashTimer = setInterval(function () {
     left--;
