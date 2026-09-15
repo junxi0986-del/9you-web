@@ -3467,8 +3467,9 @@ function renderPublicProjects() {
     card.className = 'project-card public-card' + (p.pinned ? ' pub-pinned' : p.starred ? ' pub-starred' : '');
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px">
-        ${p.logo ? `<img src="${p.logo}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0">` : ''}
-        <div class="pc-name" style="flex:1;min-width:0">🌐 ${escapeHtml(p.name)}${badges}</div>
+        <div class="pc-name" style="flex:1;min-width:0">${p.logo
+          ? `<img src="${p.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px">`
+          : '🌐'} ${escapeHtml(p.name)}${badges}</div>
       </div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
