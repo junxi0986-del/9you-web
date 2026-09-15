@@ -1081,22 +1081,16 @@ html.in-app #loginWrap {
         </div>
       </div>
 
-      <!-- 添加到主屏幕（iOS 专属引导）：Safari 无法自动触发安装，只能指引用户手动操作；全屏模式运行时隐藏 -->
+      <!-- 安装到 iPhone 主屏幕（iOS 专属引导）：点击弹出三步安装教程，引导下载描述文件；全屏模式运行时隐藏 -->
       <div class="table-card" id="iosInstallCard" style="display:none">
         <div class="me-row">
           <div style="min-width:0">
-            <h2 style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px">
-              添加到主屏幕
-              <!-- 模拟 Safari 分享按钮图标 -->
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px">
-                <path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M8 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/>
-              </svg>
-            </h2>
+            <h2 style="font-size:15px;font-weight:600">📲 安装到 iPhone 主屏幕</h2>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.7">
-              点击 Safari 底部工具栏的<b style="display:inline-flex;vertical-align:-3px;margin:0 2px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M8 11H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/></svg></b><b>分享按钮</b> → 选择「添加到主屏幕」<br>
-              添加后从主屏幕打开即可全屏运行，无地址栏
+              通过描述文件安装，安装后即可从桌面全屏启动「项目跟踪」，无地址栏
             </div>
           </div>
+          <button class="btn btn-primary" style="flex-shrink:0" onclick="openIosGuideModal()">查看安装教程</button>
         </div>
       </div>
 
@@ -1581,6 +1575,32 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('batchUserModal')">取消</button>
       <button class="btn btn-primary" onclick="saveBatchUsers()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS 描述文件安装教程弹窗（三步引导） -->
+<div class="modal-mask" id="iosGuideModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>📲 iOS Installation</h3><button class="modal-close" onclick="closeModal('iosGuideModal')">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin:0 0 14px">安装到 iPhone 主屏幕：请使用 Safari 完成以下操作，安装后即可从桌面全屏启动「项目跟踪」。</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">1</span>
+          <div style="font-size:13px;line-height:1.7"><b>下载描述文件</b><br><span style="color:var(--text-secondary)">点击下方按钮，允许 Safari 下载配置描述文件。</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">2</span>
+          <div style="font-size:13px;line-height:1.7"><b>进入系统设置</b><br><span style="color:var(--text-secondary)">打开「设置」，点击顶部「已下载描述文件」；也可前往「通用 → VPN与设备管理」。</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">3</span>
+          <div style="font-size:13px;line-height:1.7"><b>确认安装</b><br><span style="color:var(--text-secondary)">点击右上角「安装」，完成后返回桌面打开「项目跟踪」。</span></div>
+        </div>
+      </div>
+      <a class="btn btn-primary" style="width:100%;margin-top:16px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center" href="/9you.mobileconfig">下载 iOS 描述文件</a>
+      <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin:10px 0 0;text-align:center">描述文件由项目本地生成，未使用企业证书签名，系统显示「未签名」属于正常现象。</p>
     </div>
   </div>
 </div>
@@ -2221,6 +2241,8 @@ function toast(msg, type = '') {
 
 // 通用弹窗开关
 function openModal(id) { document.getElementById(id).classList.add('show'); }
+// iOS 描述文件安装教程弹窗
+function openIosGuideModal() { openModal('iosGuideModal'); }
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
   // 关闭今日明细弹窗时停止实时时钟，避免空转
@@ -5246,7 +5268,7 @@ checkAuth();
   }
 
   if (isIOS) {
-    // iOS Safari 无法自动唤起安装，显示手动操作指引（保持不变）
+    // iOS：显示描述文件安装引导卡片（点击弹出三步教程）
     if (iosCard) iosCard.style.display = '';
   } else if (isAndroid) {
     // Android：显示 APK 下载卡片（替代 PWA 添加到桌面，避开 WebView 文件选择器受限问题）
