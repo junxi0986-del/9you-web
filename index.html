@@ -1015,7 +1015,8 @@ html.in-app #loginWrap {
             </div>
             <div class="form-group" style="margin:0;flex:1.2;min-width:105px">
               <label>品名<span class="req">*</span></label>
-              <input type="text" id="mf-name" placeholder="如：玩购鸭" maxlength="30">
+              <input type="text" id="mf-name" placeholder="如：玩购鸭" maxlength="30" list="mpNameList">
+              <datalist id="mpNameList"></datalist>
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:95px">
               <label>单价（元）<span class="req">*</span></label>
@@ -4207,7 +4208,7 @@ function renderMarketPage() {
     : marketPrices.map(r => `
       <tr onclick="copySellId('${r.id}', this)" title="点击复制出货ID">
         <td data-label="日期">${r.price_date}</td>
-        <td data-label="品名">${escapeHtml(r.name)}</td>
+        <td data-label="品名">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</td>
         <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
         <td data-label="出货ID">${r.sell_id ? escapeHtml(r.sell_id) : '—'}</td>
         <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
@@ -4296,6 +4297,13 @@ function renderAnnMgr() {
 }
 
 /* ---------- 市场价管理（我的Tab，仅管理员；每天可添加多条） ---------- */
+// 市场价品名旁的公共项目 Logo（按品名自动匹配同名公共项目，无匹配返回空）
+function mpLogoHtml(name) {
+  const pb = publicProjects.find(x => x.name === name);
+  return pb && pb.logo
+    ? `<img src="${pb.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px;margin-right:2px">`
+    : '';
+}
 async function saveMarketPrice() {
   if (!isAdmin) return;
   const id = document.getElementById('mf-id').value;
@@ -4343,12 +4351,15 @@ function deleteMarketPrice(id) {
 function renderMarketMgr() {
   const body = document.getElementById('marketMgrBody');
   if (!body) return;
+  // 品名下拉候选：公共项目名称（datalist 支持选中公共项目，也可自定义输入）
+  const dl = document.getElementById('mpNameList');
+  if (dl) dl.innerHTML = publicProjects.map(pb => `<option value="${escapeHtml(pb.name)}">`).join('');
   body.innerHTML = marketPrices.length === 0
     ? '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px">暂无记录，在上方录入市场价</td></tr>'
     : marketPrices.map(r => `
       <tr>
         <td data-label="日期">${r.price_date}</td>
-        <td data-label="品名">${escapeHtml(r.name)}</td>
+        <td data-label="品名">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</td>
         <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
         <td data-label="出货ID">${r.sell_id ? escapeHtml(r.sell_id) : '—'}</td>
         <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
