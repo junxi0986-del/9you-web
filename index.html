@@ -549,9 +549,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .bottom-nav {
     display: flex; position: fixed; z-index: 60;
     left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
-    /* translateZ(0) 提升独立合成层：修复页签平移动画期间导航栏（backdrop-filter）被强制重采样而闪没的 Chromium bug */
-    transform: translateX(-50%) translateZ(0);
-    will-change: transform;
+    transform: translateX(-50%);
     width: min(340px, calc(100vw - 32px)); height: 60px;
     align-items: stretch;
     background: var(--nav-glass, var(--card-bg));
@@ -588,12 +586,6 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   }
   .bottom-nav button .ic { font-size: 17px; line-height: 1; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; transform: scale(1.1); }
-  /* 页签平移动画期间（JS 添加 nav-solid）：关闭毛玻璃改切实色，根治移动端 Chromium 对
-     fixed + backdrop-filter 元素在内容 transform 动画时重采样导致的导航栏闪没 */
-  .bottom-nav.nav-solid, .bottom-nav.nav-solid .bottom-nav__glass {
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-    background: var(--card-bg);
-  }
 
   .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .summary-card { padding: 12px 14px; }
@@ -757,12 +749,13 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal {
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
+  #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
   .modal-body { padding: 16px; }
 }
 
@@ -913,10 +906,10 @@ html.in-app #loginWrap {
     </div>
     <div class="header-actions">
       <div class="tab-switch tab-switch-desktop">
-        <button id="tabBtnMine" onclick="animateTabSwitch('mine')">📁 我的项目</button>
-        <button id="tabBtnPublic" onclick="animateTabSwitch('public')">🌐 公共项目</button>
-        <button id="tabBtnMarket" onclick="animateTabSwitch('market')">💰 市场价</button>
-        <button id="tabBtnMe" onclick="animateTabSwitch('me')">👤 我的</button>
+        <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
+        <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
+        <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
+        <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
     </div>
   </header>
@@ -1141,10 +1134,10 @@ html.in-app #loginWrap {
     <!-- 移动端底部导航：液态玻璃椭圆 pill，我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
     <nav class="bottom-nav" id="bottomNav">
       <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
-      <button id="bnavMine" onclick="animateTabSwitch('mine')"><span class="ic">📁</span><span>我的项目</span></button>
-      <button id="bnavPublic" class="active" onclick="animateTabSwitch('public')"><span class="ic">🌐</span><span>公共项目</span></button>
-      <button id="bnavMarket" onclick="animateTabSwitch('market')"><span class="ic">💰</span><span>市场价</span></button>
-      <button id="bnavMe" onclick="animateTabSwitch('me')"><span class="ic">👤</span><span>我的</span></button>
+      <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
+      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
+      <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
+      <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
 
@@ -2517,9 +2510,6 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     const iCur = ORDER.indexOf(cur), iNext = ORDER.indexOf(next);
     const goingLeft = iNext > iCur;  // true：切到右侧页签（左滑方向）；当前页不在导航序列时默认向左
     animating = true;
-    // 动画期间导航栏切实色（关闭 backdrop-filter 重采样，根治闪没）
-    const nav = document.getElementById('bottomNav');
-    if (nav) nav.classList.add('nav-solid');
     if (curEl) curEl.classList.add(goingLeft ? 'tab-swipe-out-l' : 'tab-swipe-out-r');
     setTimeout(() => {
       if (curEl) curEl.classList.remove('tab-swipe-out-l', 'tab-swipe-out-r');
@@ -2530,7 +2520,6 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     }, 170);
     setTimeout(() => {
       newEl.classList.remove(...SWIPE_CLS);
-      if (nav) nav.classList.remove('nav-solid');  // 动画结束恢复毛玻璃
       animating = false;
     }, 460);
   }
@@ -3988,6 +3977,7 @@ function qaFillUsers() {
     ? p.users.map((u, i) => `<option value="${i}">${escapeHtml(u.name)}${u.id ? `（ID：${u.id}）` : ''}</option>`).join('')
     : '<option value="">该项目暂无账户</option>';
   qaUpdateEarned();
+  qaFillMp();  // 项目切换后品名下拉重新匹配同名市场价
 }
 
 // 显示所选账户的累计收回/剩余未回本
