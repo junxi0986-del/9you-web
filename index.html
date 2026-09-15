@@ -831,8 +831,8 @@ html.in-app #loginWrap {
 .tab-swipe-in-l  { animation: tabSlideInL .26s cubic-bezier(.22,.61,.36,1) forwards; will-change: transform, opacity; }
 
 /* ========== 开屏广告（仅手机端，JS 控制显示） ========== */
-#splashAd { position: fixed; inset: 0; z-index: 9999; background: #000; }
-#splashAd img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#splashAd { position: fixed; inset: 0; z-index: 9999; background: #000; display:flex;align-items:center;justify-content:center; }
+#splashAd img { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:block; }
 /* 右上角磨砂跳过按钮 */
 #splashSkip {
   position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 14px;
@@ -845,10 +845,10 @@ html.in-app #loginWrap {
 </head>
 <body>
 
-<!-- 开屏广告（仅手机端显示）：全屏展示 open.png，右上角磨砂「跳过 Ns」按钮，3秒倒计时自动关闭 -->
+<!-- 开屏广告（仅手机端显示）：全屏展示 open.png，右上角磨砂「跳过 Ns」按钮，5秒倒计时自动关闭 -->
 <div id="splashAd" style="display:none">
   <img src="open.png" alt="开屏广告">
-  <button id="splashSkip" onclick="closeSplashAd()">跳过 <span id="splashCount">3</span>s</button>
+  <button id="splashSkip" onclick="closeSplashAd()">跳过 <span id="splashCount">5</span>s</button>
 </div>
 
 <!-- 登录界面 -->
@@ -5268,7 +5268,7 @@ function closeSplashAd() {
     && (window.matchMedia && window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
   if (!isMobile) return;
   ad.style.display = '';
-  var left = 3, el = document.getElementById('splashCount');
+  var left = 5, el = document.getElementById('splashCount');
   splashTimer = setInterval(function () {
     left--;
     if (left <= 0) return closeSplashAd();
