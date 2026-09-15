@@ -1132,10 +1132,10 @@ html.in-app #loginWrap {
     <!-- 移动端底部导航：液态玻璃椭圆 pill，我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
     <nav class="bottom-nav" id="bottomNav">
       <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
-      <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
-      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
-      <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
-      <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
+      <button id="bnavMine" onclick="animateTabSwitch('mine')"><span class="ic">📁</span><span>我的项目</span></button>
+      <button id="bnavPublic" class="active" onclick="animateTabSwitch('public')"><span class="ic">🌐</span><span>公共项目</span></button>
+      <button id="bnavMarket" onclick="animateTabSwitch('market')"><span class="ic">💰</span><span>市场价</span></button>
+      <button id="bnavMe" onclick="animateTabSwitch('me')"><span class="ic">👤</span><span>我的</span></button>
     </nav>
   </section>
 
@@ -3890,11 +3890,7 @@ async function savePrice() {
   renderDetail();
   updatePriceTip(u);
   toast(`回本金额已添加（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
-  // 连续添加：清空金额并聚焦，可直接继续录入
-  document.getElementById('pr-price').value = '';
-  document.getElementById('pr-qty').value = '';
-  updateQtyAmount();
-  (prMode === 'qty' ? document.getElementById('pr-qty') : document.getElementById('pr-price')).focus();
+  closeModal('priceModal');  // 添加成功后关闭弹窗（出货ID跳转/普通添加均一致）
 }
 
 /* ---------- 台账 ---------- */
