@@ -1371,6 +1371,17 @@ html.in-app #loginWrap {
         <textarea id="pubf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
       </div>
       <div class="form-group">
+        <label>项目 Logo（可选，显示在项目名旁）</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img id="pubf-logo-preview" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:none">
+          <label class="btn btn-outline" style="cursor:pointer">
+            📷 上传 Logo
+            <input type="file" accept="image/*" style="display:none" onchange="pubfLogoUpload(this)">
+          </label>
+          <button type="button" class="btn btn-ghost" id="pubf-logo-clear" style="display:none" onclick="pubfLogoClear()">移除</button>
+        </div>
+      </div>
+      <div class="form-group">
         <label>展示标记（对所有人生效）</label>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400">
@@ -2063,11 +2074,41 @@ async function loadPublicProjects(){
   }
   publicProjects = data || [];
 }
+// 公共项目 Logo 上传/移除
+let pubfLogoData = '';  // 当前弹窗中的 logo base64 数据
+async function pubfLogoUpload(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 512 * 1024){ return toast('Logo 图片不能超过 512KB', 'warn'); }
+  // 压缩到 80x80，控制存储大小
+  const url = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = 80; c.height = 80;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, 80, 80);
+    pubfLogoData = c.toDataURL('image/png');
+    const prev = document.getElementById('pubf-logo-preview');
+    prev.src = pubfLogoData;
+    prev.style.display = '';
+    document.getElementById('pubf-logo-clear').style.display = '';
+  };
+  img.src = url;
+}
+function pubfLogoClear(){
+  pubfLogoData = '';
+  const prev = document.getElementById('pubf-logo-preview');
+  prev.src = '';
+  prev.style.display = 'none';
+  document.getElementById('pubf-logo-clear').style.display = 'none';
+}
+
 // 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点）
-async function upsertPublicProject(id, name, remark, pinned = false, starred = false){
+async function upsertPublicProject(id, name, remark, pinned = false, starred = false, logo = ''){
   const {error} = await sb
     .from("public_projects")
-    .upsert({ id, name, remark, pinned, starred, created_by: currentUserEmail });
+    .upsert({ id, name, remark, pinned, starred, logo, created_by: currentUserEmail });
   return error;
 }
 async function deletePublicProjectRow(id){
@@ -3425,7 +3466,10 @@ function renderPublicProjects() {
     const card = document.createElement('div');
     card.className = 'project-card public-card' + (p.pinned ? ' pub-pinned' : p.starred ? ' pub-starred' : '');
     card.innerHTML = `
-      <div class="pc-name">🌐 ${escapeHtml(p.name)}${badges}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${p.logo ? `<img src="${p.logo}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0">` : ''}
+        <div class="pc-name" style="flex:1;min-width:0">🌐 ${escapeHtml(p.name)}${badges}</div>
+      </div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
       <div class="pc-foot" onclick="event.stopPropagation()" ${isAdmin ? '' : 'style="display:none"'}>
@@ -3451,6 +3495,11 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = p.remark || '';
     document.getElementById('pubf-pinned').checked = !!p.pinned;
     document.getElementById('pubf-starred').checked = !!p.starred;
+    // Logo 回显
+    pubfLogoData = p.logo || '';
+    const prev = document.getElementById('pubf-logo-preview');
+    if (pubfLogoData) { prev.src = pubfLogoData; prev.style.display = ''; document.getElementById('pubf-logo-clear').style.display = ''; }
+    else { prev.src = ''; prev.style.display = 'none'; document.getElementById('pubf-logo-clear').style.display = 'none'; }
   } else {
     document.getElementById('publicProjectModalTitle').textContent = '发布公共项目';
     document.getElementById('pubf-id').value = '';
@@ -3458,6 +3507,10 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = '';
     document.getElementById('pubf-pinned').checked = false;
     document.getElementById('pubf-starred').checked = false;
+    pubfLogoData = '';
+    const prev = document.getElementById('pubf-logo-preview');
+    prev.src = ''; prev.style.display = 'none';
+    document.getElementById('pubf-logo-clear').style.display = 'none';
   }
   openModal('publicProjectModal');
   document.getElementById('pubf-name').focus();
@@ -3474,7 +3527,7 @@ async function savePublicProject() {
 
   if (!setError('pubf-name', !name)) return;
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred);
+  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData);
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
