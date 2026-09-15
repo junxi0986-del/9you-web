@@ -1296,6 +1296,17 @@ html.in-app #loginWrap {
         <label>项目备注（可选）</label>
         <textarea id="pf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
       </div>
+      <div class="form-group">
+        <label>项目 Logo（可选，显示在项目名旁）</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img id="pf-logo-preview" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:none">
+          <label class="btn btn-outline" style="cursor:pointer">
+            📷 上传 Logo
+            <input type="file" accept="image/*" style="display:none" onchange="pfLogoUpload(this)">
+          </label>
+          <button type="button" class="btn btn-ghost" id="pf-logo-clear" style="display:none" onclick="pfLogoClear()">移除</button>
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('projectModal')">取消</button>
@@ -2515,7 +2526,9 @@ function renderProjectGrid() {
     card.className = 'project-card';
     card.onclick = () => enterProject(p.id);
     card.innerHTML = `
-      <div class="pc-name">📁 ${escapeHtml(p.name)}
+      <div class="pc-name">${p.logo
+        ? `<img src="${p.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px">`
+        : '📁'} ${escapeHtml(p.name)}
         ${userCount ? `<span class="badge badge-blue">${doneCount}/${userCount} 已回本</span>` : ''}
       </div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
@@ -2700,6 +2713,11 @@ function openProjectModal(id) {
     inp.value = p.name;
     document.getElementById('pf-remark').value = p.remark || '';
     sel.style.display = 'none'; inp.style.display = '';  // 编辑时仅手输名称
+    // Logo 回显
+    pfLogoData = p.logo || '';
+    const prev = document.getElementById('pf-logo-preview');
+    if (pfLogoData) { prev.src = pfLogoData; prev.style.display = ''; document.getElementById('pf-logo-clear').style.display = ''; }
+    else { prev.src = ''; prev.style.display = 'none'; document.getElementById('pf-logo-clear').style.display = 'none'; }
   } else {
     document.getElementById('projectModalTitle').textContent = '新增项目';
     document.getElementById('pf-id').value = '';
@@ -2709,19 +2727,57 @@ function openProjectModal(id) {
     inp.value = '';
     document.getElementById('pf-remark').value = '';
     sel.style.display = ''; inp.style.display = '';
+    pfLogoData = '';
+    const prev2 = document.getElementById('pf-logo-preview');
+    prev2.src = ''; prev2.style.display = 'none';
+    document.getElementById('pf-logo-clear').style.display = 'none';
   }
   openModal('projectModal');
   document.getElementById('pf-import').value = '';  // 清空上次粘贴的分享码
   inp.focus();
 }
 
-// 快选公共项目：自动带出名称与备注（仍可手动修改，实现自定义）
+// 快选公共项目：自动带出名称、备注与 Logo（仍可手动修改，实现自定义）
 function pfSelPick() {
   const name = document.getElementById('pf-name-sel').value;
   if (!name) return;  // 选回占位项时不改动
   const pb = publicProjects.find(x => x.name === name);
   document.getElementById('pf-name').value = name;
   if (pb) document.getElementById('pf-remark').value = pb.remark || '';
+  // 快选公共项目时自动复制 Logo
+  pfLogoData = pb && pb.logo ? pb.logo : '';
+  const prev = document.getElementById('pf-logo-preview');
+  if (pfLogoData) { prev.src = pfLogoData; prev.style.display = ''; document.getElementById('pf-logo-clear').style.display = ''; }
+  else { prev.src = ''; prev.style.display = 'none'; document.getElementById('pf-logo-clear').style.display = 'none'; }
+}
+
+// 我的项目 Logo 上传/移除
+let pfLogoData = '';
+async function pfLogoUpload(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 2 * 1024 * 1024){ return toast('Logo 图片不能超过 2MB', 'warn'); }
+  const url = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = 80; c.height = 80;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, 80, 80);
+    pfLogoData = c.toDataURL('image/png');
+    const prev = document.getElementById('pf-logo-preview');
+    prev.src = pfLogoData;
+    prev.style.display = '';
+    document.getElementById('pf-logo-clear').style.display = '';
+  };
+  img.src = url;
+}
+function pfLogoClear(){
+  pfLogoData = '';
+  const prev = document.getElementById('pf-logo-preview');
+  prev.src = '';
+  prev.style.display = 'none';
+  document.getElementById('pf-logo-clear').style.display = 'none';
 }
 
 async function saveProject() {
@@ -2734,10 +2790,10 @@ async function saveProject() {
 
   if (id) {
     const p = getProject(id);
-    p.name = name; p.remark = remark;
+    p.name = name; p.remark = remark; p.logo = pfLogoData;
     toast('项目已更新', 'success');
   } else {
-    const np = { id: uid(), name, remark, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
+    const np = { id: uid(), name, remark, logo: pfLogoData, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
     projects.push(np);
     toast('项目已新增，可立即添加账户', 'success');
     await saveCloudData(true);
