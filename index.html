@@ -1296,17 +1296,6 @@ html.in-app #loginWrap {
         <label>项目备注（可选）</label>
         <textarea id="pf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
       </div>
-      <div class="form-group">
-        <label>项目 Logo（可选，显示在项目名旁）</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <img id="pf-logo-preview" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:none">
-          <label class="btn btn-outline" style="cursor:pointer">
-            📷 上传 Logo
-            <input type="file" accept="image/*" style="display:none" onchange="pfLogoUpload(this)">
-          </label>
-          <button type="button" class="btn btn-ghost" id="pf-logo-clear" style="display:none" onclick="pfLogoClear()">移除</button>
-        </div>
-      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('projectModal')">取消</button>
@@ -2465,6 +2454,57 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   window.animateTabSwitch = swipeTo;
 })();
 
+/* ---------- Android APP：详情页/账单页/群聊页边缘滑动返回 ---------- */
+// Android 手势排除区让边缘触摸交给 JS，但上面的页签滑动在详情页被禁用
+// 这里单独处理：在详情页/账单页/群聊页时，左边缘右滑触发返回
+(function () {
+  const isApp = /JiyouApp\//.test(navigator.userAgent);
+  if (!isApp) return;  // 仅 Android APP 生效
+
+  const EDGE_W = 28;  // 左边缘判定宽度
+  let bsx = 0, bsy = 0, btrack = false, blocked = false, btId = null;
+
+  const canBack = () => {
+    if (document.querySelector('.modal-mask.show')) return false;
+    if (currentProjectId || onBillPage) return true;
+    const cp = document.getElementById('chatPage');
+    if (cp && cp.style.display !== 'none') return true;
+    return false;
+  };
+  const onBlock = el => !!(el && el.closest && el.closest(
+    'input,textarea,select,button,a,label,.table-wrap,.modal-mask,.bottom-nav,#sellPickLayer'));
+
+  document.addEventListener('touchstart', e => {
+    btrack = false; blocked = false;
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE_W) return;  // 仅左边缘触发
+    if (onBlock(t.target)) return;
+    if (!canBack()) return;
+    btrack = true; btId = t.identifier; bsx = t.clientX; bsy = t.clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!btrack) return;
+    const t = [...e.touches].find(x => x.identifier === btId) || e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - bsx, dy = t.clientY - bsy;
+    if (!blocked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) >= Math.abs(dx)) { btrack = false; return; }
+      blocked = true;
+    }
+    if (dx > 40) {
+      btrack = false;
+      const cp = document.getElementById('chatPage');
+      if (cp && cp.style.display !== 'none') chat_close();
+      else showPage('list');
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => { btrack = false; blocked = false; }, { passive: true });
+})();
+
 /* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
 function renderProjectGrid() {
   const grid = document.getElementById('projectGrid');
@@ -2713,11 +2753,8 @@ function openProjectModal(id) {
     inp.value = p.name;
     document.getElementById('pf-remark').value = p.remark || '';
     sel.style.display = 'none'; inp.style.display = '';  // 编辑时仅手输名称
-    // Logo 回显
+    // Logo 从已有项目数据保留
     pfLogoData = p.logo || '';
-    const prev = document.getElementById('pf-logo-preview');
-    if (pfLogoData) { prev.src = pfLogoData; prev.style.display = ''; document.getElementById('pf-logo-clear').style.display = ''; }
-    else { prev.src = ''; prev.style.display = 'none'; document.getElementById('pf-logo-clear').style.display = 'none'; }
   } else {
     document.getElementById('projectModalTitle').textContent = '新增项目';
     document.getElementById('pf-id').value = '';
@@ -2727,17 +2764,14 @@ function openProjectModal(id) {
     inp.value = '';
     document.getElementById('pf-remark').value = '';
     sel.style.display = ''; inp.style.display = '';
-    pfLogoData = '';
-    const prev2 = document.getElementById('pf-logo-preview');
-    prev2.src = ''; prev2.style.display = 'none';
-    document.getElementById('pf-logo-clear').style.display = 'none';
+    pfLogoData = '';  // 新增模式初始无 Logo，选公共项目时自动获取
   }
   openModal('projectModal');
   document.getElementById('pf-import').value = '';  // 清空上次粘贴的分享码
   inp.focus();
 }
 
-// 快选公共项目：自动带出名称、备注与 Logo（仍可手动修改，实现自定义）
+// 快选公共项目：自动带出名称、备注与 Logo（Logo 从公共项目自动获取，无需用户手动上传）
 function pfSelPick() {
   const name = document.getElementById('pf-name-sel').value;
   if (!name) return;  // 选回占位项时不改动
@@ -2746,39 +2780,10 @@ function pfSelPick() {
   if (pb) document.getElementById('pf-remark').value = pb.remark || '';
   // 快选公共项目时自动复制 Logo
   pfLogoData = pb && pb.logo ? pb.logo : '';
-  const prev = document.getElementById('pf-logo-preview');
-  if (pfLogoData) { prev.src = pfLogoData; prev.style.display = ''; document.getElementById('pf-logo-clear').style.display = ''; }
-  else { prev.src = ''; prev.style.display = 'none'; document.getElementById('pf-logo-clear').style.display = 'none'; }
 }
 
-// 我的项目 Logo 上传/移除
+// 我的项目 Logo 数据（从公共项目自动获取，无需用户手动上传）
 let pfLogoData = '';
-async function pfLogoUpload(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  if(file.size > 2 * 1024 * 1024){ return toast('Logo 图片不能超过 2MB', 'warn'); }
-  const url = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = 80; c.height = 80;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, 80, 80);
-    pfLogoData = c.toDataURL('image/png');
-    const prev = document.getElementById('pf-logo-preview');
-    prev.src = pfLogoData;
-    prev.style.display = '';
-    document.getElementById('pf-logo-clear').style.display = '';
-  };
-  img.src = url;
-}
-function pfLogoClear(){
-  pfLogoData = '';
-  const prev = document.getElementById('pf-logo-preview');
-  prev.src = '';
-  prev.style.display = 'none';
-  document.getElementById('pf-logo-clear').style.display = 'none';
-}
 
 async function saveProject() {
   const id = document.getElementById('pf-id').value;
