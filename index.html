@@ -4859,10 +4859,31 @@ function notif_load() {
   notif_updateUI();
 }
 
+// Android APP 环境检测（UA 含 JiyouApp 标识）
+function isAndroidApp() { return /JiyouApp\//.test(navigator.userAgent); }
+
 // 同步「我的」Tab 开关与状态文字（含不支持/被拒场景）
 function notif_updateUI() {
   const sw = document.getElementById('notifSwitch'), st = document.getElementById('notifStatus');
   if (!sw) return;
+  // Android APP 环境：使用原生通知，直接走 Android 通道
+  if (isAndroidApp()) {
+    const granted = window.JiyouNotif && window.JiyouNotif.areNotificationsEnabled();
+    notifState.enabled = localStorage.getItem('notification_enabled') !== 'false';
+    sw.disabled = false;
+    sw.checked = notifState.enabled && granted;
+    if (!granted) {
+      st.textContent = '未授权，点击开关前往系统设置开启通知权限';
+      st.style.color = '#f59e0b';
+    } else if (notifState.enabled) {
+      st.textContent = '已开启 · 群聊新消息将弹窗提醒';
+      st.style.color = '#16a34a';
+    } else {
+      st.textContent = '已关闭';
+      st.style.color = 'var(--text-secondary)';
+    }
+    return;
+  }
   if (!notif_supported()) {
     sw.disabled = true; sw.checked = false;
     st.textContent = '当前浏览器不支持桌面通知（iOS 需 16.4 及以上）';
@@ -4879,6 +4900,22 @@ function notif_updateUI() {
 
 // 切换开关：未授权时先请求权限；被拒时引导去浏览器设置
 async function notif_toggle(input) {
+  // Android APP 环境：通过 JS 接口调原生通知
+  if (isAndroidApp()) {
+    const want = input.checked;
+    if (want) {
+      const granted = window.JiyouNotif && window.JiyouNotif.requestPermission();
+      if (!granted) {
+        input.checked = false;
+        notif_updateUI();
+        return toast('请在系统设置中开启通知权限后重试', 'warn');
+      }
+    }
+    notifState.enabled = want;
+    localStorage.setItem('notification_enabled', want ? 'true' : 'false');
+    notif_updateUI();
+    return;
+  }
   if (!notif_supported()) { input.checked = false; notif_updateUI(); return toast('您的浏览器不支持桌面通知', 'warn'); }
   const want = input.checked;
   if (Notification.permission === 'denied') {
@@ -4913,8 +4950,27 @@ function notif_beep() {
 
 // 发送桌面通知（60秒内多条合并为「您有 N 条新消息」）
 function notif_send(msg) {
-  if (!notifState.enabled || !notif_supported() || Notification.permission !== 'granted') return;
+  if (!notifState.enabled) return;
   if (!document.hidden && chatState.projectId) return;  // 页面活跃且在群聊页：静默显示即可
+  // Android APP 环境：走原生通知通道
+  if (isAndroidApp()) {
+    const granted = window.JiyouNotif && window.JiyouNotif.areNotificationsEnabled();
+    if (!granted) return;
+    const now = Date.now(), WIN = 60000;
+    if (notifState.t && now - notifState.t < WIN) {
+      notifState.count++;
+      window.JiyouNotif && window.JiyouNotif.show('📊 平台群聊', `您有 ${notifState.count} 条新消息`);
+      return;
+    }
+    notifState.t = now; notifState.count = 1;
+    const body = msg.msg_type === 'image'
+      ? `${msg.user_name || (msg.user_email || '').split('@')[0]} 发来一张图片`
+      : `${msg.user_name || (msg.user_email || '').split('@')[0]}：${(msg.body || '').slice(0, 60)}`;
+    window.JiyouNotif && window.JiyouNotif.show('📊 平台群聊', body);
+    notif_beep();
+    return;
+  }
+  if (!notif_supported() || Notification.permission !== 'granted') return;
   const now = Date.now(), WIN = 60000;
   if (notifState.t && now - notifState.t < WIN) {       // 60秒窗口内：合并计数并更新通知
     notifState.count++;
