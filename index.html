@@ -4210,7 +4210,7 @@ function renderMarketPage() {
     : marketPrices.map(r => `
       <tr onclick="copySellId('${r.id}', this)" title="点击复制出货ID">
         <td data-label="日期">${r.price_date}</td>
-        <td data-label="品名">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</td>
+        <td data-label="品名"><span style="display:inline-flex;align-items:center;gap:5px;max-width:100%">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</span></td>
         <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
         <td data-label="出货ID">${r.sell_id ? escapeHtml(r.sell_id) : '—'}</td>
         <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
@@ -4361,7 +4361,7 @@ function renderMarketMgr() {
     : marketPrices.map(r => `
       <tr>
         <td data-label="日期">${r.price_date}</td>
-        <td data-label="品名">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</td>
+        <td data-label="品名"><span style="display:inline-flex;align-items:center;gap:5px;max-width:100%">${mpLogoHtml(r.name)}${escapeHtml(r.name)}</span></td>
         <td data-label="单价" class="money">¥${fmtMoney(r.price)}/${r.unit || '1'}</td>
         <td data-label="出货ID">${r.sell_id ? escapeHtml(r.sell_id) : '—'}</td>
         <td data-label="备注">${r.note ? escapeHtml(r.note) : '—'}</td>
