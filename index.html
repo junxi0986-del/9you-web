@@ -2635,7 +2635,9 @@ function renderDetail() {
   const p = getProject(currentProjectId);
   if (!p) { showPage('list'); return; }
 
-  document.getElementById('headerTitle').innerHTML = `📁 ${escapeHtml(p.name)}<span>项目详情</span>`;
+  document.getElementById('headerTitle').innerHTML = `${p.logo
+    ? `<img src="${p.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px">`
+    : '📁'} ${escapeHtml(p.name)}<span>项目详情</span>`;
   document.getElementById('crumbProjectName').textContent = p.name;
   document.getElementById('detailProjectName').textContent = p.name;
   document.getElementById('detailProjectRemark').textContent = p.remark || '暂无备注';
