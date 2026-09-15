@@ -2793,6 +2793,12 @@ async function saveProject() {
   // 表单验证：项目名称必填
   if (!setError('pf-name', !name)) return;
 
+  // 自动从公共项目获取 Logo：项目本身无 Logo 且公共项目有同名项目的 Logo 时自动获取
+  if (!pfLogoData) {
+    const pb = publicProjects.find(x => x.name === name);
+    if (pb && pb.logo) pfLogoData = pb.logo;
+  }
+
   if (id) {
     const p = getProject(id);
     p.name = name; p.remark = remark; p.logo = pfLogoData;
