@@ -2079,7 +2079,7 @@ let pubfLogoData = '';  // 当前弹窗中的 logo base64 数据
 async function pubfLogoUpload(input){
   const file = input.files && input.files[0];
   if(!file) return;
-  if(file.size > 512 * 1024){ return toast('Logo 图片不能超过 512KB', 'warn'); }
+  if(file.size > 2 * 1024 * 1024){ return toast('Logo 图片不能超过 2MB', 'warn'); }
   // 压缩到 80x80，控制存储大小
   const url = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
   const img = new Image();
