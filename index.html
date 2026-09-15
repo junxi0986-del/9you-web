@@ -549,7 +549,9 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .bottom-nav {
     display: flex; position: fixed; z-index: 60;
     left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    /* translateZ(0) 提升独立合成层：修复页签平移动画期间导航栏（backdrop-filter）被强制重采样而闪没的 Chromium bug */
+    transform: translateX(-50%) translateZ(0);
+    will-change: transform;
     width: min(340px, calc(100vw - 32px)); height: 60px;
     align-items: stretch;
     background: var(--nav-glass, var(--card-bg));
