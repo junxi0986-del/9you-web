@@ -588,6 +588,12 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   }
   .bottom-nav button .ic { font-size: 17px; line-height: 1; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; transform: scale(1.1); }
+  /* 页签平移动画期间（JS 添加 nav-solid）：关闭毛玻璃改切实色，根治移动端 Chromium 对
+     fixed + backdrop-filter 元素在内容 transform 动画时重采样导致的导航栏闪没 */
+  .bottom-nav.nav-solid, .bottom-nav.nav-solid .bottom-nav__glass {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    background: var(--card-bg);
+  }
 
   .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .summary-card { padding: 12px 14px; }
@@ -936,6 +942,7 @@ html.in-app #loginWrap {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
         <h2 style="font-size:16px;font-weight:600">项目列表<span id="mineProjCount" style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px"></span></h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline" onclick="openQuickAmountModal()">💰 新增回本金额</button>
           <button class="btn btn-outline" onclick="openBillPage()">🧾 生成账单</button>
           <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
         </div>
@@ -1516,6 +1523,63 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('priceModal')">取消</button>
       <button class="btn btn-primary" onclick="savePrice()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 项目列表快捷录入回本金额弹窗（先选项目→账户，再按市场价数量或直接金额录入） ========== -->
+<div class="modal-mask" id="quickAmountModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>新增回本金额</h3>
+      <button class="modal-close" onclick="closeModal('quickAmountModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>选择项目<span class="req">*</span></label>
+        <select id="qa-proj" onchange="qaFillUsers()"></select>
+        <div class="form-error">请选择项目</div>
+      </div>
+      <div class="form-group">
+        <label>选择账户<span class="req">*</span></label>
+        <select id="qa-user" onchange="qaUpdateEarned()"></select>
+        <div class="form-tip" id="qa-earned"></div>
+        <div class="form-error">该项目暂无账户，请先进入项目添加账户</div>
+      </div>
+      <div class="form-group">
+        <label>录入时间<span class="req">*</span></label>
+        <input type="datetime-local" id="qa-date" step="60">
+        <div class="form-tip">默认当前时间，可补录过往时间，不能晚于现在</div>
+        <div class="form-error">请选择不晚于当前时间的时间</div>
+      </div>
+      <div class="form-group">
+        <label>录入方式</label>
+        <div class="seg-control" id="qa-modeSeg">
+          <button type="button" class="active" onclick="qaSetMode('qty')">出货数量</button>
+          <button type="button" onclick="qaSetMode('amount')">回本金额（元）</button>
+        </div>
+        <div class="form-tip">出货数量模式：单价自动取市场参考价，金额 = 数量 × 单价</div>
+      </div>
+      <div class="form-group" id="qa-qtyGroup">
+        <label>市场价品名<span class="req">*</span></label>
+        <select id="qa-mp" onchange="qaUpdate()"></select>
+        <div class="form-error">请选择市场价品名</div>
+      </div>
+      <div class="form-group" id="qa-qtyInputGroup">
+        <label>出货数量<span class="req">*</span></label>
+        <input type="number" id="qa-qty" placeholder="请输入整数出货数量" min="1" step="1" oninput="qaUpdate()">
+        <div class="form-tip" id="qa-qtyAmount">输入数量后自动计算</div>
+        <div class="form-error">出货数量必须为大于 0 的整数</div>
+      </div>
+      <div class="form-group" id="qa-amountGroup" style="display:none">
+        <label>回本金额（元）<span class="req">*</span></label>
+        <input type="number" id="qa-price" placeholder="请输入回本金额" min="0.001" step="0.001">
+        <div class="form-error">请输入大于 0 的回本金额</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('quickAmountModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveQuickAmount()">添加</button>
     </div>
   </div>
 </div>
@@ -2453,6 +2517,9 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     const iCur = ORDER.indexOf(cur), iNext = ORDER.indexOf(next);
     const goingLeft = iNext > iCur;  // true：切到右侧页签（左滑方向）；当前页不在导航序列时默认向左
     animating = true;
+    // 动画期间导航栏切实色（关闭 backdrop-filter 重采样，根治闪没）
+    const nav = document.getElementById('bottomNav');
+    if (nav) nav.classList.add('nav-solid');
     if (curEl) curEl.classList.add(goingLeft ? 'tab-swipe-out-l' : 'tab-swipe-out-r');
     setTimeout(() => {
       if (curEl) curEl.classList.remove('tab-swipe-out-l', 'tab-swipe-out-r');
@@ -2463,6 +2530,7 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     }, 170);
     setTimeout(() => {
       newEl.classList.remove(...SWIPE_CLS);
+      if (nav) nav.classList.remove('nav-solid');  // 动画结束恢复毛玻璃
       animating = false;
     }, 460);
   }
@@ -3893,6 +3961,124 @@ async function savePrice() {
   updatePriceTip(u);
   toast(`回本金额已添加（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
   closeModal('priceModal');  // 添加成功后关闭弹窗（出货ID跳转/普通添加均一致）
+}
+
+/* ---------- 项目列表快捷录入回本金额：先选项目→账户，再按市场价数量或直接金额录入 ---------- */
+let qaMode = 'qty';  // 快捷录入方式：qty=出货数量（默认，按市场价计算），amount=直接金额
+
+// 打开弹窗：填充我的项目下拉（按创建时间正序），默认时间=当前
+async function openQuickAmountModal() {
+  if (!projects.length) return toast('请先创建项目并添加账户', 'warn');
+  setError('qa-date', false); setError('qa-qty', false); setError('qa-mp', false); setError('qa-price', false);
+  const sel = document.getElementById('qa-proj');
+  sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('qa-date').value = nowLocal();
+  qaSetMode('qty');
+  openModal('quickAmountModal');
+  if (marketPrices.length === 0) await loadMarketPrices();  // 品名下拉需要市场价数据
+  qaFillUsers();
+  qaFillMp();
+}
+
+// 项目切换后填充该项目的账户下拉（创建时间正序，与详情页一致），无账户时禁用添加
+function qaFillUsers() {
+  const p = getProject(document.getElementById('qa-proj').value);
+  const uSel = document.getElementById('qa-user');
+  uSel.innerHTML = p && p.users.length
+    ? p.users.map((u, i) => `<option value="${i}">${escapeHtml(u.name)}${u.id ? `（ID：${u.id}）` : ''}</option>`).join('')
+    : '<option value="">该项目暂无账户</option>';
+  qaUpdateEarned();
+}
+
+// 显示所选账户的累计收回/剩余未回本
+function qaUpdateEarned() {
+  const p = getProject(document.getElementById('qa-proj').value);
+  const u = p && p.users[Number(document.getElementById('qa-user').value)];
+  document.getElementById('qa-earned').textContent =
+    u ? `累计已收回：${fmtMoney(calcEarned(u))} 元 ｜ 剩余未回本：${fmtMoney(calcRemain(u))} 元` : '';
+}
+
+// 切换录入方式
+function qaSetMode(mode) {
+  qaMode = mode;
+  document.querySelectorAll('#qa-modeSeg button').forEach(b => b.classList.toggle('active', b.textContent.includes(mode === 'qty' ? '出货数量' : '回本金额')));
+  document.getElementById('qa-qtyGroup').style.display = mode === 'qty' ? '' : 'none';
+  document.getElementById('qa-qtyInputGroup').style.display = mode === 'qty' ? '' : 'none';
+  document.getElementById('qa-amountGroup').style.display = mode === 'amount' ? '' : 'none';
+  setError('qa-price', false); setError('qa-mp', false); setError('qa-qty', false);
+}
+
+// 品名下拉：与账单页一致，按品名去重取最新单价；默认选中与项目名相同的品名
+function qaFillMp() {
+  const sel = document.getElementById('qa-mp');
+  const seen = new Set();
+  const opts = [];
+  for (const r of marketPrices) {
+    if (seen.has(r.name)) continue;
+    seen.add(r.name);
+    opts.push(r);
+  }
+  sel.innerHTML = opts.length === 0
+    ? '<option value="">暂无市场价数据，请管理员在「市场价管理」录入</option>'
+    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
+  const projName = getProject(document.getElementById('qa-proj').value)?.name;
+  if (projName && [...sel.options].some(o => o.value === projName)) sel.value = projName;
+  qaUpdate();
+}
+
+// 数量模式实时计算预计金额（同账单页规则：数量×单价÷对应数量，非整数红标）
+function qaUpdate() {
+  const opt = document.getElementById('qa-mp').selectedOptions[0];
+  const qty = parseFloat(document.getElementById('qa-qty').value);
+  const tip = document.getElementById('qa-qtyAmount');
+  const badInt = Number(document.getElementById('qa-qty').value) > 0 && !Number.isInteger(qty);
+  setError('qa-qty', badInt);
+  if (!opt || !opt.dataset.price) { tip.textContent = '输入数量后自动计算'; return; }
+  const rate = parseFloat(opt.dataset.price);
+  const ref = Number(opt.dataset.ref) || 1;
+  const unit = opt.dataset.unit || '1';
+  tip.textContent = Number(qty) > 0
+    ? `预计回本金额：${fmtMoney(round3(qty * rate / ref))} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
+    : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
+}
+
+// 保存：写入所选项目的所选账户台账，刷新列表与汇总
+async function saveQuickAmount() {
+  const p = getProject(document.getElementById('qa-proj').value);
+  const u = p && p.users[Number(document.getElementById('qa-user').value)];
+  if (!p) return;
+  if (!u) return toast('该项目暂无账户，请先进入项目添加账户', 'warn');
+  const date = document.getElementById('qa-date').value;
+  let ok = true;
+  ok = setError('qa-date', !date || date > nowLocal()) && ok;
+
+  let price = 0, extra = {};
+  if (qaMode === 'qty') {
+    const qty = parseFloat(document.getElementById('qa-qty').value);
+    ok = setError('qa-qty', !(qty > 0) || !Number.isInteger(qty)) && ok;
+    const opt = document.getElementById('qa-mp').selectedOptions[0];
+    const mpName = opt ? opt.value : '';
+    ok = setError('qa-mp', !mpName || !opt || !opt.dataset.price) && ok;
+    if (ok && mpName && opt.dataset.price) {
+      const rate = parseFloat(opt.dataset.price);
+      const ref = Number(opt.dataset.ref) || 1;
+      price = round3(qty * rate / ref);
+      extra = { qty, rate, refQty: ref, mpName };
+    }
+  } else {
+    price = parseFloat(document.getElementById('qa-price').value);
+    ok = setError('qa-price', !(price > 0)) && ok;
+  }
+  if (!ok) return;
+
+  u.prices.push({ id: uid(), date, price, ...extra });
+  const dayTotal = u.prices
+    .filter(r => (r.date || '').slice(0, 10) === date.slice(0, 10))
+    .reduce((s, r) => s + Number(r.price), 0);
+  await saveCloudData(true);
+  renderProjectGrid();  // 刷新项目卡片与全局汇总（当前处于列表页）
+  toast(`已为「${p.name} / ${u.name}」添加回本金额（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
+  closeModal('quickAmountModal');
 }
 
 /* ---------- 台账 ---------- */
