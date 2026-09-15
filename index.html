@@ -1947,16 +1947,59 @@ async function afterLogin(user){
   currentUserId = user.id;
   currentUserEmail = (user.email || '').toLowerCase();
   isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+  // 记住已登录邮箱，下次刷新可立即切主界面（无需等网络验证）
+  try { localStorage.setItem('jy_last_email', currentUserEmail); } catch(e){}
   await loadCloudData();
   await loadPublicProjects();
   await Promise.all([loadAnnouncements(), loadMarketPrices()]);  // 公告与市场价并行加载
 }
 
+// 无感登录优化：从 localStorage 缓存的会话中即时提取用户信息，秒切主界面
+// 网络验证在后台并行进行，失败再回退登录页
+function tryInstantLogin(){
+  try{
+    const raw = localStorage.getItem('sb-auth-token');
+    if(!raw) return false;
+    const session = JSON.parse(raw);
+    // Supabase SDK v2 存储格式：{ user: {...}, access_token, ... }
+    const user = session?.user || (session?.data?.user);
+    if(!user?.email) return false;
+    // 检查令牌是否过期（exp 字段，提前 60 秒判定）
+    const exp = session?.expires_at || session?.data?.expires_at;
+    if(exp && Date.now() / 1000 > exp - 60) return false;
+    // 立即设置身份、切换主界面，数据在后台加载
+    currentUserId = user.id;
+    currentUserEmail = (user.email || '').toLowerCase();
+    isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
+    return true;
+  }catch(e){ return false; }
+}
+
 async function checkAuth(){
-  const {data:{user}} = await sb.auth.getUser();
-  if(user){
-    await afterLogin(user);
-    showMainApp();
+  // 优化：先用本地缓存的会话信息秒切主界面，再后台验证令牌有效性
+  const instant = tryInstantLogin();
+  if(instant){
+    showMainApp();                       // 立即显示主界面（无网络等待）
+    // 后台验证令牌 + 加载数据
+    const {data:{user}} = await sb.auth.getUser();
+    if(user){
+      await afterLogin(user);            // 加载云端数据
+      showMainApp();                     // 数据就绪后刷新界面
+    }else{
+      // 令牌已失效：回退到登录页
+      try{ localStorage.removeItem('jy_last_email'); }catch(e){}
+      currentUserId = null;
+      currentUserEmail = '';
+      isAdmin = false;
+      hideMainApp();
+    }
+  }else{
+    // 无本地会话：正常走网络验证
+    const {data:{user}} = await sb.auth.getUser();
+    if(user){
+      await afterLogin(user);
+      showMainApp();
+    }
   }
   authReady = true;  // 标记首次检测完成，后续 onAuthStateChange 可正常响应
 }
