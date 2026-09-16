@@ -749,13 +749,15 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal {
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
+  #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
+  #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
 }
 
@@ -891,6 +893,11 @@ html.in-app #loginWrap {
       </div>
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
+      <!-- 用户协议与隐私政策：必须勾选才能发送验证码/登录，点击名称可查看全文 -->
+      <label style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-size:12px;color:var(--text-secondary);line-height:1.6;user-select:none">
+        <input type="checkbox" id="agreeCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--primary)">
+        <span>我已阅读并同意<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('user')" style="color:var(--primary)">《用户协议》</a>和<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('privacy')" style="color:var(--primary)">《隐私政策》</a>，未勾选将无法登录</span>
+      </label>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
     </div>
   </div>
@@ -1577,6 +1584,22 @@ html.in-app #loginWrap {
   </div>
 </div>
 
+<!-- ========== 用户协议 / 隐私政策查看弹窗（登录页勾选行点击打开） ========== -->
+<div class="modal-mask" id="agreementModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="agreementTitle">用户协议</h3>
+      <button class="modal-close" onclick="closeModal('agreementModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="agreementBody" style="font-size:13px;line-height:1.9;color:var(--text)"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal('agreementModal')">我已阅读</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========== 台账查看弹窗 ========== -->
 <div class="modal-mask" id="ledgerModal">
   <div class="modal wide">
@@ -1840,7 +1863,49 @@ function applyEmailDomain() {
 async function sendLoginCode(){
   const email = getLoginEmail();
   if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast("请输入有效的邮箱地址","warn");
+  if(!isAgreed()) return toast("请先阅读并勾选同意《用户协议》和《隐私政策》","warn");
   cap_open(doSendLoginCode);  // 先通过滑动拼图人机验证，再真正发送
+}
+// 用户协议勾选检查：未勾选不允许发送验证码或登录（注册与登录统一拦截）
+function isAgreed(){
+  const cb = document.getElementById('agreeCheck');
+  return !!(cb && cb.checked);
+}
+
+/* ---------- 用户协议 / 隐私政策全文 ---------- */
+const AGREEMENT_HTML = `
+<p style="text-align:center;font-weight:700;margin:0 0 4px">用户协议</p>
+<p style="font-size:12px;color:var(--text-secondary);text-align:center;margin:0 0 12px">更新日期：2026-09-16 ｜ 生效日期：2026-09-16</p>
+<p>欢迎使用<b>九游项目跟踪管理平台</b>（以下简称"本服务"）。本协议由本平台开发运营方（以下简称"我们"）与您（以下简称"用户"）共同缔结。<b>请您仔细阅读本协议，特别是加粗的免责、责任限制条款。您勾选同意或使用本服务，即视为接受本协议全部条款。</b></p>
+<p><b>1. 服务内容</b><br>我们向您提供项目与账户回本进度跟踪、收益统计、公共项目广场、站内公告、市场参考价、项目群聊等互联网信息服务。我们有权根据运营需要变更、中断或终止部分或全部服务，但会提前公告。</p>
+<p><b>2. 账号规则</b><br>您使用邮箱验证码方式登录，需提供真实、准确、有效的邮箱地址并妥善保管验证码。<b>因您保管不善（如将验证码泄露他人）导致的损失由您自行承担。</b>账号所有权归我们，您仅获得使用权，不得赠与、借用、租售或转让账号。</p>
+<p><b>3. 用户行为规范</b><br>您承诺不利用本服务从事以下行为：发布违法、侵权、淫秽、暴力等不良信息；干扰或破坏服务正常运行（含恶意刷量、脚本攻击）；侵犯他人隐私、知识产权或其他合法权益；<b>未经许可对本服务进行爬虫抓取、反向工程、破解或模仿平台水印样式伪造账单。</b></p>
+<p><b>4. 知识产权</b><br>本服务的软件、界面、文字、图标、代码等知识产权归我们或权利人所有。<b>未经书面许可，您不得复制、修改、传播或用于商业用途。</b></p>
+<p><b>5. 隐私保护</b><br>我们重视您的隐私。<b>我们将按照《九游项目跟踪管理平台隐私政策》收集、使用、存储和保护您的个人信息。</b>该政策是本协议不可分割的组成部分，可在登录页点击查看。</p>
+<p><b>6. 免责声明</b><br><b>本服务按"现状"提供。</b>在法律允许的最大范围内，我们不对服务的及时性、安全性、准确性作出担保。市场参考价仅为参考信息，不构成任何交易依据；因不可抗力、黑客攻击、系统维护、第三方服务商（如云服务、邮件服务）原因导致的服务中断、延迟或数据丢失，我们不承担责任，但将尽力减少影响并协助恢复。</p>
+<p><b>7. 违约责任与终止</b><br>若您违反本协议，我们有权视情节采取警示、<b>暂停或终止服务、封禁账号</b>等措施，并保留追究法律责任的权利。协议终止后，您应立即停止使用本服务。</p>
+<p><b>8. 争议解决</b><br>本协议适用中华人民共和国法律。因本协议产生的争议，双方应友好协商解决；协商不成的，任何一方均可向我们有管辖权的人民法院提起诉讼。</p>
+<p><b>9. 其他</b><br>我们有权根据法律变化或运营需要修订本协议，修订后的条款将在本页面公布。<b>若您在协议修订后继续使用本服务，即视为接受修订。</b>本协议部分条款无效不影响其余条款的效力。</p>`;
+
+const PRIVACY_HTML = `
+<p style="text-align:center;font-weight:700;margin:0 0 4px">隐私政策</p>
+<p style="font-size:12px;color:var(--text-secondary);text-align:center;margin:0 0 12px">最近更新日期：2026-09-16 ｜ 生效日期：2026-09-16</p>
+<p>九游项目跟踪管理平台开发运营方（以下简称"我们"）深知个人信息对您的重要性，并致力于保护您的隐私。<b>本政策仅适用于九游项目跟踪管理平台。请您在使用前仔细阅读。</b></p>
+<p><b>1. 我们如何收集和使用您的信息</b><br>我们遵循"最小必要"原则，仅为实现以下功能收集信息：<br>· <b>账号注册与登录</b>：收集您的<b>邮箱地址</b>用于创建账号、发送登录验证码；<br>· <b>提供服务</b>：收集您主动录入的<b>项目、账户、回本台账、市场价</b>等业务数据，用于存储、统计与展示；<br>· <b>群聊功能</b>：收集您发布的<b>聊天文字与图片</b>，用于群组成员间实时交流；<br>· <b>本地存储</b>：使用 Cookie、localStorage 记住您的登录状态与主题偏好，<b>您可通过浏览器/系统设置清除，但可能影响免登录等功能的使用。</b></p>
+<p><b>2. 我们如何共享、转让、公开披露您的信息</b><br>· 我们<b>不会出售</b>您的个人信息；<br>· 业务数据托管于<b> Supabase 云端数据库服务商</b>，仅用于存储与传输，该服务商受其隐私条款约束；<br>· <b>仅在获得您的明确同意，或依据法律法规、司法行政机关强制要求时</b>，我们才会共享您的信息；<br>· 群聊消息与公共项目仅在同平台登录用户范围内可见，不对外公开披露。</p>
+<p><b>3. 我们如何保护您的信息</b><br>我们采取符合业界标准的安全措施保护您的信息：数据传输使用 HTTPS 加密、数据库启用行级权限（RLS）实现账号数据隔离、多用户数据互不可见。<b>但请您理解，互联网环境并非绝对安全，我们将持续尽力确保安全。</b></p>
+<p><b>4. 您的权利</b><br>您有权访问、更正您的个人信息；可通过平台「我的 → 数据管理」<b>导出全部数据备份、清空本机数据</b>；可退出登录停止使用。如需彻底删除云端账号及全部数据，可通过下方联系方式与我们联系，<b>我们将在核实后删除或匿名化您的个人信息</b>（法律法规另有规定的除外）。</p>
+<p><b>5. 未成年人保护</b><br><b>本服务主要面向成年人。</b>若您是未满 14 周岁的儿童，请在监护人陪同并取得同意后使用本服务。若我们发现在未获监护人同意下收集了儿童信息，将设法尽快删除。</p>
+<p><b>6. 信息存储地点与期限</b><br>您的信息存储于 Supabase 云端数据库。我们仅在实现本政策所述目的所必需的最短期限内保留您的信息，法律法规另有规定的除外。您可随时导出备份，超期未使用的业务数据我们可能定期清理。</p>
+<p><b>7. 本政策如何更新</b><br>我们可能适时修订本政策。<b>若变更会实质性影响您的权利，我们将通过站内公告等方式通知您</b>，修订后在登录页公布的新版本即生效。</p>
+<p><b>8. 如何联系我们</b><br>如您对本政策有任何疑问、意见或投诉，可通过平台管理员邮箱联系我们：<b>3088238757@qq.com</b>。我们将在收到反馈后 15 个工作日内回复。</p>`;
+
+// 打开协议查看弹窗：type='user' 用户协议 / 'privacy' 隐私政策
+function openAgreementModal(type){
+  document.getElementById('agreementTitle').textContent = type === 'privacy' ? '隐私政策' : '用户协议';
+  document.getElementById('agreementBody').innerHTML = type === 'privacy' ? PRIVACY_HTML : AGREEMENT_HTML;
+  document.getElementById('agreementModal').querySelector('.modal-body').scrollTop = 0;
+  openModal('agreementModal');
 }
 async function doSendLoginCode(){
   const email = getLoginEmail();
@@ -2015,6 +2080,7 @@ async function supabaseSignIn(){
   if(!email) return toast("请输入邮箱","warn");
   if(!token) return toast("请输入邮箱收到的6位数字验证码","warn");
   if(!/^\d{6}$/.test(token)) return toast("请输入完整的6位数字验证码","warn");
+  if(!isAgreed()) return toast("请先阅读并勾选同意《用户协议》和《隐私政策》","warn");
   const {data,error} = await sb.auth.verifyOtp({ email, token, type: 'email' });
   if(error) return toast("登录失败："+authError(error.message),"error");
   await afterLogin(data.user);
