@@ -861,7 +861,7 @@ html.in-app #loginWrap {
 <!-- 开屏广告（仅手机端显示）：全屏展示 open.png，右上角磨砂「跳过 Ns」按钮，5秒倒计时自动关闭 -->
 <div id="splashAd">
   <img src="open.png" alt="开屏广告">
-  <button id="splashSkip" onclick="closeSplashAd()">跳过 <span id="splashCount">5</span>s</button>
+  <button id="splashSkip" onclick="closeSplashAd()" style="display:none">跳过 <span id="splashCount">3</span>s</button>
 </div>
 
 <!-- 登录界面 -->
@@ -5537,12 +5537,22 @@ function closeSplashAd() {
 (function () {
   var ad = document.getElementById('splashAd');
   if (!ad || ad.style.display === 'none') return;  // PC 端 CSS 已隐藏，不启动倒计时
-  var left = 5, el = document.getElementById('splashCount');
-  splashTimer = setInterval(function () {
-    left--;
-    if (left <= 0) return closeSplashAd();
-    if (el) el.textContent = left;
-  }, 1000);
+  // 前 2 秒强制展示，关闭按钮不显示
+  var total = 5, force = 2, btn = document.getElementById('splashSkip');
+  setTimeout(function () {
+    // 2 秒后显示关闭按钮，开始 3 秒倒计时
+    if (btn) btn.style.display = '';
+    var left = 3, el = document.getElementById('splashCount');
+    splashTimer = setInterval(function () {
+      left--;
+      if (left <= 0) return closeSplashAd();
+      if (el) el.textContent = left;
+    }, 1000);
+  }, force * 1000);
+  // 总时长 5 秒强制关闭（即使倒计时异常也保证关闭）
+  setTimeout(function () {
+    closeSplashAd();
+  }, total * 1000);
 })();
 
 /* ---------- PWA：Service Worker 注册 + 安装引导 ---------- */
