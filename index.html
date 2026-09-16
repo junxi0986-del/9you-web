@@ -644,7 +644,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   #marketMgrTable thead { display: none; }
   #marketMgrBody { display: block; }
   #marketMgrBody tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
-  #marketMgrBody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  #marketMgrBody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; overflow-wrap: anywhere; min-width: 0; }
   #marketMgrBody td:last-child { border-bottom: none; }
   #marketMgrBody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
   #marketMgrBody td[colspan] { display: block; text-align: center; padding: 24px 0; }
@@ -685,8 +685,6 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .mf-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; align-items: end; }
   .mf-form .form-group { min-width: 0 !important; }
   .mf-form .btn { grid-column: 1 / -1; justify-content: center; min-height: 44px; }
-  /* 市场价表格列少，缩小横向滚动宽度 */
-  #meAdminTools .table-wrap table { min-width: 540px; }
   /* 公告条目：时间与操作按钮窄屏自动换行 */
   .ann-item .a-title { flex-wrap: wrap; }
 }
