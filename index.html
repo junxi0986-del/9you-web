@@ -580,11 +580,12 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
     position: relative; z-index: 2; flex: 1; min-width: 0;
     border: none; background: transparent; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    font-size: 10px; color: #8e8e93; border-radius: 999px;
+    font-size: 10px; color: #8a8a8a; border-radius: 999px;
     -webkit-tap-highlight-color: transparent;
     transition: color .3s ease, transform .3s ease;
   }
   .bottom-nav button .ic { font-size: 17px; line-height: 1; }
+  .bottom-nav button .nav-icon { width: 20px; height: 20px; display: block; object-fit: contain; }
   .bottom-nav button.active { color: var(--primary); font-weight: 600; transform: scale(1.1); }
 
   .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -1124,10 +1125,10 @@ html.in-app #loginWrap {
     <!-- 移动端底部导航：液态玻璃椭圆 pill，我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
     <nav class="bottom-nav" id="bottomNav">
       <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
-      <button id="bnavMine" onclick="switchListTab('mine')"><span class="ic">📁</span><span>我的项目</span></button>
-      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><span class="ic">🌐</span><span>公共项目</span></button>
-      <button id="bnavMarket" onclick="switchListTab('market')"><span class="ic">💰</span><span>市场价</span></button>
-      <button id="bnavMe" onclick="switchListTab('me')"><span class="ic">👤</span><span>我的</span></button>
+      <button id="bnavMine" onclick="switchListTab('mine')"><img class="nav-icon" src="iconfont/ios-albums.png" data-src-inactive="iconfont/ios-albums.png" data-src-active="iconfont/ios-albums (1).png" alt="我的项目"><span>我的项目</span></button>
+      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><img class="nav-icon" src="iconfont/ios-globe (1).png" data-src-inactive="iconfont/ios-globe.png" data-src-active="iconfont/ios-globe (1).png" alt="公共项目"><span>公共项目</span></button>
+      <button id="bnavMarket" onclick="switchListTab('market')"><img class="nav-icon" src="iconfont/ios-card.png" data-src-inactive="iconfont/ios-card.png" data-src-active="iconfont/ios-card (1).png" alt="市场价"><span>市场价</span></button>
+      <button id="bnavMe" onclick="switchListTab('me')"><img class="nav-icon" src="iconfont/ios-person.png" data-src-inactive="iconfont/ios-person.png" data-src-active="iconfont/ios-person (1).png" alt="我的"><span>我的</span></button>
     </nav>
   </section>
 
@@ -2540,7 +2541,16 @@ function updateListTabUI() {
     const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
     if (btn) btn.classList.toggle('active', listTab === t);
     const bnav = document.getElementById('bnav' + t.charAt(0).toUpperCase() + t.slice(1));
-    if (bnav) bnav.classList.toggle('active', listTab === t);
+    if (bnav) {
+      bnav.classList.toggle('active', listTab === t);
+      // 导航图标切换为选中/未选中图片
+      const img = bnav.querySelector('.nav-icon');
+      if (img) {
+        const isActive = listTab === t;
+        const newSrc = isActive ? (img.dataset.srcActive || img.src) : (img.dataset.srcInactive || img.src);
+        if (img.src !== newSrc) img.src = newSrc;
+      }
+    }
   });
   // 群聊按钮不在 tabs 数组内，切换页签时必须手动清除其高亮（否则退出群聊后仍显示选中）
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
