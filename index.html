@@ -756,13 +756,15 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
   #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal {
+  #sellPickLayer { padding: 16px; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
   #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
+  #sellPickLayer .modal { max-width: 520px; width: 100%; height: auto; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
@@ -1468,7 +1470,7 @@ html.in-app #loginWrap {
     <div class="modal-body">
       <div class="form-group">
         <label>账户</label>
-        <input type="text" id="pr-userName" readonly>
+        <select id="pr-userName" onchange="prUserChange()"></select>
         <div class="form-tip" id="pr-earned"></div>
       </div>
       <div class="form-group">
@@ -3980,16 +3982,19 @@ function updateQtyAmount() {
 
 async function openPriceModal(idx, preferMp) {
   const p = getProject(currentProjectId);
-  const u = p && p.users[Number(idx)];
-  if (!u) return;
+  if (!p) return;
   setError('pr-date', false); setError('pr-price', false);
-  document.getElementById('pr-userName').value = `${u.name}${u.id ? `（ID：${u.id}）` : ''}`;
-  document.getElementById('pr-userName').dataset.uidx = Number(idx);
+  // 填充账户下拉框
+  const sel = document.getElementById('pr-userName');
+  sel.innerHTML = p.users.map((u, i) =>
+    `<option value="${i}">${escapeHtml(u.name)}${u.id ? `（ID：${u.id}）` : ''}</option>`
+  ).join('');
+  sel.selectedIndex = Number(idx) >= 0 && Number(idx) < p.users.length ? Number(idx) : 0;
   document.getElementById('pr-date').value = nowLocal();
   document.getElementById('pr-price').value = '';
   document.getElementById('pr-qty').value = '';
   setPriceMode('amount');  // 每次打开默认金额录入
-  updatePriceTip(u);
+  updatePriceTip(p.users[sel.selectedIndex]);
   openModal('priceModal');
   if (marketPrices.length === 0) await loadMarketPrices();  // 品名下拉需要市场价数据
   fillMpOptions(p.name);
@@ -3999,6 +4004,12 @@ async function openPriceModal(idx, preferMp) {
     updateQtyAmount();
   }
   document.getElementById('pr-price').focus();
+}
+function prUserChange() {
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  const u = p.users[document.getElementById('pr-userName').selectedIndex];
+  if (u) updatePriceTip(u);
 }
 
 // 弹窗内实时显示该账户累计已收回金额
@@ -4010,7 +4021,7 @@ function updatePriceTip(u) {
 async function savePrice() {
   const p = getProject(currentProjectId);
   if (!p) return;
-  const u = p.users[Number(document.getElementById('pr-userName').dataset.uidx)];
+  const u = p.users[document.getElementById('pr-userName').selectedIndex];
   if (!u) return;
   const date = document.getElementById('pr-date').value;
 
@@ -4483,32 +4494,39 @@ function sellIdPrompt(r) {
   if (!layer) {
     layer = document.createElement('div');
     layer.id = 'sellPickLayer';
-    layer.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px';
     layer.addEventListener('click', e => { if (e.target === layer) closeSellPick(); });
     document.body.appendChild(layer);
   }
   layer.innerHTML = `
-    <div style="background:var(--card);color:var(--text);border-radius:12px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px 16px">
-      <div style="font-weight:700;font-size:15px">📦 监测到您复制出货ID：${escapeHtml(r.sell_id)}</div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">品名「${escapeHtml(r.name)}」匹配到 ${matches.length} 个账户，请选择要添加出货账单的项目：</div>
-      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;table-layout:fixed;word-break:break-word">
-        <thead><tr style="background:var(--bg)">
-          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">项目</th>
-          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">账户</th>
-          <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:right">操作</th>
-        </tr></thead>
-        <tbody>
-          ${matches.map(m => `
-          <tr>
-            <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.p.name)}</td>
-            <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.u.name)}</td>
-            <td style="border-bottom:1px solid var(--border);padding:7px 4px;text-align:right">
-              <button class="btn btn-sm btn-primary" onclick="closeSellPick();jumpToSellBill('${m.p.id}',${m.i},'${escapeHtml(r.name)}')">选择</button>
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      <button class="btn btn-outline" style="width:100%;margin-top:12px;min-height:40px" onclick="closeSellPick()">取消</button>
+    <div class="modal" style="max-width:520px;width:100%">
+      <div class="modal-head">
+        <h3>📦 监测到出货ID：${escapeHtml(r.sell_id)}</h3>
+        <button class="modal-close" onclick="closeSellPick()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">品名「${escapeHtml(r.name)}」匹配到 ${matches.length} 个账户，请选择要添加出货账单的项目：</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;word-break:break-word">
+          <thead><tr style="background:var(--bg)">
+            <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">项目</th>
+            <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:left">账户</th>
+            <th style="border-bottom:1px solid var(--border);padding:6px 4px;text-align:right">操作</th>
+          </tr></thead>
+          <tbody>
+            ${matches.map(m => `
+            <tr>
+              <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.p.name)}</td>
+              <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.u.name)}</td>
+              <td style="border-bottom:1px solid var(--border);padding:7px 4px;text-align:right">
+                <button class="btn btn-sm btn-primary" onclick="closeSellPick();jumpToSellBill('${m.p.id}',${m.i},'${escapeHtml(r.name)}')">选择</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeSellPick()">取消</button>
+      </div>
     </div>`;
   layer.style.display = 'flex';
 }
