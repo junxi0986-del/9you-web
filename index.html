@@ -754,14 +754,14 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #marketBatchModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #marketBatchModal .modal {
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
-  #marketModal .modal, #marketBatchModal .modal { max-width: 440px; width: 100%; height: auto; }
+  #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
@@ -1048,11 +1048,7 @@ html.in-app #loginWrap {
               <h2 style="font-size:16px;font-weight:600">💰 市场价管理</h2>
               <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">每日可添加多条；按份计价：单位填「2100个」表示 2100个 = 单价金额</div>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
-              <button class="btn btn-outline btn-sm" onclick="openMarketBatch('price')">批量改价</button>
-              <button class="btn btn-outline btn-sm" onclick="openMarketBatch('date')">批量改日期</button>
-              <button class="btn btn-primary btn-sm" onclick="openMarketModal()">＋ 新增市场价</button>
-            </div>
+            <button class="btn btn-primary btn-sm" onclick="openMarketModal()">＋ 新增市场价</button>
           </div>
           <datalist id="mpNameList"></datalist>
           <div class="table-wrap" style="overflow:visible">
@@ -1608,37 +1604,6 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeModal('marketModal')">取消</button>
       <button class="btn btn-primary" onclick="saveMarketPrice()">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== 市场价批量更新弹窗（批量改价 / 批量改日期） ========== -->
-<div class="modal-mask" id="marketBatchModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="marketBatchTitle">批量更新</h3>
-      <button class="modal-close" onclick="closeModal('marketBatchModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>选择品名<span class="req">*</span></label>
-        <select id="mb-name"></select>
-      </div>
-      <div class="form-group" id="mb-priceGroup" style="display:none">
-        <label>新单价（元）<span class="req">*</span></label>
-        <input type="number" id="mb-price" placeholder="0.123" min="0.001" step="0.001">
-        <div class="form-tip">将所选品名的全部记录单价统一更新为此值</div>
-      </div>
-      <div class="form-group" id="mb-dateGroup" style="display:none">
-        <label>新日期<span class="req">*</span></label>
-        <input type="date" id="mb-date">
-        <div class="form-tip">将所选品名的全部记录日期统一更新为此日期</div>
-      </div>
-      <div id="mb-preview" style="font-size:12px;color:var(--text-secondary);margin-top:8px"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-secondary" onclick="closeModal('marketBatchModal')">取消</button>
-      <button class="btn btn-danger" onclick="saveMarketBatch()">确认更新</button>
     </div>
   </div>
 </div>
@@ -4701,64 +4666,6 @@ function deleteMarketPrice(id) {
     renderHomeTop(); renderMarketMgr();
     toast('市场价已删除', 'success');
   });
-}
-// ---------- 批量更新市场价（按品名批量改价 / 批量改日期） ----------
-let _marketBatchMode = 'price';  // 'price' | 'date'
-function openMarketBatch(mode) {
-  if (!isAdmin) return;
-  _marketBatchMode = mode;
-  const names = [...new Set(marketPrices.map(r => r.name))].sort();
-  if (names.length === 0) return toast('暂无市场价记录', 'warn');
-  const sel = document.getElementById('mb-name');
-  sel.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  document.getElementById('marketBatchTitle').textContent = mode === 'price' ? '批量更新单价' : '批量更新日期';
-  document.getElementById('mb-priceGroup').style.display = mode === 'price' ? '' : 'none';
-  document.getElementById('mb-dateGroup').style.display = mode === 'date' ? '' : 'none';
-  document.getElementById('mb-price').value = '';
-  document.getElementById('mb-date').value = todayStr();
-  mbPreviewUpdate();
-  sel.onchange = mbPreviewUpdate;
-  openModal('marketBatchModal');
-}
-function mbPreviewUpdate() {
-  const name = document.getElementById('mb-name').value;
-  const count = marketPrices.filter(r => r.name === name).length;
-  document.getElementById('mb-preview').textContent = `当前「${name}」共 ${count} 条记录，确认后将全部更新。`;
-}
-async function saveMarketBatch() {
-  if (!isAdmin) return;
-  const name = document.getElementById('mb-name').value;
-  const rows = marketPrices.filter(r => r.name === name);
-  if (rows.length === 0) return toast('该品名无记录', 'warn');
-  if (_marketBatchMode === 'price') {
-    const newPrice = round3(parseFloat(document.getElementById('mb-price').value));
-    if (!(newPrice > 0)) return toast('请输入大于 0 的单价', 'warn');
-    confirmAction('批量更新单价', `确定将「${name}」全部 ${rows.length} 条记录的单价更新为 ${newPrice} 吗？`, async () => {
-      const errors = [];
-      for (const r of rows) {
-        const { error } = await upsertMarketPriceRow({ ...r, price: newPrice });
-        if (error) errors.push(error.message);
-      }
-      if (errors.length) return toast('部分更新失败：' + errors[0], 'error');
-      await loadMarketPrices(); renderHomeTop(); renderMarketMgr();
-      closeModal('marketBatchModal');
-      toast(`「${name}」${rows.length} 条记录单价已更新`, 'success');
-    });
-  } else {
-    const newDate = document.getElementById('mb-date').value;
-    if (!newDate) return toast('请选择日期', 'warn');
-    confirmAction('批量更新日期', `确定将「${name}」全部 ${rows.length} 条记录的日期更新为 ${newDate} 吗？`, async () => {
-      const errors = [];
-      for (const r of rows) {
-        const { error } = await upsertMarketPriceRow({ ...r, price_date: newDate });
-        if (error) errors.push(error.message);
-      }
-      if (errors.length) return toast('部分更新失败：' + errors[0], 'error');
-      await loadMarketPrices(); renderHomeTop(); renderMarketMgr();
-      closeModal('marketBatchModal');
-      toast(`「${name}」${rows.length} 条记录日期已更新`, 'success');
-    });
-  }
 }
 // 我的Tab：市场价管理表格
 function renderMarketMgr() {
