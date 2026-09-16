@@ -639,6 +639,17 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   #tabMarketSection tbody td[colspan] { display: block; text-align: center; padding: 24px 0; }
   #tabMarketSection tbody td[colspan]::before { display: none; }
 
+  /* 市场价管理表格（管理员·我的页）：手机端同样卡片式，每条完整展示、无横向滑动 */
+  #marketMgrTable { min-width: 0; }
+  #marketMgrTable thead { display: none; }
+  #marketMgrBody { display: block; }
+  #marketMgrBody tr { display: block; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 4px 12px; }
+  #marketMgrBody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  #marketMgrBody td:last-child { border-bottom: none; }
+  #marketMgrBody td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  #marketMgrBody td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  #marketMgrBody td[colspan]::before { display: none; }
+
   /* 账户列表在手机上改为卡片式布局，逐行完整展示所有字段 */
   .table-wrap table.user-table { min-width: 0; }
   .user-table thead { display: none; }
@@ -1068,8 +1079,8 @@ html.in-app #loginWrap {
             </div>
             <button class="btn btn-primary" onclick="saveMarketPrice()">添加</button>
           </div>
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap" style="overflow:visible">
+            <table id="marketMgrTable">
               <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
               <tbody id="marketMgrBody"></tbody>
             </table>
@@ -4622,7 +4633,9 @@ function editMarketPrice(id) {
   document.getElementById('mf-unit').value = r.unit || '';
   document.getElementById('mf-sellid').value = r.sell_id || '';
   document.getElementById('mf-note').value = r.note || '';
-  window.scrollTo(0, 0);
+  // 滚动到录入表单（居中显示）而非页面顶部，手机端编辑无需再手动滑回输入框
+  const formAnchor = document.getElementById('mf-date');
+  if (formAnchor) formAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function deleteMarketPrice(id) {
   if (!isAdmin) return;
