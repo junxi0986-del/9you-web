@@ -898,13 +898,13 @@ html.in-app #loginWrap {
       </div>
     </div>
     <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
       <!-- 用户协议与隐私政策：必须勾选才能发送验证码/登录，点击名称可查看全文 -->
       <label style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-size:12px;color:var(--text-secondary);line-height:1.6;user-select:none">
         <input type="checkbox" id="agreeCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--primary)">
         <span>我已阅读并同意<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('user')" style="color:var(--primary)">《用户协议》</a>和<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('privacy')" style="color:var(--primary)">《隐私政策》</a></span>
       </label>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
     </div>
   </div>
 </div>
