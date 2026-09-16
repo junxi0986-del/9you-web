@@ -5,7 +5,7 @@
 <script>/* 尽早标记 Android 壳 APP 环境，配合 CSS 避让状态栏（避免布局闪烁） */
 if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.add('in-app');</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>九游项目跟踪管理平台</title>
+<title>项目跟踪管理平台</title>
 <link rel="icon" type="image/jpeg" href="logo.jpg">
 <!-- manifest + Service Worker：离线缓存；Android APK（TWA）打包依赖 manifest；iOS 添加到主屏幕 -->
 <link rel="manifest" href="/manifest.json">
@@ -13,12 +13,12 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="九游跟踪">
+<meta name="apple-mobile-web-app-title" content="项目跟踪管理平台"> 
 <!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[九游平台] 代码版本 20260904-群聊修复版');</script>
+<script>console.log('[项目跟踪管理平台] 代码版本 20260-完整版');</script>
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -872,7 +872,7 @@ html.in-app #loginWrap {
 <!-- 登录界面 -->
 <div id="loginWrap">
   <div class="login-card">
-    <h2 style="display:flex;align-items:center;justify-content:center;margin-bottom:24px"><img src="logo.jpg" class="header-logo login-logo" alt="logo">九游项目跟踪平台</h2>
+    <h2 style="display:flex;align-items:center;justify-content:center;margin-bottom:24px"><img src="logo.jpg" class="header-logo login-logo" alt="logo">项目跟踪平台</h2>
     <div class="form-group">
       <label>邮箱</label>
       <div style="display:flex;gap:8px">
@@ -919,7 +919,7 @@ html.in-app #loginWrap {
   <!-- 顶部标题栏（全局操作） -->
   <header class="header">
     <div class="header-left">
-      <h1 id="headerTitle"><img src="logo.jpg" class="header-logo" alt="logo">九游项目跟踪管理平台</h1>
+      <h1 id="headerTitle"><img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台</h1>
       <span class="welcome-email" id="welcomeEmail"></span>
     </div>
     <div class="header-actions">
@@ -1120,7 +1120,7 @@ html.in-app #loginWrap {
             <h2 style="font-size:15px;font-weight:600">📲 下载 Android APP</h2>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.7">下载 APK 安装，首次安装需在系统弹窗允许「安装未知应用」；安装后从桌面打开，全屏无地址栏，相册等权限完整</div>
           </div>
-          <a class="btn btn-primary" style="flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center" href="/jiuyou.apk" download="九游跟踪.apk">下载 APK</a>
+          <a class="btn btn-primary" style="flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center" href="/jiuyou.apk" download="项目跟踪.apk">下载 APK</a>
         </div>
       </div>
 
@@ -1887,12 +1887,12 @@ function isAgreed(){
 const AGREEMENT_HTML = `
 <p style="text-align:center;font-weight:700;margin:0 0 4px">用户协议</p>
 <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin:0 0 12px">更新日期：2026-09-16 ｜ 生效日期：2026-09-16</p>
-<p>欢迎使用<b>九游项目跟踪管理平台</b>（以下简称"本服务"）。本协议由本平台开发运营方（以下简称"我们"）与您（以下简称"用户"）共同缔结。<b>请您仔细阅读本协议，特别是加粗的免责、责任限制条款。您勾选同意或使用本服务，即视为接受本协议全部条款。</b></p>
+<p>欢迎使用<b>项目跟踪管理平台</b>（以下简称"本服务"）。本协议由本平台开发运营方（以下简称"我们"）与您（以下简称"用户"）共同缔结。<b>请您仔细阅读本协议，特别是加粗的免责、责任限制条款。您勾选同意或使用本服务，即视为接受本协议全部条款。</b></p>
 <p><b>1. 服务内容</b><br>我们向您提供项目与账户回本进度跟踪、收益统计、公共项目广场、站内公告、市场参考价、项目群聊等互联网信息服务。我们有权根据运营需要变更、中断或终止部分或全部服务，但会提前公告。</p>
 <p><b>2. 账号规则</b><br>您使用邮箱验证码方式登录，需提供真实、准确、有效的邮箱地址并妥善保管验证码。<b>因您保管不善（如将验证码泄露他人）导致的损失由您自行承担。</b>账号所有权归我们，您仅获得使用权，不得赠与、借用、租售或转让账号。</p>
 <p><b>3. 用户行为规范</b><br>您承诺不利用本服务从事以下行为：发布违法、侵权、淫秽、暴力等不良信息；干扰或破坏服务正常运行（含恶意刷量、脚本攻击）；侵犯他人隐私、知识产权或其他合法权益；<b>未经许可对本服务进行爬虫抓取、反向工程、破解或模仿平台水印样式伪造账单。</b></p>
 <p><b>4. 知识产权</b><br>本服务的软件、界面、文字、图标、代码等知识产权归我们或权利人所有。<b>未经书面许可，您不得复制、修改、传播或用于商业用途。</b></p>
-<p><b>5. 隐私保护</b><br>我们重视您的隐私。<b>我们将按照《九游项目跟踪管理平台隐私政策》收集、使用、存储和保护您的个人信息。</b>该政策是本协议不可分割的组成部分，可在登录页点击查看。</p>
+<p><b>5. 隐私保护</b><br>我们重视您的隐私。<b>我们将按照《项目跟踪管理平台隐私政策》收集、使用、存储和保护您的个人信息。</b>该政策是本协议不可分割的组成部分，可在登录页点击查看。</p>
 <p><b>6. 免责声明</b><br><b>本服务按"现状"提供。</b>在法律允许的最大范围内，我们不对服务的及时性、安全性、准确性作出担保。市场参考价仅为参考信息，不构成任何交易依据；因不可抗力、黑客攻击、系统维护、第三方服务商（如云服务、邮件服务）原因导致的服务中断、延迟或数据丢失，我们不承担责任，但将尽力减少影响并协助恢复。</p>
 <p><b>7. 违约责任与终止</b><br>若您违反本协议，我们有权视情节采取警示、<b>暂停或终止服务、封禁账号</b>等措施，并保留追究法律责任的权利。协议终止后，您应立即停止使用本服务。</p>
 <p><b>8. 争议解决</b><br>本协议适用中华人民共和国法律。因本协议产生的争议，双方应友好协商解决；协商不成的，任何一方均可向我们有管辖权的人民法院提起诉讼。</p>
@@ -1901,7 +1901,7 @@ const AGREEMENT_HTML = `
 const PRIVACY_HTML = `
 <p style="text-align:center;font-weight:700;margin:0 0 4px">隐私政策</p>
 <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin:0 0 12px">最近更新日期：2026-09-16 ｜ 生效日期：2026-09-16</p>
-<p>九游项目跟踪管理平台开发运营方（以下简称"我们"）深知个人信息对您的重要性，并致力于保护您的隐私。<b>本政策仅适用于九游项目跟踪管理平台。请您在使用前仔细阅读。</b></p>
+<p>项目跟踪管理平台开发运营方（以下简称"我们"）深知个人信息对您的重要性，并致力于保护您的隐私。<b>本政策仅适用于项目跟踪管理平台。请您在使用前仔细阅读。</b></p>
 <p><b>1. 我们如何收集和使用您的信息</b><br>我们遵循"最小必要"原则，仅为实现以下功能收集信息：<br>· <b>账号注册与登录</b>：收集您的<b>邮箱地址</b>用于创建账号、发送登录验证码；<br>· <b>提供服务</b>：收集您主动录入的<b>项目、账户、回本台账、市场价</b>等业务数据，用于存储、统计与展示；<br>· <b>群聊功能</b>：收集您发布的<b>聊天文字与图片</b>，用于群组成员间实时交流；<br>· <b>本地存储</b>：使用 Cookie、localStorage 记住您的登录状态与主题偏好，<b>您可通过浏览器/系统设置清除，但可能影响免登录等功能的使用。</b></p>
 <p><b>2. 我们如何共享、转让、公开披露您的信息</b><br>· 我们<b>不会出售</b>您的个人信息；<br>· 业务数据托管于<b> Supabase 云端数据库服务商</b>，仅用于存储与传输，该服务商受其隐私条款约束；<br>· <b>仅在获得您的明确同意，或依据法律法规、司法行政机关强制要求时</b>，我们才会共享您的信息；<br>· 群聊消息与公共项目仅在同平台登录用户范围内可见，不对外公开披露。</p>
 <p><b>3. 我们如何保护您的信息</b><br>我们采取符合业界标准的安全措施保护您的信息：数据传输使用 HTTPS 加密、数据库启用行级权限（RLS）实现账号数据隔离、多用户数据互不可见。<b>但请您理解，互联网环境并非绝对安全，我们将持续尽力确保安全。</b></p>
@@ -2690,7 +2690,7 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
 /* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
 function renderProjectGrid() {
   const grid = document.getElementById('projectGrid');
-  document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">九游项目跟踪管理平台';
+  document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台';
   grid.innerHTML = '';
 
   // ---- 首页全局汇总：跨所有项目统计 ----
@@ -3461,13 +3461,13 @@ function renderBill() {
         <td style="${cs}text-align:right">${x.rate === null ? '—' : '¥' + fmtMoney(x.rate) + (Number(x.refQty) > 1 ? `<div style="font-size:10px;color:#94a3b8;margin-top:1px">/${fmtMoney(x.refQty)}</div>` : '')}</td>
         <td style="${cs}text-align:right;font-weight:600">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:18px 0;text-align:center;color:#94a3b8">今日暂无出货记录</td></tr>';
-  const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo}`);
+  const wm = bill_watermark(`项目跟踪管理平台 · ${escapeHtml(email)} · ${billNo}`);
   document.getElementById('billPaper').innerHTML = `
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">${wm}</div>
     <div style="position:relative">
       <div style="text-align:center">
         <div style="font-size:17px;font-weight:700;color:#0f172a">出货账单</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:2px">九游项目跟踪管理平台 · 账单编号 ${billNo}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">项目跟踪管理平台 · 账单编号 ${billNo}</div>
       </div>
       <div style="margin-top:12px;font-size:13px;color:#0f172a">日期：<b>${y}年${Number(m)}月${Number(d)}日</b></div>
       <div style="margin-top:3px;font-size:13px;color:#0f172a">范围：<b>${one ? escapeHtml((scope[0] && scope[0].name) || '') : '全部项目'} · 账号 ${escapeHtml(email)}</b></div>
@@ -3493,7 +3493,7 @@ function renderBill() {
           ${billShots.map((s, i) => `
           <div style="position:relative;width:${billShots.length === 1 ? '100%' : 'calc(50% - 4px)'};border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
             <img src="${s}" style="width:100%;display:block" alt="出货截图${i + 1}">
-            <div style="position:absolute;inset:0;pointer-events:none">${bill_watermark(`九游平台 · ${escapeHtml(email)} · ${billNo} · 截图${i + 1}`)}</div>
+            <div style="position:absolute;inset:0;pointer-events:none">${bill_watermark(`项目跟踪管理平台 · ${escapeHtml(email)} · ${billNo} · 截图${i + 1}`)}</div>
           </div>`).join('')}
         </div>
       </div>` : '<div style="margin-top:12px;font-size:11px;color:#f59e0b;text-align:center;background:#fffbeb;border:1px dashed #fbbf24;border-radius:6px;padding:10px">⚠️ 请先上传出货截图佐证，才能保存账单图片</div>'}
@@ -3611,7 +3611,7 @@ function openTodayList(scope) {
         <td style="${cs}text-align:right;font-weight:600;color:var(--success)">¥${fmtMoney(x.price)}</td>
       </tr>`).join('') : '<tr><td colspan="5" style="padding:16px 0;text-align:center;color:var(--text-secondary)">今天暂无回本记录</td></tr>';
   // 明显但不遮挡阅读的平铺水印：账号 + 日期 + 明细标识
-  const wm = bill_watermark(`九游平台 · ${escapeHtml(email)} · ${today} 今日明细`, 'rgba(59,130,246,.16)');
+  const wm = bill_watermark(`项目跟踪管理平台 · ${escapeHtml(email)} · ${today} 今日明细`, 'rgba(59,130,246,.16)');
   document.getElementById('todayListPaper').innerHTML = `
     <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} <b id="todayClock" style="color:var(--primary);font-family:Consolas,Menlo,monospace">${nowLocal().slice(11, 19)}</b> ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3">${wm}</div>
@@ -5444,16 +5444,16 @@ function chat_notify(msg) {
 // 标题闪烁提示
 function chat_startTitleFlash() {
   if (chatState.titleTimer) return;
-  const base = '九游项目跟踪管理平台';
+  const base = '项目跟踪管理平台';
   let on = true;
-  document.title = '💬 新消息 · 九游平台';  // 立即提示，不等首个定时周期
+  document.title = '💬 新消息 · 项目跟踪平台';  // 立即提示，不等首个定时周期
   chatState.titleTimer = setInterval(() => {
-    document.title = (on = !on) ? '💬 新消息 · 九游平台' : base;
+    document.title = (on = !on) ? '💬 新消息 · 项目跟踪平台' : base;
   }, 1000);
 }
 function chat_stopTitleFlash() {
   if (chatState.titleTimer) { clearInterval(chatState.titleTimer); chatState.titleTimer = null; }
-  document.title = '九游项目跟踪管理平台';
+  document.title = '项目跟踪管理平台';
 }
 
 // 图片放大查看

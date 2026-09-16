@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  九游跟踪 Web Clip 描述文件模板（iOS）
+  项目跟踪 Web Clip 描述文件模板（iOS）
   ═══════════════════════════════════════════
   使用步骤：
   1. 把下方 <data> 占位替换为 icon-192.png 的 Base64 编码：
@@ -17,11 +17,11 @@
   <key>PayloadDisplayName</key>
   <string>项目跟踪 Web Clip</string>
   <key>PayloadDescription</key>
-  <string>添加九游项目跟踪管理平台到主屏幕</string>
+  <string>添加项目跟踪管理平台到主屏幕</string>
   <key>PayloadIdentifier</key>
   <string>help.9you.webclip</string>
   <key>PayloadOrganization</key>
-  <string>九游项目跟踪管理平台</string>
+  <string>项目跟踪管理平台</string>
   <key>PayloadRemovalDisallowed</key>
   <false/>
   <key>PayloadType</key>
@@ -44,7 +44,7 @@
       <key>PayloadIdentifier</key>
       <string>help.9you.webclip.main</string>
       <key>PayloadOrganization</key>
-      <string>九游项目跟踪管理平台</string>
+      <string>项目跟踪管理平台</string>
 
       <!-- 主屏幕显示名称 -->
       <key>Label</key>

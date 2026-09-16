@@ -1,4 +1,4 @@
-/* 九游平台 Service Worker
+/* 项目跟踪管理平台 Service Worker
    策略：
    - 页面导航请求（HTML）：网络优先，保证用户每次刷新拿到最新版；离线时回退缓存
    - APP 版本检查（app-version.json）：网络优先，确保老用户能及时收到更新提示；离线回退缓存
