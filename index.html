@@ -681,10 +681,6 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .me-row-inline { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; gap: 12px; }
   .me-row-inline .ios-switch { margin-left: auto; }
   .me-row h2 { display: flex; align-items: center; min-height: 36px; }
-  /* 市场价录入表单：两列网格，添加按钮占满整行 */
-  .mf-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; align-items: end; }
-  .mf-form .form-group { min-width: 0 !important; }
-  .mf-form .btn { grid-column: 1 / -1; justify-content: center; min-height: 44px; }
   /* 公告条目：时间与操作按钮窄屏自动换行 */
   .ann-item .a-title { flex-wrap: wrap; }
 }
@@ -758,13 +754,14 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal { padding: 16px; align-items: center; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal {
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal { padding: 16px; align-items: center; }
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
+  #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
@@ -1046,37 +1043,14 @@ html.in-app #loginWrap {
         </div>
 
         <div class="table-card">
-          <h2 style="font-size:16px;font-weight:600;margin-bottom:4px">💰 市场价管理</h2>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">每日可添加多条；首页按日期倒序滚动展示最新一天的价格。按份计价：单位填「2100个」表示 2100个 = 单价金额，如饕鬄王填 单价10 + 单位2100个</div>
-          <input type="hidden" id="mf-id">
-          <div class="mf-form" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
-            <div class="form-group" style="margin:0;flex:1;min-width:125px">
-              <label>日期</label>
-              <input type="date" id="mf-date">
+          <div class="me-row" style="margin-bottom:8px">
+            <div style="min-width:0">
+              <h2 style="font-size:16px;font-weight:600">💰 市场价管理</h2>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">每日可添加多条；按份计价：单位填「2100个」表示 2100个 = 单价金额</div>
             </div>
-            <div class="form-group" style="margin:0;flex:1.2;min-width:105px">
-              <label>品名<span class="req">*</span></label>
-              <input type="text" id="mf-name" placeholder="如：玩购鸭" maxlength="30" list="mpNameList">
-              <datalist id="mpNameList"></datalist>
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:95px">
-              <label>单价（元）<span class="req">*</span></label>
-              <input type="number" id="mf-price" placeholder="0.123" min="0.001" step="0.001">
-            </div>
-            <div class="form-group" style="margin:0;flex:0.9;min-width:85px">
-              <label>数量单位</label>
-              <input type="text" id="mf-unit" placeholder="如：1个 或 2100个" maxlength="20">
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:95px">
-              <label>出货ID（可选）</label>
-              <input type="text" id="mf-sellid" placeholder="选填，不在滚动栏显示" maxlength="60">
-            </div>
-            <div class="form-group" style="margin:0;flex:1.1;min-width:110px">
-              <label>备注（可选）</label>
-              <input type="text" id="mf-note" placeholder="选填" maxlength="60">
-            </div>
-            <button class="btn btn-primary" onclick="saveMarketPrice()">添加</button>
+            <button class="btn btn-primary btn-sm" onclick="openMarketModal()">＋ 新增市场价</button>
           </div>
+          <datalist id="mpNameList"></datalist>
           <div class="table-wrap" style="overflow:visible">
             <table id="marketMgrTable">
               <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
@@ -1589,6 +1563,47 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('quickAmountModal')">取消</button>
       <button class="btn btn-primary" onclick="saveQuickAmount()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 市场价新增 / 编辑浮窗（管理员·我的页，复用同一弹窗） ========== -->
+<div class="modal-mask" id="marketModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="marketModalTitle">新增市场价</h3>
+      <button class="modal-close" onclick="closeModal('marketModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mf-id">
+      <div class="form-group">
+        <label>日期<span class="req">*</span></label>
+        <input type="date" id="mf-date">
+      </div>
+      <div class="form-group">
+        <label>品名<span class="req">*</span></label>
+        <input type="text" id="mf-name" placeholder="如：玩购鸭" maxlength="30" list="mpNameList">
+      </div>
+      <div class="form-group">
+        <label>单价（元）<span class="req">*</span></label>
+        <input type="number" id="mf-price" placeholder="0.123" min="0.001" step="0.001">
+      </div>
+      <div class="form-group">
+        <label>数量单位</label>
+        <input type="text" id="mf-unit" placeholder="如：1个 或 2100个" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label>出货ID（可选）</label>
+        <input type="text" id="mf-sellid" placeholder="选填，不在滚动栏显示" maxlength="60">
+      </div>
+      <div class="form-group">
+        <label>备注（可选）</label>
+        <input type="text" id="mf-note" placeholder="选填" maxlength="60">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('marketModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveMarketPrice()">保存</button>
     </div>
   </div>
 </div>
@@ -4600,6 +4615,15 @@ function mpLogoHtml(name) {
     ? `<img src="${pb.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px;margin-right:2px">`
     : '';
 }
+// 打开市场价弹窗：新增模式（默认日期今天）
+function openMarketModal() {
+  if (!isAdmin) return;
+  document.getElementById('marketModalTitle').textContent = '新增市场价';
+  document.getElementById('mf-id').value = '';
+  document.getElementById('mf-date').value = todayStr();
+  ['mf-name', 'mf-price', 'mf-unit', 'mf-sellid', 'mf-note'].forEach(x => document.getElementById(x).value = '');
+  openModal('marketModal');
+}
 async function saveMarketPrice() {
   if (!isAdmin) return;
   const id = document.getElementById('mf-id').value;
@@ -4616,14 +4640,14 @@ async function saveMarketPrice() {
   if (error) return toast('保存失败：' + error.message, 'error');
   await loadMarketPrices();
   renderHomeTop(); renderMarketMgr();
-  // 清空输入便于连续录入（保留日期）
-  ['mf-id', 'mf-name', 'mf-price', 'mf-unit', 'mf-sellid', 'mf-note'].forEach(x => document.getElementById(x).value = '');
+  closeModal('marketModal');
   toast(`${date} 市场价已保存`, 'success');
 }
-// 编辑：回填表单，保存时按同一条 id 覆盖
+// 编辑：回填弹窗表单，保存时按同一条 id 覆盖
 function editMarketPrice(id) {
   const r = marketPrices.find(x => x.id === id);
   if (!r) return;
+  document.getElementById('marketModalTitle').textContent = '编辑市场价';
   document.getElementById('mf-id').value = r.id;
   document.getElementById('mf-date').value = r.price_date;
   document.getElementById('mf-name').value = r.name;
@@ -4631,9 +4655,7 @@ function editMarketPrice(id) {
   document.getElementById('mf-unit').value = r.unit || '';
   document.getElementById('mf-sellid').value = r.sell_id || '';
   document.getElementById('mf-note').value = r.note || '';
-  // 滚动到录入表单（居中显示）而非页面顶部，手机端编辑无需再手动滑回输入框
-  const formAnchor = document.getElementById('mf-date');
-  if (formAnchor) formAnchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  openModal('marketModal');
 }
 function deleteMarketPrice(id) {
   if (!isAdmin) return;
@@ -4653,7 +4675,7 @@ function renderMarketMgr() {
   const dl = document.getElementById('mpNameList');
   if (dl) dl.innerHTML = publicProjects.map(pb => `<option value="${escapeHtml(pb.name)}">`).join('');
   body.innerHTML = marketPrices.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px">暂无记录，在上方录入市场价</td></tr>'
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:20px">暂无记录，点击右上角「＋ 新增市场价」</td></tr>'
     : marketPrices.map(r => `
       <tr>
         <td data-label="日期">${r.price_date}</td>
@@ -4682,9 +4704,6 @@ function renderMeAdmin() {
   applyThemeUI();
   renderAnnMgr();
   renderMarketMgr();
-  // 管理员录入默认日期为今天
-  const mfDate = document.getElementById('mf-date');
-  if (isAdmin && !mfDate.value) mfDate.value = todayStr();
 }
 
 // 我的Tab：保存用户名并同步为群聊昵称（localStorage + cookie 双保险 + 云端 chat_members）
