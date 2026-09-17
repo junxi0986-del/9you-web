@@ -1127,8 +1127,8 @@ html.in-app #loginWrap {
     <!-- 移动端底部导航：液态玻璃椭圆 pill，我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
     <nav class="bottom-nav" id="bottomNav">
       <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
-      <button id="bnavMine" onclick="switchListTab('mine')"><img class="nav-icon" src="iconfont/ios-albums.png" data-src-inactive="iconfont/ios-albums.png" data-src-active="iconfont/ios-albums (1).png" alt="我的项目"><span>我的项目</span></button>
-      <button id="bnavPublic" class="active" onclick="switchListTab('public')"><img class="nav-icon" src="iconfont/ios-globe (1).png" data-src-inactive="iconfont/ios-globe.png" data-src-active="iconfont/ios-globe (1).png" alt="公共项目"><span>公共项目</span></button>
+      <button id="bnavMine" class="active" onclick="switchListTab('mine')"><img class="nav-icon" src="iconfont/ios-albums (1).png" data-src-inactive="iconfont/ios-albums.png" data-src-active="iconfont/ios-albums (1).png" alt="我的项目"><span>我的项目</span></button>
+      <button id="bnavPublic" onclick="switchListTab('public')"><img class="nav-icon" src="iconfont/ios-globe.png" data-src-inactive="iconfont/ios-globe.png" data-src-active="iconfont/ios-globe (1).png" alt="公共项目"><span>公共项目</span></button>
       <button id="bnavMarket" onclick="switchListTab('market')"><img class="nav-icon" src="iconfont/ios-card.png" data-src-inactive="iconfont/ios-card.png" data-src-active="iconfont/ios-card (1).png" alt="市场价"><span>市场价</span></button>
       <button id="bnavMe" onclick="switchListTab('me')"><img class="nav-icon" src="iconfont/ios-person.png" data-src-inactive="iconfont/ios-person.png" data-src-active="iconfont/ios-person (1).png" alt="我的"><span>我的</span></button>
     </nav>
@@ -2215,7 +2215,7 @@ function showMainApp(){
   document.getElementById("mainApp").style.display = "block";
   document.getElementById("welcomeEmail").textContent = `欢迎 ${currentUserEmail}`;  // 顶栏欢迎邮箱
   applyThemeUI();        // 同步深色模式按钮文案
-  listTab = 'public';  // 每次进入主界面默认显示公共项目
+  listTab = 'mine';  // 每次进入主界面默认显示我的项目（主菜单）
   renderHomeTop();       // 市场价 + 公告横幅
   renderNoticeTab();
   renderMeAdmin();
@@ -2522,7 +2522,7 @@ window.addEventListener('popstate', () => {
 });
 
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
-let listTab = 'public';
+let listTab = 'mine';  // 默认页签：我的项目（主菜单）
 function switchListTab(tab) {
   // 若正处于项目详情页/生成账单页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
   if (currentProjectId || onBillPage) showPage('list');
