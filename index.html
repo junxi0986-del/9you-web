@@ -20,7 +20,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
 <script>console.log('[项目跟踪管理平台] 代码版本 20260-完整版');</script>
 <!-- Supabase JS SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ========== 全局基础样式 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1963,6 +1963,7 @@ const cap = { gx: 0, gy: 0, S: 46, dragging: false, x: 0, max: 0, scale: 1, veri
 
 // 打开验证弹窗：onSuccess 为验证通过后的回调
 function cap_open(onSuccess) {
+  if (typeof cap === 'undefined') { console.warn('cap not ready'); return; }
   cap.onSuccess = onSuccess;
   cap.verified = false;
   openModal('captchaModal');
