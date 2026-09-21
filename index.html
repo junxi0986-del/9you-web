@@ -20,7 +20,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
 <script>console.log('[项目跟踪管理平台] 代码版本 20260-完整版');</script>
 <!-- Supabase JS SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <style>
 /* ========== 全局基础样式 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2156,9 +2156,8 @@ async function afterLogin(user){
   isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
   // 记住已登录邮箱，下次刷新可立即切主界面（无需等网络验证）
   try { localStorage.setItem('jy_last_email', currentUserEmail); } catch(e){}
-  await loadCloudData();
-  await loadPublicProjects();
-  await Promise.all([loadAnnouncements(), loadMarketPrices()]);  // 公告与市场价并行加载
+  // 优化：四个查询完全独立，一次性并行发起，将 ~900ms 串行等待缩短为 ~300ms
+  await Promise.all([loadCloudData(), loadPublicProjects(), loadAnnouncements(), loadMarketPrices()]);
 }
 
 // 无感登录优化：从 localStorage 缓存的会话中即时提取用户信息，秒切主界面
@@ -2186,12 +2185,14 @@ async function checkAuth(){
   // 优化：先用本地缓存的会话信息秒切主界面，再后台验证令牌有效性
   const instant = tryInstantLogin();
   if(instant){
-    showMainApp();                       // 立即显示主界面（无网络等待）
+    // 优化：先切换界面容器避免白屏，但不渲染数据（避免空列表闪烁），等数据加载完一次性 showMainApp
+    document.getElementById("loginWrap").style.display = "none";
+    document.getElementById("mainApp").style.display = "block";
     // 后台验证令牌 + 加载数据
     const {data:{user}} = await sb.auth.getUser();
     if(user){
-      await afterLogin(user);            // 加载云端数据
-      showMainApp();                     // 数据就绪后刷新界面
+      await afterLogin(user);            // 加载云端数据（并行化后 ~300ms）
+      showMainApp();                     // 数据就绪后一次性渲染
     }else{
       // 令牌已失效：回退到登录页
       try{ localStorage.removeItem('jy_last_email'); }catch(e){}
@@ -2718,19 +2719,21 @@ function renderProjectGrid() {
   document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台';
   grid.innerHTML = '';
 
-  // ---- 首页全局汇总：跨所有项目统计 ----
+  // ---- 首页全局汇总：跨所有项目统计（优化：遍历一次计算所有指标 + 预计算 calcEarned 缓存） ----
   const allUsers = projects.flatMap(p => p.users);
-  const gUserCount = allUsers.length;
-  const gPrincipal = allUsers.reduce((s, u) => s + Number(u.principal), 0);
-  const gEarned = allUsers.reduce((s, u) => s + calcEarned(u), 0);
-  const gDone = allUsers.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
-  // 距回本金额：所有账户剩余未回本之和；全部回本后该卡显示总利润
-  const gRemain = allUsers.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
-  const gProfit = allUsers.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
-  // 今日回本金额：所有账户今天（本地日期）添加的回本记录之和
   const today = nowLocal().slice(0, 10);
-  const gTodayEarned = allUsers.reduce((s, u) =>
-    s + u.prices.filter(r => (r.date || '').slice(0, 10) === today).reduce((x, r) => x + Number(r.price), 0), 0);
+  // 预计算每个用户的 earned 值，后续所有地方用 u.__earned 替代 calcEarned(u)
+  allUsers.forEach(u => { u.__earned = calcEarned(u); });
+  let gUserCount = allUsers.length, gPrincipal = 0, gEarned = 0, gDone = 0, gRemain = 0, gProfit = 0, gTodayEarned = 0;
+  allUsers.forEach(u => {
+    const p = Number(u.principal), e = u.__earned;
+    gPrincipal += p;
+    gEarned += e;
+    if (e >= p && p > 0) gDone++;
+    gRemain += Math.max(0, p - e);
+    gProfit += e - p;
+    u.prices.forEach(r => { if ((r.date || '').slice(0, 10) === today) gTodayEarned += Number(r.price); });
+  });
   document.getElementById('homeSummary').innerHTML = `
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${gUserCount}" data-decimals="0">0</span><small>人</small></div></div>
     <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
@@ -2760,14 +2763,16 @@ function renderProjectGrid() {
   }
 
   projects.forEach(p => {
-    // 项目卡片展示该项目的汇总概况
+    // 项目卡片展示该项目的汇总概况（优化：用预计算的 __earned 缓存，避免每张卡片重复 4 次 reduce）
     const userCount = p.users.length;
-    const totalPrincipal = p.users.reduce((s, u) => s + Number(u.principal), 0);
-    const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
-    // 还差多少元回本：所有账户剩余未回本金额之和（最低为 0）
-    const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
-    // 利润金额：所有账户累计收益超出本金的部分
-    const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
+    let totalPrincipal = 0, doneCount = 0, totalRemain = 0, totalProfit = 0;
+    p.users.forEach(u => {
+      const pr = Number(u.principal), e = u.__earned;
+      totalPrincipal += pr;
+      if (e >= pr && pr > 0) doneCount++;
+      totalRemain += Math.max(0, pr - e);
+      totalProfit += e - pr;
+    });
 
     const card = document.createElement('div');
     card.className = 'project-card';
@@ -4729,7 +4734,7 @@ function renderMeAdmin() {
   const myName = document.getElementById('myNameInput');
   if (myName) myName.value = chat_displayName();  // 用户名输入框回显当前群聊昵称
   document.getElementById('meAdminTools').style.display = isAdmin ? '' : 'none';
-  applyThemeUI();
+  // applyThemeUI() 已在 showMainApp() 调用，此处不再重复
   renderAnnMgr();
   renderMarketMgr();
 }
