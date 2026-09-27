@@ -755,9 +755,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal { padding: 16px; align-items: center; }
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -765,6 +765,8 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
   #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
   #sellPickLayer .modal { max-width: 520px; width: 100%; height: auto; }
+  #projectModal .modal { max-width: 460px; width: 100%; height: auto; }
+  #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
@@ -1165,7 +1167,6 @@ html.in-app #loginWrap {
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input type="text" class="search-input" id="userSearch" placeholder="🔍 搜索姓名 / 账户ID / 备注" oninput="renderDetail()">
         <button class="btn btn-outline btn-sm" id="batchToggleBtn" onclick="toggleBatchMode()">批量操作</button>
-        <button class="btn btn-outline btn-sm" onclick="openBatchUserModal()">批量添加账户</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ 添加账户</button>
       </div>
     </div>
@@ -1685,28 +1686,6 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('batchPriceModal')">取消</button>
       <button class="btn btn-primary" onclick="saveBatchPrice()">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== 批量添加账户弹窗 ========== -->
-<div class="modal-mask" id="batchUserModal">
-  <div class="modal wide">
-    <div class="modal-head">
-      <h3>批量添加账户</h3>
-      <button class="modal-close" onclick="closeModal('batchUserModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>账户信息（每行一位）<span class="req">*</span></label>
-        <textarea id="bu-text" rows="8" placeholder="张三, 10000, 2026-01-15, ID001, 老客户&#10;李四, 8000"></textarea>
-        <div class="form-tip">格式：姓名, 本金, 上车日期, 账户ID, 备注 —— 仅姓名和本金必填；日期可省略（默认今天）且不能晚于今天；账户ID选填，留空则不填且不可重复</div>
-        <div class="form-error" id="bu-error"></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('batchUserModal')">取消</button>
-      <button class="btn btn-primary" onclick="saveBatchUsers()">保存</button>
     </div>
   </div>
 </div>
@@ -2426,9 +2405,30 @@ function closeModal(id) {
   if (id === 'todayListModal' && todayClockTimer) { clearInterval(todayClockTimer); todayClockTimer = null; }
 }
 
-// 点击遮罩关闭弹窗
+/* ---------- 弱网防重复提交：保存期间锁定弹窗按钮 + 禁止遮罩关闭，返回解锁函数 ---------- */
+const savingModals = new Set();
+function lockModalButtons(modalId, loadingText) {
+  savingModals.add(modalId);
+  const modal = document.getElementById(modalId);
+  const foot = modal && modal.querySelector('.modal-foot');
+  const btns = foot ? Array.from(foot.querySelectorAll('button')) : [];
+  // 同时锁定右上角 × 关闭按钮，防止保存途中关闭弹窗
+  const closeBtns = modal ? Array.from(modal.querySelectorAll('.modal-close')) : [];
+  const lockables = btns.concat(closeBtns);
+  const main = btns.find(b => b.classList.contains('btn-primary')) || btns[btns.length - 1];
+  lockables.forEach(b => { b.disabled = true; });
+  const oldText = main ? main.textContent : '';
+  if (main) main.textContent = loadingText || '保存中…';
+  return function unlock() {
+    savingModals.delete(modalId);
+    lockables.forEach(b => { b.disabled = false; });
+    if (main) main.textContent = oldText;
+  };
+}
+
+// 点击遮罩关闭弹窗（保存进行中的弹窗除外，避免中途关闭造成困惑）
 document.querySelectorAll('.modal-mask').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+  m.addEventListener('click', e => { if (e.target === m && !savingModals.has(m.id)) m.classList.remove('show'); });
 });
 
 // 回车快捷确认：弹窗打开时按回车等同于点击"保存/确认"按钮，无需鼠标操作
@@ -2444,7 +2444,6 @@ document.addEventListener('keydown', e => {
   else if (shown('userModal')) { e.preventDefault(); saveUser(); }
   else if (shown('priceModal')) { e.preventDefault(); savePrice(); }
   else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
-  else if (shown('batchUserModal')) { e.preventDefault(); saveBatchUsers(); }
   else if (shown('confirmModal')) { e.preventDefault(); document.getElementById('confirmOkBtn').click(); }
   else if (t && (t.id === 'loginEmail' || t.classList.contains('otp-box'))) { e.preventDefault(); t.id === 'loginEmail' ? sendLoginCode() : supabaseSignIn(); }  // 登录框：邮箱回车发验证码，验证码回车直接登录
   else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
@@ -2714,7 +2713,52 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   document.addEventListener('touchend', () => { btrack = false; blocked = false; }, { passive: true });
 })();
 
-/* ---------- 主页面：我的项目 → 项目列表渲染（手机端淘宝式双列卡片） ---------- */
+/* ---------- 主页面：我的项目 → 项目列表智能排序 + 渲染（手机端淘宝式双列卡片） ---------- */
+// 排序阈值（天）：上车 7 天内算"上车时间短"；超过 7 天无回本记录算"长时间没有添加"
+const SORT_NEW_DAYS = 7, SORT_STALE_DAYS = 7;
+// 计算单个项目的排序快照（排序前预计算一次，comparator 保持纯函数）
+function projectRankInfo(p) {
+  const DAY = 86400000, now = Date.now();
+  let principal = 0, earned = 0, doneCnt = 0, lastTs = 0;
+  (p.users || []).forEach(u => {
+    const pr = Number(u.principal) || 0;
+    const e = (u.__earned !== undefined) ? u.__earned : calcEarned(u);
+    principal += pr; earned += e;
+    if (pr > 0 && e >= pr) doneCnt++;
+    (u.prices || []).forEach(r => { const ts = Date.parse(r.date || '') || 0; if (ts > lastTs) lastTs = ts; });
+  });
+  const userCount = (p.users || []).length;
+  const allDone = userCount > 0 && doneCnt === userCount;
+  const remain = Math.max(0, principal - earned);
+  const profit = earned - principal;
+  const createdTs = p.createdAt ? Date.parse(p.createdAt) : 0;
+  const ageDays = createdTs ? (now - createdTs) / DAY : Infinity;
+  const staleDays = lastTs ? (now - lastTs) / DAY : Infinity;
+  const isNew = ageDays <= SORT_NEW_DAYS;
+  const isStale = staleDays > SORT_STALE_DAYS;
+  // 等级：1上车时间短(未回本) > 2未回本活跃按金额 > 3未回本长期停滞 > 4已回本(金额大在前,小在后) > 6已回本长期停滞沉底
+  let rank;
+  if (!allDone) rank = isNew ? 1 : (isStale ? 3 : 2);
+  else rank = isStale ? 6 : 4;
+  return { rank, remain, profit, ageDays, staleDays, userCount };
+}
+// 返回排序后的新数组（不改动原 projects 顺序，云端存储顺序保持不变）
+function sortProjectsForDisplay(list) {
+  const info = new Map();
+  list.forEach(p => info.set(p, projectRankInfo(p)));
+  return list.slice().sort((a, b) => {
+    const A = info.get(a), B = info.get(b);
+    if (A.rank !== B.rank) return A.rank - B.rank;          // 主排序键：等级升序
+    // —— 以下为各等级独立的次级排序键（不随主键取反） ——
+    if (A.rank === 1) { if (A.ageDays !== B.ageDays) return A.ageDays - B.ageDays; }                 // 上车越新越前
+    if (A.rank === 2 || A.rank === 3) { if (B.remain !== A.remain) return B.remain - A.remain; }    // 未回本金额大在前
+    if (A.rank === 4) { if (B.profit !== A.profit) return B.profit - A.profit; }                    // 已回本利润大在前、小在后
+    if (A.rank === 6) { if (A.staleDays !== B.staleDays) return A.staleDays - B.staleDays; }        // 停滞项目中近期有记录的略前
+    if (B.userCount !== A.userCount) return B.userCount - A.userCount;                              // 有账户的空壳项目靠前
+    return (a.name || '').localeCompare(b.name || '', 'zh-CN') || ((a.id > b.id) ? 1 : -1);        // 最终稳定兜底
+  });
+}
+
 function renderProjectGrid() {
   const grid = document.getElementById('projectGrid');
   document.getElementById('headerTitle').innerHTML = '<img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台';
@@ -2763,7 +2807,9 @@ function renderProjectGrid() {
     return;
   }
 
-  projects.forEach(p => {
+  // 按智能优先级排序后渲染（需在 __earned 预计算之后）
+  const displayProjects = sortProjectsForDisplay(projects);
+  displayProjects.forEach(p => {
     // 项目卡片展示该项目的汇总概况（优化：用预计算的 __earned 缓存，避免每张卡片重复 4 次 reduce）
     const userCount = p.users.length;
     let totalPrincipal = 0, doneCount = 0, totalRemain = 0, totalProfit = 0;
@@ -2788,7 +2834,7 @@ function renderProjectGrid() {
       <div class="pc-stats">
         <div class="pc-stat-row"><span class="lbl">账户数量</span><span class="val">${userCount} 人</span></div>
         <div class="pc-stat-row"><span class="lbl">总本金</span><span class="val">${fmtMoney(totalPrincipal)}</span></div>
-        <div class="pc-stat-row"><span class="lbl">还差回本</span><span class="val" style="color:${totalRemain > 0 ? 'var(--danger)' : 'var(--success)'}">${totalRemain > 0
+        <div class="pc-stat-row"><span class="lbl">${totalRemain > 0 ? '还差回本' : ''}</span><span class="val" style="color:${totalRemain > 0 ? 'var(--danger)' : 'var(--success)'}">${totalRemain > 0
           ? fmtMoney(totalRemain) + ' 元'
           : (totalProfit > 0 ? '利润 +' + fmtMoney(totalProfit) + ' 元' : '已回本')}</span></div>
       </div>
@@ -4025,6 +4071,7 @@ function updatePriceTip(u) {
 }
 
 async function savePrice() {
+  if (priceSaving) return;  // 防重复提交：网络慢时忽略保存期间的重复点击
   const p = getProject(currentProjectId);
   if (!p) return;
   const u = p.users[document.getElementById('pr-userName').selectedIndex];
@@ -4057,17 +4104,26 @@ async function savePrice() {
   }
   if (!ok) return;
 
-  // 每次添加都单独记录一条，供台账逐笔查看
-  u.prices.push({ id: uid(), date, price, ...extra });
-  const dayTotal = u.prices
-    .filter(r => r.date.slice(0, 10) === date.slice(0, 10))  // 按天统计当日累计
-    .reduce((s, r) => s + Number(r.price), 0);
-  await saveCloudData(true);
-  renderDetail();
-  updatePriceTip(u);
-  toast(`回本金额已添加（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
-  closeModal('priceModal');  // 添加成功后关闭弹窗（出货ID跳转/普通添加均一致）
+  // 校验通过立即锁定按钮给出反馈，避免弱网下用户连续点击产生重复记录
+  priceSaving = true;
+  const unlock = lockModalButtons('priceModal', '保存中…');
+  try {
+    // 每次添加都单独记录一条，供台账逐笔查看
+    u.prices.push({ id: uid(), date, price, ...extra });
+    const dayTotal = u.prices
+      .filter(r => r.date.slice(0, 10) === date.slice(0, 10))  // 按天统计当日累计
+      .reduce((s, r) => s + Number(r.price), 0);
+    await saveCloudData(true);
+    renderDetail();
+    updatePriceTip(u);
+    toast(`回本金额已添加（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
+    closeModal('priceModal');  // 添加成功后关闭弹窗（出货ID跳转/普通添加均一致）
+  } finally {
+    priceSaving = false;
+    unlock();
+  }
 }
+let priceSaving = false;  // 回本金额保存进行中锁（弱网防重复提交）
 
 /* ---------- 项目列表快捷录入回本金额：先选项目→账户，再按市场价数量或直接金额录入 ---------- */
 let qaMode = 'qty';  // 快捷录入方式：qty=出货数量（默认，按市场价计算），amount=直接金额
@@ -4151,6 +4207,7 @@ function qaUpdate() {
 
 // 保存：写入所选项目的所选账户台账，刷新列表与汇总
 async function saveQuickAmount() {
+  if (qaSaving) return;  // 弱网防重复提交
   const p = getProject(document.getElementById('qa-proj').value);
   const u = p && p.users[Number(document.getElementById('qa-user').value)];
   if (!p) return;
@@ -4178,15 +4235,23 @@ async function saveQuickAmount() {
   }
   if (!ok) return;
 
-  u.prices.push({ id: uid(), date, price, ...extra });
-  const dayTotal = u.prices
-    .filter(r => (r.date || '').slice(0, 10) === date.slice(0, 10))
-    .reduce((s, r) => s + Number(r.price), 0);
-  await saveCloudData(true);
-  renderProjectGrid();  // 刷新项目卡片与全局汇总（当前处于列表页）
-  toast(`已为「${p.name} / ${u.name}」添加回本金额（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
-  closeModal('quickAmountModal');
+  qaSaving = true;
+  const unlock = lockModalButtons('quickAmountModal', '保存中…');
+  try {
+    u.prices.push({ id: uid(), date, price, ...extra });
+    const dayTotal = u.prices
+      .filter(r => (r.date || '').slice(0, 10) === date.slice(0, 10))
+      .reduce((s, r) => s + Number(r.price), 0);
+    await saveCloudData(true);
+    renderProjectGrid();  // 刷新项目卡片与全局汇总（当前处于列表页）
+    toast(`已为「${p.name} / ${u.name}」添加回本金额（${fmtMoney(price)} 元），当日累计 ${fmtMoney(dayTotal)} 元`, 'success');
+    closeModal('quickAmountModal');
+  } finally {
+    qaSaving = false;
+    unlock();
+  }
 }
+let qaSaving = false;  // 快捷录入保存进行中锁
 
 /* ---------- 台账 ---------- */
 function openLedger(idx) {
@@ -4305,6 +4370,7 @@ function openBatchPriceModal() {
 }
 
 async function saveBatchPrice() {
+  if (bpSaving) return;  // 弱网防重复提交
   const p = getProject(currentProjectId);
   if (!p) return;
   const date = document.getElementById('bp-date').value;
@@ -4315,17 +4381,26 @@ async function saveBatchPrice() {
   ok = setError('bp-date', !date || date > nowLocal()) && ok;
   ok = setError('bp-price', !(price > 0)) && ok;
   if (!ok) return;
+  if (selectedUserIdx.size === 0) return toast('请先勾选要添加的账户', 'warn');
 
-  // 为每位选中的账户单独添加一条记录
-  let n = 0;
-  p.users.forEach((u, i) => {
-    if (selectedUserIdx.has(i)) { u.prices.push({ id: uid(), date, price }); n++; }
-  });
-  await saveCloudData(true);
-  closeModal('batchPriceModal');
-  renderDetail();
-  toast(`已为 ${n} 位账户各添加一笔回本金额`, 'success');
+  bpSaving = true;
+  const unlock = lockModalButtons('batchPriceModal', '保存中…');
+  try {
+    // 为每位选中的账户单独添加一条记录
+    let n = 0;
+    p.users.forEach((u, i) => {
+      if (selectedUserIdx.has(i)) { u.prices.push({ id: uid(), date, price }); n++; }
+    });
+    await saveCloudData(true);
+    closeModal('batchPriceModal');
+    renderDetail();
+    toast(`已为 ${n} 位账户各添加一笔回本金额`, 'success');
+  } finally {
+    bpSaving = false;
+    unlock();
+  }
 }
+let bpSaving = false;  // 批量录入保存进行中锁
 
 /* ---------- 批量删除账户 ---------- */
 function batchDeleteUsers() {
@@ -4341,54 +4416,6 @@ function batchDeleteUsers() {
     updateBatchUI();
     toast(`已删除 ${targets.length} 位账户`, 'success');
   });
-}
-
-/* ---------- 批量添加账户 ---------- */
-function openBatchUserModal() {
-  setError('bu-text', false);
-  document.getElementById('bu-text').value = '';
-  openModal('batchUserModal');
-  document.getElementById('bu-text').focus();
-}
-
-async function saveBatchUsers() {
-  const p = getProject(currentProjectId);
-  if (!p) return;
-
-  // 按行解析：姓名, 本金, 上车日期, 账户ID, 备注（后三项可省略）
-  const lines = document.getElementById('bu-text').value.split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) { setError('bu-text', true); document.getElementById('bu-error').textContent = '请至少输入一行账户信息'; return; }
-
-  const today = todayStr();
-  const parsed = [];
-  const errors = [];
-
-  lines.forEach((line, i) => {
-    const parts = line.split(/[,，\t]/).map(s => s.trim());
-    const name = parts[0];
-    const principal = parseFloat(parts[1]);
-    const date = parts[2] || today;        // 日期可省略，默认今天
-    const sid = parts[3] || '';            // 账户ID可省略，留空保存为空
-    const remark = parts.slice(4).join('，');
-    if (!name) errors.push(`第 ${i + 1} 行：缺少姓名`);
-    else if (!(principal > 0)) errors.push(`第 ${i + 1} 行：本金必须是大于 0 的数字`);
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) errors.push(`第 ${i + 1} 行：上车日期格式应为 YYYY-MM-DD 且不晚于今天`);
-    else if (sid && (p.users.some(u => u.id === sid) || parsed.some(x => x.id === sid))) errors.push(`第 ${i + 1} 行：账户ID「${sid}」重复`);
-    else parsed.push({ id: sid, name, principal, startDate: date, remark, prices: [] });
-  });
-
-  // 存在错误则全部不保存，逐行提示
-  if (errors.length) {
-    setError('bu-text', true);
-    document.getElementById('bu-error').innerHTML = errors.map(escapeHtml).join('<br>');
-    return;
-  }
-
-  parsed.forEach(u => p.users.push(u));
-  await saveCloudData(true);
-  closeModal('batchUserModal');
-  renderDetail();
-  toast(`成功添加 ${parsed.length} 位账户`, 'success');
 }
 
 /* ---------- 深色模式切换（手动偏好存 localStorage，失败时降级 cookie；未手动设置时跟随系统） ---------- */
