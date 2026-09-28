@@ -980,9 +980,14 @@ html.in-app #loginWrap {
 
     <!-- 市场价页签：历史市场参考价，全员可见；点击任意行复制出货ID -->
     <div id="tabMarketSection" style="display:none">
-      <h2 style="font-size:16px;font-weight:600;margin-bottom:6px">💰 市场参考价
-        <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击任意一行可复制该条的出货ID</span>
-      </h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+        <h2 style="font-size:16px;font-weight:600;margin:0">💰 市场参考价
+          <span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px">点击任意一行可复制该条的出货ID</span>
+        </h2>
+        <a class="btn btn-outline btn-sm" href="http://8.137.100.55/#/market" target="_blank" rel="noopener"
+           onclick="openOfficialMarket(event)"
+           style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;white-space:nowrap">🔗 官方市场价</a>
+      </div>
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
       <div class="table-card">
         <div class="table-wrap">
@@ -2535,6 +2540,14 @@ function switchListTab(tab) {
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
   renderHomeTop();  // 切换页签时同步顶部横幅显隐（公告页隐藏公告横幅）
   window.scrollTo(0, 0);
+}
+
+// 跳转官方市场价：浏览器新标签打开；APP 内嵌 WebView 不支持多窗口，当前页直接跳转（边缘返回手势可退回）
+const OFFICIAL_MARKET_URL = 'http://8.137.100.55/#/market';
+function openOfficialMarket(e) {
+  if (e) e.preventDefault();
+  if (/JiyouApp/i.test(navigator.userAgent)) location.href = OFFICIAL_MARKET_URL;
+  else window.open(OFFICIAL_MARKET_URL, '_blank', 'noopener');
 }
 function updateListTabUI() {
   const tabs = ['public', 'mine', 'notice', 'market', 'me'];
