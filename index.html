@@ -2454,11 +2454,13 @@ document.addEventListener('keydown', e => {
   else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
 });
 
-// 二次确认框（okText：确认按钮自定义文案，默认「确认删除」）
-function confirmAction(title, msg, cb, okText = '确认删除', keyword = '') {
+// 二次确认框（okText：确认按钮自定义文案，默认「确认删除」；danger=false 时确认按钮用普通主色而非危险红）
+function confirmAction(title, msg, cb, okText = '确认删除', keyword = '', danger = true) {
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmOkBtn').textContent = okText;
+  const okBtn0 = document.getElementById('confirmOkBtn');
+  okBtn0.textContent = okText;
+  okBtn0.className = danger ? 'btn btn-danger-solid' : 'btn btn-primary';
   // 输入验证模式：须输入指定关键字才能点击确认按钮（防误删）
   const wrap = document.getElementById('confirmInputWrap');
   const inp = document.getElementById('confirmInputText');
@@ -2542,10 +2544,18 @@ function switchListTab(tab) {
   window.scrollTo(0, 0);
 }
 
-// 跳转官方市场价：浏览器新标签打开；APP 内嵌 WebView 不支持多窗口，当前页直接跳转（边缘返回手势可退回）
+// 跳转官方市场价：先二次确认，再按环境打开（浏览器新标签 / APP 内当前页跳转）
 const OFFICIAL_MARKET_URL = 'http://8.137.100.55/#/market';
 function openOfficialMarket(e) {
   if (e) e.preventDefault();
+  confirmAction(
+    '跳转九游官方网站',
+    '即将离开项目跟踪管理平台，跳转到九游官方网站查看市场价，是否继续？',
+    doOpenOfficialMarket,
+    '继续跳转', '', false
+  );
+}
+function doOpenOfficialMarket() {
   if (/JiyouApp/i.test(navigator.userAgent)) location.href = OFFICIAL_MARKET_URL;
   else window.open(OFFICIAL_MARKET_URL, '_blank', 'noopener');
 }
