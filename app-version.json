@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "3.0",
+  "versionCode": 4,
+  "versionName": "3.1",
   "downloadUrl": "/jiuyou.apk",
-  "changelog": "1. 支持群聊原生通知（Android 13+ 运行时申请权限）；2. 沉浸式状态栏适配；3. 边缘手势排除区修复滑动退出；4. APP名称改为「项目跟踪」；5. 版本升级至 3.0"
+  "changelog": "1. 修复 APP 内无法跳转官方市场价等外部 HTTP 站点的问题；2. 允许 HTTPS 页面打开 HTTP 链接（明文流量与混合内容）"
 }
