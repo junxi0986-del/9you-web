@@ -531,13 +531,13 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 #batchBar .cnt { color: #fff; font-size: 13px; }
 
 /* 九游撸盘社按钮：文字下→上推入轮播（按钮尺寸固定，仅文字滚动） */
-.official-btn-txt { display: inline-block; position: relative; width: 5em; height: 1.4em; line-height: 1.4em; overflow: hidden; vertical-align: middle; text-align: center; }
+.official-btn-txt { display: inline-block; position: relative; width: 5.6em; height: 1.5em; line-height: 1.5em; overflow: hidden; vertical-align: middle; text-align: center; }
 .official-btn-txt .roll { display: block; animation: officialTxtRoll 4s cubic-bezier(.65,0,.35,1) infinite; will-change: transform; }
-.official-btn-txt .roll span { display: block; height: 1.4em; line-height: 1.4em; }
+.official-btn-txt .roll span { display: block; height: 1.5em; line-height: 1.5em; white-space: nowrap; }
 @keyframes officialTxtRoll {
   0%, 22% { transform: translateY(0); }
-  39%, 61% { transform: translateY(-1.4em); }
-  78%, 100% { transform: translateY(-2.8em); }
+  39%, 61% { transform: translateY(-1.5em); }
+  78%, 100% { transform: translateY(-3em); }
 }
 @media (prefers-reduced-motion: reduce) { .official-btn-txt .roll { animation: none; } }
 
@@ -976,7 +976,12 @@ html.in-app #loginWrap {
     <div id="tabPublicSection" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
         <h2 style="font-size:16px;font-weight:600">🌐 公共项目</h2>
-        <button class="btn btn-primary" id="pubAddBtn" style="display:none" onclick="openPublicProjectModal()">＋ 发布公共项目</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
+          <a class="btn btn-outline btn-sm" href="http://8.137.100.55/#/projects" target="_blank" rel="noopener"
+             onclick="openOfficialProjects(event)"
+             style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap"><img src="logo.jpg" alt="九游撸盘社" style="width:18px;height:18px;border-radius:4px;object-fit:cover"><span class="official-btn-txt"><span class="roll"><span>九游撸盘社</span><span>点击跳转</span><span>九游撸盘社</span></span></span></a>
+          <button class="btn btn-primary" id="pubAddBtn" style="display:none;white-space:nowrap" onclick="openPublicProjectModal()">＋ 发布公共项目</button>
+        </div>
       </div>
       <div class="project-grid" id="publicProjectGrid"></div>
     </div>
@@ -999,7 +1004,6 @@ html.in-app #loginWrap {
            onclick="openOfficialMarket(event)"
            style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;margin-left:auto"><img src="logo.jpg" alt="九游撸盘社" style="width:18px;height:18px;border-radius:4px;object-fit:cover"><span class="official-btn-txt"><span class="roll"><span>九游撸盘社</span><span>点击跳转</span><span>九游撸盘社</span></span></span></a>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
       <div class="table-card">
         <div class="table-wrap">
           <table class="market-page-table">
@@ -2555,20 +2559,23 @@ function switchListTab(tab) {
   window.scrollTo(0, 0);
 }
 
-// 跳转官方市场价：先二次确认，再按环境打开（浏览器新标签 / APP 内当前页跳转）
+// 跳转九游撸盘社：先二次确认，再按环境打开（浏览器新标签 / APP 内当前页跳转）
 const OFFICIAL_MARKET_URL = 'http://8.137.100.55/#/market';
-function openOfficialMarket(e) {
+const OFFICIAL_PROJECTS_URL = 'http://8.137.100.55/#/projects';
+function openOfficialSite(e, url, purposeText) {
   if (e) e.preventDefault();
   confirmAction(
     '跳转九游撸盘社',
-    '即将离开项目跟踪管理平台，跳转到九游撸盘社查看市场价，是否继续？',
-    doOpenOfficialMarket,
+    '即将离开项目跟踪管理平台，跳转到九游撸盘社' + (purposeText || '') + '，是否继续？',
+    () => doOpenOfficialSite(url),
     '继续跳转', '', false
   );
 }
-function doOpenOfficialMarket() {
-  if (/JiyouApp/i.test(navigator.userAgent)) location.href = OFFICIAL_MARKET_URL;
-  else window.open(OFFICIAL_MARKET_URL, '_blank', 'noopener');
+function openOfficialMarket(e) { openOfficialSite(e, OFFICIAL_MARKET_URL, '查看市场价'); }
+function openOfficialProjects(e) { openOfficialSite(e, OFFICIAL_PROJECTS_URL, ''); }
+function doOpenOfficialSite(url) {
+  if (/JiyouApp/i.test(navigator.userAgent)) location.href = url;
+  else window.open(url, '_blank', 'noopener');
 }
 function updateListTabUI() {
   const tabs = ['public', 'mine', 'notice', 'market', 'me'];
