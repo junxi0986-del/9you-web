@@ -1409,6 +1409,10 @@ html.in-app #loginWrap {
         <textarea id="pubf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
       </div>
       <div class="form-group">
+        <label>项目本金 / 单个账户（可选，单位：元）</label>
+        <input type="number" id="pubf-principal" placeholder="如 99，用户添加账户时自动填入，可自行修改" min="0" step="0.01">
+      </div>
+      <div class="form-group">
         <label>项目 Logo（可选，显示在项目名旁）</label>
         <div style="display:flex;align-items:center;gap:10px">
           <img id="pubf-logo-preview" style="width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:none">
@@ -2291,6 +2295,14 @@ function syncProjectLogosFromPublic(){
   });
   return changed;
 }
+// 取公共项目设置的单个账户建议本金：优先个人项目保存时的快照，其次按项目名实时匹配同名公共项目
+// 覆盖「老项目在管理员设置本金后新增账户」也能自动带入的场景
+function projectSuggestPrincipal(p){
+  if (!p) return '';
+  if (p.suggestPrincipal !== undefined && p.suggestPrincipal !== null && p.suggestPrincipal !== '') return p.suggestPrincipal;
+  const pb = publicProjects.find(x => x.name === p.name);
+  return (pb && pb.principal !== null && pb.principal !== undefined && pb.principal !== '') ? pb.principal : '';
+}
 // 公共项目 Logo 上传/移除
 let pubfLogoData = '';  // 当前弹窗中的 logo base64 数据
 async function pubfLogoUpload(input){
@@ -2322,10 +2334,12 @@ function pubfLogoClear(){
 }
 
 // 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点）
-async function upsertPublicProject(id, name, remark, pinned = false, starred = false, logo = ''){
+async function upsertPublicProject(id, name, remark, pinned = false, starred = false, logo = '', principal = null){
+  const row = { id, name, remark, pinned, starred, logo, created_by: currentUserEmail };
+  row.principal = (principal !== null && principal !== '' && !isNaN(Number(principal)) && Number(principal) > 0) ? Number(principal) : null;
   const {error} = await sb
     .from("public_projects")
-    .upsert({ id, name, remark, pinned, starred, logo, created_by: currentUserEmail });
+    .upsert(row);
   return error;
 }
 async function deletePublicProjectRow(id){
@@ -3116,17 +3130,21 @@ async function saveProject() {
   if (!setError('pf-name', !name)) return;
 
   // 自动从公共项目获取 Logo：项目本身无 Logo 且公共项目有同名项目的 Logo 时自动获取
+  const pbMatch = publicProjects.find(x => x.name === name);
   if (!pfLogoData) {
-    const pb = publicProjects.find(x => x.name === name);
-    if (pb && pb.logo) pfLogoData = pb.logo;
+    if (pbMatch && pbMatch.logo) pfLogoData = pbMatch.logo;
   }
+  // 同名公共项目设置了单个账户本金时，保存为项目建议本金（添加账户自动填入，用户可改）
+  const suggestPrincipal = (pbMatch && pbMatch.principal !== null && pbMatch.principal !== undefined && pbMatch.principal !== '')
+    ? Number(pbMatch.principal) : null;
 
   if (id) {
     const p = getProject(id);
     p.name = name; p.remark = remark; p.logo = pfLogoData;
+    if (suggestPrincipal !== null) p.suggestPrincipal = suggestPrincipal;
     toast('项目已更新', 'success');
   } else {
-    const np = { id: uid(), name, remark, logo: pfLogoData, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
+    const np = { id: uid(), name, remark, logo: pfLogoData, suggestPrincipal, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
     projects.push(np);
     toast('项目已新增，可立即添加账户', 'success');
     await saveCloudData(true);
@@ -3862,6 +3880,9 @@ function renderPublicProjects() {
       </div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
       <div class="pc-remark" style="font-size:12px">发布者：九游</div>
+      ${(p.principal !== null && p.principal !== undefined && p.principal !== '')
+        ? `<div class="pc-remark" style="font-size:12px;font-weight:700">项目本金：${parseFloat(Number(p.principal).toFixed(2))}元</div>`
+        : ''}
       <div class="pc-foot" onclick="event.stopPropagation()" ${isAdmin ? '' : 'style="display:none"'}>
         <div class="pc-actions">
           <button class="btn btn-sm btn-outline" onclick="openPublicProjectModal('${p.id}')">编辑</button>
@@ -3885,6 +3906,7 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = p.remark || '';
     document.getElementById('pubf-pinned').checked = !!p.pinned;
     document.getElementById('pubf-starred').checked = !!p.starred;
+    document.getElementById('pubf-principal').value = (p.principal !== null && p.principal !== undefined && p.principal !== '') ? p.principal : '';
     // Logo 回显
     pubfLogoData = p.logo || '';
     const prev = document.getElementById('pubf-logo-preview');
@@ -3897,6 +3919,7 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-remark').value = '';
     document.getElementById('pubf-pinned').checked = false;
     document.getElementById('pubf-starred').checked = false;
+    document.getElementById('pubf-principal').value = '';
     pubfLogoData = '';
     const prev = document.getElementById('pubf-logo-preview');
     prev.src = ''; prev.style.display = 'none';
@@ -3914,10 +3937,13 @@ async function savePublicProject() {
   const remark = document.getElementById('pubf-remark').value.trim();
   const pinned = document.getElementById('pubf-pinned').checked;
   const starred = document.getElementById('pubf-starred').checked;
+  const principalRaw = document.getElementById('pubf-principal').value.trim();
 
   if (!setError('pubf-name', !name)) return;
+  // 本金可留空；填写时必须为大于 0 的数字
+  if (principalRaw && !(parseFloat(principalRaw) > 0)) { toast('项目本金需为大于 0 的数字，或留空', 'warn'); return; }
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData);
+  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData, principalRaw);
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
@@ -3974,7 +4000,9 @@ function openUserModal(id, forcedProjectId) {
     document.getElementById('uf-id').value = '';
     document.getElementById('uf-uid').value = '';
     document.getElementById('uf-name').value = '';
-    document.getElementById('uf-principal').value = '';
+    // 自动填入项目建议本金（来源于同名公共项目管理员设置），用户可自行修改
+    const targetProj = getProject(targetPid);
+    document.getElementById('uf-principal').value = targetProj ? projectSuggestPrincipal(targetProj) : '';
     document.getElementById('uf-date').value = todayStr();
     document.getElementById('uf-remark').value = '';
   }
@@ -3982,8 +4010,13 @@ function openUserModal(id, forcedProjectId) {
   document.getElementById('uf-uid').focus();
 }
 
-// 切换所属项目下拉（保留钩子，当前保存直接读取下拉值）
-function ufProjChanged() {}
+// 切换所属项目：新增账户时若本金框为空，自动带入新项目的建议本金（已手动填写则不覆盖）
+function ufProjChanged() {
+  const principalInput = document.getElementById('uf-principal');
+  if (!principalInput || principalInput.value.trim() !== '') return;
+  const p = getProject(document.getElementById('uf-project').value);
+  if (p) principalInput.value = projectSuggestPrincipal(p);
+}
 
 async function saveUser(keepOpen) {
   const projectId = document.getElementById('uf-project').value;
@@ -4018,10 +4051,10 @@ async function saveUser(keepOpen) {
   }
   await saveCloudData(true);
   if (keepOpen && oldIdxRaw === '') {
-    // 连续添加：清空输入保留所选项目，无需重复打开弹窗
+    // 连续添加：清空输入保留所选项目，无需重复打开弹窗；本金重新带入项目建议值
     document.getElementById('uf-uid').value = '';
     document.getElementById('uf-name').value = '';
-    document.getElementById('uf-principal').value = '';
+    document.getElementById('uf-principal').value = projectSuggestPrincipal(p);
     document.getElementById('uf-date').value = todayStr();
     document.getElementById('uf-remark').value = '';
     setError('uf-uid', false); setError('uf-principal', false); setError('uf-date', false);
