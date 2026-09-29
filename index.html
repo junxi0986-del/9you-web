@@ -5638,7 +5638,17 @@ function closeSplashAd() {
 }
 (function () {
   var ad = document.getElementById('splashAd');
-  if (!ad || ad.style.display === 'none') return;  // PC 端 CSS 已隐藏，不启动倒计时
+  // PC 端 CSS 已隐藏（含 !important），用计算样式判断；隐藏则不启动倒计时、不记录频控
+  if (!ad || window.getComputedStyle(ad).display === 'none') return;
+  // 频控：启动广告展示后 1 小时内再次打开不再触发
+  var SPLASH_GAP = 60 * 60 * 1000;  // 1 小时
+  var now = Date.now(), last = 0;
+  try { last = parseInt(localStorage.getItem('splashAdLastTs') || '0', 10) || 0; } catch (e) {}
+  if (last && now - last < SPLASH_GAP) {
+    ad.style.display = 'none';  // 距上次展示不足 1 小时，本次不显示
+    return;
+  }
+  try { localStorage.setItem('splashAdLastTs', String(now)); } catch (e) {}  // 本次展示立即记录时间戳
   // 前 2 秒强制展示，关闭按钮不显示
   var total = 5, force = 2, btn = document.getElementById('splashSkip');
   setTimeout(function () {
