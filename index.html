@@ -530,6 +530,17 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 #batchBar.show { display: flex; }
 #batchBar .cnt { color: #fff; font-size: 13px; }
 
+/* 九游撸盘社按钮：文字下→上推入轮播（按钮尺寸固定，仅文字滚动） */
+.official-btn-txt { display: inline-block; position: relative; width: 5em; height: 1.4em; line-height: 1.4em; overflow: hidden; vertical-align: middle; text-align: center; }
+.official-btn-txt .roll { display: block; animation: officialTxtRoll 4s cubic-bezier(.65,0,.35,1) infinite; will-change: transform; }
+.official-btn-txt .roll span { display: block; height: 1.4em; line-height: 1.4em; }
+@keyframes officialTxtRoll {
+  0%, 22% { transform: translateY(0); }
+  39%, 61% { transform: translateY(-1.4em); }
+  78%, 100% { transform: translateY(-2.8em); }
+}
+@media (prefers-reduced-motion: reduce) { .official-btn-txt .roll { animation: none; } }
+
 /* ========== 手机端适配（≤600px） ========== */
 @media (max-width: 600px) {
   /* 输入框字号≥16px，避免 iOS Safari 聚焦时自动放大页面 */
@@ -986,7 +997,7 @@ html.in-app #loginWrap {
         </h2>
         <a class="btn btn-outline btn-sm" href="http://8.137.100.55/#/market" target="_blank" rel="noopener"
            onclick="openOfficialMarket(event)"
-           style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;margin-left:auto"><img src="logo.jpg" alt="九游撸盘社" style="width:18px;height:18px;border-radius:4px;object-fit:cover">九游撸盘社</a>
+           style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;margin-left:auto"><img src="logo.jpg" alt="九游撸盘社" style="width:18px;height:18px;border-radius:4px;object-fit:cover"><span class="official-btn-txt"><span class="roll"><span>九游撸盘社</span><span>点击跳转</span><span>九游撸盘社</span></span></span></a>
       </div>
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">市场价仅作为参考展示，不参与平台内任何自动计算</div>
       <div class="table-card">
