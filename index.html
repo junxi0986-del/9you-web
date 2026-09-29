@@ -530,6 +530,11 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 #batchBar.show { display: flex; }
 #batchBar .cnt { color: #fff; font-size: 13px; }
 
+/* 列表数据加载中：圆圈旋转 + 文案（数据渲染后由各 render 函数替换消失） */
+.list-loading { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 16px; color: var(--text-secondary); font-size: 13px; }
+.list-loading .spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: listSpin .8s linear infinite; }
+@keyframes listSpin { to { transform: rotate(360deg); } }
+
 /* 九游撸盘社按钮：文字下→上推入轮播（按钮尺寸固定，仅文字滚动） */
 .official-btn-txt { display: inline-block; position: relative; width: 5.6em; height: 1.5em; line-height: 1.5em; overflow: hidden; vertical-align: middle; text-align: center; }
 .official-btn-txt .roll { display: block; animation: officialTxtRoll 4s cubic-bezier(.65,0,.35,1) infinite; will-change: transform; }
@@ -969,7 +974,7 @@ html.in-app #loginWrap {
           <button class="btn btn-primary" onclick="openProjectModal()">＋ 新增项目</button>
         </div>
       </div>
-      <div class="project-grid" id="projectGrid"></div>
+      <div class="project-grid" id="projectGrid"><div class="list-loading"><div class="spinner"></div>加载中...</div></div>
     </div>
 
     <!-- 公共项目页签：全员可见仅浏览；管理员可发布/编辑/删除 -->
@@ -983,7 +988,7 @@ html.in-app #loginWrap {
           <button class="btn btn-primary" id="pubAddBtn" style="display:none;white-space:nowrap" onclick="openPublicProjectModal()">＋ 发布公共项目</button>
         </div>
       </div>
-      <div class="project-grid" id="publicProjectGrid"></div>
+      <div class="project-grid" id="publicProjectGrid"><div class="list-loading"><div class="spinner"></div>加载中...</div></div>
     </div>
 
     <!-- 公告页签：全员可见；管理员在「我的」页管理 -->
@@ -1008,7 +1013,7 @@ html.in-app #loginWrap {
         <div class="table-wrap">
           <table class="market-page-table">
             <thead><tr><th style="width:110px">日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th></tr></thead>
-            <tbody id="marketBody"></tbody>
+            <tbody id="marketBody"><tr><td colspan="5" style="padding:0;border:none"><div class="list-loading"><div class="spinner"></div>加载中...</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -2157,7 +2162,12 @@ async function afterLogin(user){
   // 记住已登录邮箱，下次刷新可立即切主界面（无需等网络验证）
   try { localStorage.setItem('jy_last_email', currentUserEmail); } catch(e){}
   // 优化：四个查询完全独立，一次性并行发起，将 ~900ms 串行等待缩短为 ~300ms
-  await Promise.all([loadCloudData(), loadPublicProjects(), loadAnnouncements(), loadMarketPrices()]);
+  // allSettled：单个查询失败不影响其他模块渲染（各 load 内部已处理错误回退为空数据）
+  await Promise.allSettled([loadCloudData(), loadPublicProjects(), loadAnnouncements(), loadMarketPrices()]);
+  // 自动补齐个人项目 Logo：与同名公共项目 Logo 匹配，无需用户手动编辑；有变更静默写回云端
+  if (syncProjectLogosFromPublic()) {
+    try { await saveCloudData(true); } catch(e) {}
+  }
 }
 
 // 无感登录优化：从 localStorage 缓存的会话中即时提取用户信息，秒切主界面
@@ -2270,6 +2280,17 @@ async function loadPublicProjects(){
     return;
   }
   publicProjects = data || [];
+}
+// 个人项目 Logo 自动同步：项目本身无 Logo 且同名公共项目有 Logo 时自动补齐，无需用户手动编辑保存
+// 仅补空值，不覆盖用户已自定义的 Logo；返回是否有变更（调用方据此静默写回云端）
+function syncProjectLogosFromPublic(){
+  let changed = false;
+  (projects || []).forEach(p => {
+    if (p.logo) return;  // 已有 Logo（含用户自定义）不覆盖
+    const pb = publicProjects.find(x => x.name === p.name);
+    if (pb && pb.logo) { p.logo = pb.logo; changed = true; }
+  });
+  return changed;
 }
 // 公共项目 Logo 上传/移除
 let pubfLogoData = '';  // 当前弹窗中的 logo base64 数据
@@ -3901,6 +3922,11 @@ async function savePublicProject() {
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
+  // 公共项目 Logo 更新后，立即给管理员名下同名且无 Logo 的个人项目自动补齐
+  if (syncProjectLogosFromPublic()) {
+    try { await saveCloudData(true); } catch(e) {}
+    renderProjectGrid();
+  }
   closeModal('publicProjectModal');
   renderPublicProjects();
   toast(id ? '公共项目已更新' : '公共项目已发布', 'success');
