@@ -139,30 +139,81 @@ img { max-width: 100%; height: auto; }
 .hamburger.active span:nth-child(2) { opacity: 0; }
 .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
-.mobile-menu {
-  display: none; position: fixed;
-  top: 60px; left: 0; right: 0;
+/* ===== 移动端侧边导航（抽屉 + 悬浮触发按钮） ===== */
+.side-trigger {
+  display: none; position: fixed; right: 16px; bottom: 20px; z-index: 97;
+  width: 48px; height: 48px; border-radius: 16px;
   background: var(--nav-bg);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 24px 24px;
-  z-index: 99;
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0,0,0,.16);
 }
-.mobile-menu.open { display: block; }
-.mobile-menu a {
-  display: block; padding: 14px 0;
-  font-size: 16px; font-weight: 500;
+.side-trigger span { width: 20px; }
+.side-backdrop {
+  position: fixed; inset: 0; z-index: 198;
+  background: rgba(5,8,18,.5);
+  opacity: 0; visibility: hidden;
+  transition: opacity .3s ease, visibility .3s ease;
+}
+.side-backdrop.open { opacity: 1; visibility: visible; }
+.side-nav {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 200;
+  width: min(80vw, 300px);
+  display: flex; flex-direction: column;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -20px 0 60px rgba(0,0,0,.22);
+  transform: translateX(101%);
+  visibility: hidden;
+  transition: transform .32s cubic-bezier(.4,0,.2,1), visibility .32s;
+  overflow-y: auto;
+  -webkit-overscroll-behavior: contain; overscroll-behavior: contain;
+}
+.side-nav.open { transform: translateX(0); visibility: visible; }
+.side-nav-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.side-close {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 16px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.side-close:hover { color: var(--text); border-color: var(--brand); }
+.side-links { display: flex; flex-direction: column; padding: 6px 0; }
+.side-links a {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 2px; font-size: 16px; font-weight: 500;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
-  text-decoration: none;
 }
-.mobile-menu a:last-child { border-bottom: none; }
-.mobile-menu a:hover { color: var(--brand); }
-.mobile-menu .mobile-cta {
-  display: block; margin-top: 16px;
-  text-align: center;
+.side-links a:last-child { border-bottom: none; }
+.side-links a:hover { color: var(--brand); }
+.side-links a::after {
+  content: '\203A'; font-size: 18px; color: var(--text-muted);
 }
+.side-foot { margin-top: auto; padding-top: 18px; display: grid; gap: 12px; }
+.side-theme {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-alt); color: var(--text);
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: all var(--transition);
+}
+.side-theme:hover { border-color: var(--brand); }
+.side-theme .theme-icon { font-size: 16px; }
+.side-theme .theme-state {
+  margin-left: auto; font-size: 12px; font-weight: 400;
+  color: var(--text-muted);
+}
+.side-cta { width: 100%; color: #fff; }
+body.side-open { overflow: hidden; }
 
 .theme-toggle {
   width: 40px; height: 40px; border-radius: 10px;
@@ -271,7 +322,7 @@ img { max-width: 100%; height: auto; }
   display: flex; justify-content: center;
 }
 .hero-phone {
-  width: 260px;
+  width: 230px;
   border-radius: 32px;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.1);
@@ -349,6 +400,120 @@ img { max-width: 100%; height: auto; }
 }
 .feature-card p {
   font-size: 14px; color: var(--text-secondary); line-height: 1.7;
+}
+
+/* ===== Screens tour ===== */
+.screens-section { background: var(--bg); }
+.screen-row {
+  display: grid; grid-template-columns: 1.42fr 1fr;
+  gap: 48px; align-items: center; margin-top: 56px;
+}
+.screen-row.rev { grid-template-columns: 1fr 1.42fr; }
+.screen-row.rev .screen-shot { order: 2; }
+.screen-row.rev .screen-text { order: 1; }
+.shot-link { display: block; }
+.shot-hint {
+  display: none; margin-top: 10px;
+  text-align: center; font-size: 12px; color: var(--text-muted);
+}
+.browser-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--card-shadow-hover);
+}
+.browser-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+}
+.browser-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+.browser-bar .dot.r { background: #ff5f57; }
+.browser-bar .dot.y { background: #febc2e; }
+.browser-bar .dot.g { background: #28c840; }
+.browser-url {
+  margin-left: 10px; padding: 3px 12px;
+  font-size: 12px; color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+}
+.browser-frame img { display: block; width: 100%; height: auto; }
+.screen-tag {
+  display: inline-block; margin-bottom: 14px;
+  padding: 4px 12px; border-radius: 100px;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em;
+  color: var(--brand);
+  background: rgba(74,108,247,.08);
+  border: 1px solid rgba(74,108,247,.18);
+}
+.screen-text h3 {
+  font-size: 23px; font-weight: 700; line-height: 1.35;
+  letter-spacing: -.01em; margin-bottom: 12px;
+}
+.screen-text > p {
+  font-size: 15px; color: var(--text-secondary);
+  line-height: 1.75; margin-bottom: 18px;
+}
+.screen-list { list-style: none; display: grid; gap: 11px; }
+.screen-list li {
+  position: relative; padding-left: 20px;
+  font-size: 14px; color: var(--text-secondary); line-height: 1.65;
+}
+.screen-list li::before {
+  content: ''; position: absolute; left: 0; top: 8px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand); opacity: .45;
+}
+.screen-list li b { color: var(--text); font-weight: 600; }
+
+/* ===== Poster band（深色横幅，与海报自身配色呼应） ===== */
+.poster-section {
+  position: relative; overflow: hidden;
+  background: linear-gradient(165deg, #050a1c 0%, #0d1739 48%, #080e28 100%);
+}
+.poster-section::before {
+  content: ''; position: absolute;
+  top: -140px; left: 50%; transform: translateX(-50%);
+  width: 620px; height: 420px;
+  background: radial-gradient(ellipse, rgba(56,224,255,.20) 0%, transparent 68%);
+  pointer-events: none;
+}
+.poster-inner {
+  display: grid; grid-template-columns: 1fr .78fr;
+  gap: 56px; align-items: center;
+  position: relative; z-index: 1;
+}
+.poster-copy .section-label { color: #5fd6ff; }
+.poster-copy .section-label::before { background: #5fd6ff; }
+.poster-copy .section-title { color: #fff; }
+.poster-copy > p {
+  font-size: 16px; color: rgba(255,255,255,.72); line-height: 1.75;
+}
+.poster-list { list-style: none; margin-top: 22px; display: grid; gap: 12px; }
+.poster-list li {
+  position: relative; padding-left: 20px;
+  font-size: 14px; color: rgba(255,255,255,.72); line-height: 1.7;
+}
+.poster-list li::before {
+  content: ''; position: absolute; left: 0; top: 9px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #5fd6ff; opacity: .75;
+}
+.poster-list li b { color: #fff; font-weight: 600; }
+.poster-frame {
+  max-width: 440px; margin: 0 auto;
+  border-radius: 24px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 32px 80px rgba(0,0,0,.55);
+}
+.poster-frame a { display: block; }
+.poster-frame img { display: block; width: 100%; height: auto; }
+.poster-hint {
+  margin-top: 14px; text-align: center;
+  font-size: 12px; color: rgba(255,255,255,.5);
 }
 
 /* ===== Tech ===== */
@@ -556,9 +721,16 @@ img { max-width: 100%; height: auto; }
   .features-grid { grid-template-columns: repeat(2, 1fr); }
   .tech-grid { grid-template-columns: repeat(2, 1fr); }
   .usecases-grid { grid-template-columns: 1fr; }
+  .screen-row { grid-template-columns: 1fr; gap: 24px; margin-top: 40px; }
+  .screen-row.rev { grid-template-columns: 1fr; }
+  .shot-hint { display: block; }
+  /* 单列时图片始终在上，取消交错顺序 */
+  .screen-row.rev .screen-shot { order: 0; }
+  .screen-row.rev .screen-text { order: 0; }
+  .poster-inner { grid-template-columns: 1fr; gap: 36px; }
   .nav-links { display: none; }
-  .nav-actions .btn { display: none; }
-  .hamburger { display: flex; }
+  .nav-actions { display: none; }
+  .side-trigger { display: flex; }
   .cta-box { padding: 48px 28px; }
   .section { padding: 72px 0; }
   .container { padding: 0 20px; }
@@ -576,7 +748,9 @@ img { max-width: 100%; height: auto; }
   .nav-inner { height: 54px; }
   .nav-brand { font-size: 14px; gap: 6px; }
   .nav-brand img { width: 26px; height: 26px; }
-  .theme-toggle { width: 36px; height: 36px; font-size: 16px; }
+  .side-trigger { right: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .side-nav { width: min(82vw, 288px); padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .side-links a { padding: 13px 2px; font-size: 15px; }
 
   /* Hero */
   .hero { padding: 100px 0 48px; }
@@ -587,7 +761,7 @@ img { max-width: 100%; height: auto; }
   .hero-stats { gap: 20px; flex-wrap: wrap; justify-content: center; }
   .hero-stat-value { font-size: 20px; }
   .hero-stat-label { font-size: 12px; }
-  .hero-phone { width: 200px; border-radius: 28px; }
+  .hero-phone { width: 190px; border-radius: 28px; }
   .hero-phone img { border-radius: 25px; }
   .hero-badge { font-size: 12px; padding: 5px 12px; margin-bottom: 16px; }
 
@@ -605,9 +779,30 @@ img { max-width: 100%; height: auto; }
   .tech-card h4 { font-size: 14px; }
   .tech-card p { font-size: 12px; }
 
+  /* Screens tour */
+  .screen-row { gap: 16px; margin-top: 30px; }
+  .browser-bar { padding: 8px 11px; gap: 5px; }
+  .browser-bar .dot { width: 8px; height: 8px; }
+  .browser-url { margin-left: 6px; font-size: 11px; padding: 2px 9px; }
+  .browser-frame { border-radius: 12px; }
+  .screen-tag { font-size: 11px; padding: 3px 10px; margin-bottom: 10px; }
+  .screen-text h3 { font-size: 19px; margin-bottom: 9px; }
+  .screen-text > p { font-size: 14px; margin-bottom: 14px; }
+  .screen-list { gap: 9px; }
+  .screen-list li { font-size: 13px; padding-left: 17px; line-height: 1.6; }
+  .screen-list li::before { top: 7px; width: 5px; height: 5px; }
+
+  /* Poster */
+  .poster-section::before { width: 420px; height: 300px; top: -110px; }
+  .poster-inner { gap: 26px; }
+  .poster-copy > p { font-size: 14px; }
+  .poster-list { margin-top: 16px; gap: 10px; }
+  .poster-list li { font-size: 13px; padding-left: 17px; }
+  .poster-frame { border-radius: 18px; }
+  .poster-hint { font-size: 11px; }
+
   /* Use Cases */
-  .usecases-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 32px; }
-  .usecase-card { padding: 18px 16px; border-radius: 16px; gap: 14px; }
+  .usecases-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 32px; }  .usecase-card { padding: 18px 16px; border-radius: 16px; gap: 14px; }
   .usecase-num { width: 38px; height: 38px; font-size: 15px; border-radius: 10px; flex-shrink: 0; }
   .usecase-card h3 { font-size: 15px; margin-bottom: 6px; }
   .usecase-card p { font-size: 13px; }
@@ -661,26 +856,47 @@ img { max-width: 100%; height: auto; }
     </a>
     <ul class="nav-links">
       <li><a href="#features">功能</a></li>
+      <li><a href="#screens">界面</a></li>
       <li><a href="#tech">技术</a></li>
       <li><a href="#usecases">场景</a></li>
       <li><a href="#changelog">更新日志</a></li>
     </ul>
     <div class="nav-actions">
-      <button class="theme-toggle" id="themeToggle" aria-label="切换主题"></button>
+      <button class="theme-toggle" id="themeToggle" aria-label="切换主题"><span class="theme-icon"></span></button>
       <a href="https://9you.help/" class="btn btn-primary" target="_blank">立即体验</a>
-      <button class="hamburger" id="hamburger" aria-label="菜单">
-        <span></span><span></span><span></span>
-      </button>
     </div>
   </div>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <a href="#features">功能</a>
-  <a href="#tech">技术</a>
-  <a href="#usecases">场景</a>
-  <a href="#changelog">更新日志</a>
-  <a href="https://9you.help/" class="mobile-cta btn btn-primary" target="_blank">立即体验</a>
-</div>
+
+<!-- 移动端：悬浮按钮 + 侧边抽屉导航 -->
+<button class="hamburger side-trigger" id="sideTrigger" aria-label="打开菜单" aria-controls="sideNav" aria-expanded="false">
+  <span></span><span></span><span></span>
+</button>
+<div class="side-backdrop" id="sideBackdrop"></div>
+<aside class="side-nav" id="sideNav" aria-label="站点导航">
+  <div class="side-nav-head">
+    <a href="#" class="nav-brand">
+      <img src="logo.jpg" alt="Logo">
+      <span>项目跟踪管理平台</span>
+    </a>
+    <button class="side-close" id="sideClose" aria-label="关闭菜单">✕</button>
+  </div>
+  <nav class="side-links">
+    <a href="#features">功能</a>
+    <a href="#screens">界面</a>
+    <a href="#tech">技术</a>
+    <a href="#usecases">场景</a>
+    <a href="#changelog">更新日志</a>
+  </nav>
+  <div class="side-foot">
+    <button class="side-theme" id="themeToggleMobile">
+      <span class="theme-icon"></span>
+      <span>深色模式</span>
+      <span class="theme-state" id="themeState">已关闭</span>
+    </button>
+    <a href="https://9you.help/" class="side-cta btn btn-primary" target="_blank">立即体验</a>
+  </div>
+</aside>
 
 <!-- Hero -->
 <section class="hero">
@@ -729,7 +945,7 @@ img { max-width: 100%; height: auto; }
         </div>
       </div>
       <div class="hero-phone">
-        <img src="icon-512.png" alt="项目跟踪管理平台">
+        <img src="shots/mobile-public.png" alt="项目跟踪管理平台手机端公共项目广场界面" width="490" height="1065">
       </div>
       <div class="hero-float-card">
         <div class="icon" style="background:rgba(74,108,247,.1);"></div>
@@ -795,6 +1011,73 @@ img { max-width: 100%; height: auto; }
         <div class="feature-icon">📱</div>
         <h3>Android 原生 APP</h3>
         <p>WebView 壳打包 APK，支持文件上传、长按保存图片、沉浸式状态栏、APP 内自动更新检测。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Screens tour -->
+<section class="section screens-section" id="screens">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-label">界面一览</div>
+      <h2 class="section-title">真实界面，逐项拆解</h2>
+      <p class="section-desc mx-auto">以下截图来自线上环境的真实使用界面，非概念设计。看清每一处细节，再决定要不要用它管理你的项目。</p>
+    </div>
+
+    <div class="screen-row">
+      <div class="screen-shot reveal">
+        <a class="shot-link" href="shots/desktop-projects.png" target="_blank" rel="noopener" aria-label="查看我的项目页大图">
+          <div class="browser-frame">
+            <div class="browser-bar">
+              <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+              <span class="browser-url">9you.help · 我的项目</span>
+            </div>
+            <img src="shots/desktop-projects.png" alt="电脑端我的项目页：回本统计卡片与项目列表" width="1520" height="1154" loading="lazy">
+          </div>
+        </a>
+        <div class="shot-hint">点击图片查看原始分辨率大图</div>
+      </div>
+      <div class="screen-text">
+        <span class="screen-tag">PC 端 · 项目总览</span>
+        <h3>回本进度，一眼看完全貌</h3>
+        <p>顶部六张统计卡把散落在各个项目的数字汇成可决策的结论：总投入、已回本、待回本、已回本账户数、利润账户数与整体进度，不用打开计算器。</p>
+        <ul class="screen-list">
+          <li><b>红绿双色状态</b>：未回本账户显示「还差 ¥xxxx」，已回本显示「利润 ¥xxx」，盈亏状态直接写在行内。</li>
+          <li><b>账户完成度徽标</b>：如 0/2、1/1，直观反映该项目下多个账户的回本进度。</li>
+          <li><b>智能排序</b>：默认按紧急度排列，最接近回本或亏损最大的项目永远排在第一屏。</li>
+          <li><b>快捷录入</b>：新增回本金额、生成账单、新增项目三个入口常驻列表上方，记录一次收益只需三步。</li>
+          <li><b>置顶与重点标记</b>：当前主推项目可置顶、标星，避免在长列表里翻找。</li>
+          <li><b>公告横幅</b>：管理员发布的市场与平台动态直接展示在页面顶部。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="screen-row rev">
+      <div class="screen-shot reveal">
+        <a class="shot-link" href="shots/desktop-market.png" target="_blank" rel="noopener" aria-label="查看市场价页大图">
+          <div class="browser-frame">
+            <div class="browser-bar">
+              <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+              <span class="browser-url">9you.help · 市场价</span>
+            </div>
+            <img src="shots/desktop-market.png" alt="电脑端市场价页：每日行情表格与双模式计价" width="1516" height="825" loading="lazy">
+          </div>
+        </a>
+        <div class="shot-hint">点击图片查看原始分辨率大图</div>
+      </div>
+      <div class="screen-text">
+        <span class="screen-tag">PC 端 · 每日行情</span>
+        <h3>市场价台账，把报价变成可追溯的数据</h3>
+        <p>行情按日期倒序逐日成行，当天价格自动浮在首页横幅。计价方式支持「按份」与「按数量」两种模式，同一张表能覆盖不同结算口径的项目。</p>
+        <ul class="screen-list">
+          <li><b>按份计价</b>：¥6.20 / 1 份，或直接填写「2100 个 = 10 元」，单价自动折算到小数点后 3 位。</li>
+          <li><b>项目Logo 归集</b>：每行带项目标识，多项目并行时不会看串行。</li>
+          <li><b>一键复制出货 ID</b>：点击行内 ID 即复制到剪贴板，粘贴给上下游无需手抄。</li>
+          <li><b>备注约束随行</b>：「≥5 起」「暂停收货」等限制条件与价格同格显示，避免按过期规则出货。</li>
+          <li><b>外部行情入口</b>：行内直达关联社群，参考价来源可查。</li>
+          <li><b>管理员维护</b>：市场价管理仅对管理员开放，普通用户只读，数据来源单一可信。</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -980,6 +1263,33 @@ img { max-width: 100%; height: auto; }
   </div>
 </section>
 
+<!-- Poster band -->
+<section class="section poster-section">
+  <div class="container poster-inner">
+    <div class="poster-copy">
+      <div class="section-label">全端体验</div>
+      <h2 class="section-title">PC、手机、APP<br>一张图看懂</h2>
+      <p>同一套云端数据，三种打开方式。浏览器、手机浏览器与 Android 客户端读取同一个 Supabase 数据库，在电脑上录入的一笔回本，手机刷新即见。</p>
+      <ul class="poster-list">
+        <li><b>手机端双列卡片流</b>：我的项目、公共广场、群聊、市场价、我的五大区块收进底部导航，单手可达。</li>
+        <li><b>液态玻璃导航</b>：移动端底部导航采用毛玻璃悬浮样式，跟随页面滚动保持可见。</li>
+        <li><b>Android 原生 APP</b>：支持文件上传、长按保存图片、沉浸式状态栏与内置更新检测。</li>
+        <li><b>验证码免密登录</b>：无需记忆密码，验证码直接进入，换设备登录零成本。</li>
+        <li><b>分享码 + JSON 备份</b>：项目数据可整份分享给同伴，也可随时导出留档、一键还原。</li>
+        <li><b>深色模式</b>：跟随系统自动切换，也可手动锁定，夜间记录不刺眼。</li>
+      </ul>
+    </div>
+    <div class="poster-visual reveal">
+      <div class="poster-frame">
+        <a href="poster.webp" target="_blank" rel="noopener" aria-label="查看高清功能海报">
+          <img src="poster.webp" alt="项目跟踪管理平台功能海报：云端永久存储、多设备实时同步、验证码免密登录、公共项目广场、项目群聊、市场价参考" width="1100" height="1650" loading="lazy">
+        </a>
+      </div>
+      <div class="poster-hint">点击或长按保存海报，可分享到群聊与朋友圈</div>
+    </div>
+  </div>
+</section>
+
 <!-- CTA -->
 <section class="cta-section">
   <div class="container">
@@ -1006,39 +1316,63 @@ img { max-width: 100%; height: auto; }
 </footer>
 
 <script>
-// Theme toggle
+// Theme toggle（顶部按钮与侧栏开关共用一套状态）
 (function() {
-  var btn = document.getElementById('themeToggle');
   var html = document.documentElement;
 
-  function updateIcon() {
-    btn.textContent = html.classList.contains('dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  function paint() {
+    var dark = html.classList.contains('dark');
+    document.querySelectorAll('.theme-icon').forEach(function(el) {
+      el.textContent = dark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    });
+    var state = document.getElementById('themeState');
+    if (state) state.textContent = dark ? '已开启' : '已关闭';
   }
 
-  btn.addEventListener('click', function() {
+  function toggle() {
     html.classList.toggle('dark');
     localStorage.setItem('jy_theme', html.classList.contains('dark') ? 'dark' : 'light');
-    updateIcon();
+    paint();
+  }
+
+  ['themeToggle', 'themeToggleMobile'].forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', toggle);
   });
 
-  updateIcon();
+  paint();
 })();
 
-// Mobile menu
+// 侧边抽屉导航
 (function() {
-  var hamburger = document.getElementById('hamburger');
-  var mobileMenu = document.getElementById('mobileMenu');
+  var trigger = document.getElementById('sideTrigger');
+  var drawer = document.getElementById('sideNav');
+  var backdrop = document.getElementById('sideBackdrop');
+  var closeBtn = document.getElementById('sideClose');
 
-  hamburger.addEventListener('click', function() {
-    hamburger.classList.toggle('active');
-    mobileMenu.classList.toggle('open');
+  function setOpen(open) {
+    drawer.classList.toggle('open', open);
+    backdrop.classList.toggle('open', open);
+    trigger.classList.toggle('active', open);
+    document.body.classList.toggle('side-open', open);
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    trigger.setAttribute('aria-label', open ? '关闭菜单' : '打开菜单');
+  }
+
+  trigger.addEventListener('click', function() {
+    setOpen(!drawer.classList.contains('open'));
   });
-
-  mobileMenu.querySelectorAll('a').forEach(function(a) {
-    a.addEventListener('click', function() {
-      hamburger.classList.remove('active');
-      mobileMenu.classList.remove('open');
-    });
+  closeBtn.addEventListener('click', function() { setOpen(false); });
+  backdrop.addEventListener('click', function() { setOpen(false); });
+  drawer.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() { setOpen(false); });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') setOpen(false);
+  });
+  // 视口放大回桌面布局时收起抽屉，避免残留遮罩
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 900) setOpen(false);
   });
 })();
 
@@ -1061,10 +1395,14 @@ img { max-width: 100%; height: auto; }
 // Smooth scroll for nav links
 document.querySelectorAll('a[href^="#"]').forEach(function(a) {
   a.addEventListener('click', function(e) {
-    var target = document.querySelector(this.getAttribute('href'));
+    var hash = this.getAttribute('href');
+    // 纯 "#"（Logo 链接）不是合法选择器，交给默认行为回到页顶
+    if (hash.length < 2) return;
+    var target = document.querySelector(hash);
     if (target) {
       e.preventDefault();
-      var offset = 60;
+      var nav = document.querySelector('.nav');
+      var offset = nav ? nav.offsetHeight : 60;
       var top = target.getBoundingClientRect().top + window.pageYOffset - offset;
       window.scrollTo({ top: top, behavior: 'smooth' });
     }
