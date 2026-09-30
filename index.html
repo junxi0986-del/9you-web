@@ -918,6 +918,10 @@ html.in-app #loginWrap {
         <span>我已阅读并同意<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('user')" style="color:var(--primary)">《用户协议》</a>和<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('privacy')" style="color:var(--primary)">《隐私政策》</a></span>
       </label>
     </div>
+    <!-- 关于我们：卡片底部文字链，二次确认后跳转官方宣传站 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
+      <a href="javascript:void(0)" onclick="event.preventDefault();openAboutSite()" style="display:inline-block;padding:6px 12px;font-size:12px;color:var(--primary);text-decoration:none">关于我们</a>
+    </div>
   </div>
 </div>
 
@@ -1122,6 +1126,17 @@ html.in-app #loginWrap {
             </div>
           </div>
           <button class="btn btn-primary" style="flex-shrink:0" onclick="openIosGuideModal()">查看安装教程</button>
+        </div>
+      </div>
+
+      <!-- 关于我们：二次确认后跳转官方宣传站 -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">ℹ️ 关于我们</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">了解平台功能特色与最新动态，前往官方宣传网站</div>
+          </div>
+          <button class="btn btn-outline" style="flex-shrink:0" onclick="openAboutSite()">关于我们</button>
         </div>
       </div>
 
@@ -2597,6 +2612,21 @@ function openOfficialProjects(e) { openOfficialSite(e, OFFICIAL_PROJECTS_URL, ''
 function doOpenOfficialSite(url) {
   if (/JiyouApp/i.test(navigator.userAgent)) location.href = url;
   else window.open(url, '_blank', 'noopener');
+}
+
+// 跳转官方宣传站（关于我们）：先二次确认，再按环境打开（浏览器新标签 / APP 内当前页跳转）
+const PROMO_SITE_URL = 'https://jiuyou-promo-wpzog9ug6ca.qoder.zone/';
+function openAboutSite() {
+  confirmAction(
+    '关于我们',
+    '即将离开项目跟踪管理平台，前往官方宣传网站了解功能特色与最新动态，是否继续？',
+    doOpenPromoSite,
+    '继续跳转', '', false
+  );
+}
+function doOpenPromoSite() {
+  if (/JiyouApp/i.test(navigator.userAgent)) location.href = PROMO_SITE_URL;
+  else window.open(PROMO_SITE_URL, '_blank', 'noopener');
 }
 function updateListTabUI() {
   const tabs = ['public', 'mine', 'notice', 'market', 'me'];
