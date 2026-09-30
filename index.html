@@ -1066,17 +1066,6 @@ html.in-app #loginWrap {
         </div>
       </div>
 
-      <!-- 关于我们：二次确认后跳转官方宣传站 -->
-      <div class="table-card">
-        <div class="me-row">
-          <div style="min-width:0">
-            <h2 style="font-size:15px;font-weight:600">ℹ️ 关于我们</h2>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">了解平台功能特色与最新动态，前往官方宣传网站</div>
-          </div>
-          <button class="btn btn-outline" style="flex-shrink:0" onclick="openAboutSite()">关于我们</button>
-        </div>
-      </div>
-
       <!-- 数据管理（全员可见）：分享项目 + 清空本地全部项目数据 -->
       <div class="table-card">
         <div class="me-row">
@@ -1123,6 +1112,17 @@ html.in-app #loginWrap {
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">退出当前账号，退出后需重新登录才能查看项目数据</div>
           </div>
           <button class="btn btn-danger" style="flex-shrink:0" onclick="confirmAction('退出登录','确定要退出当前账号吗？退出后需重新登录才能查看项目数据。',supabaseLogout,'退出登录')">退出登录</button>
+        </div>
+      </div>
+
+      <!-- 关于我们：二次确认后跳转官方宣传站（置于最下方） -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">ℹ️ 关于我们</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">了解平台功能特色与最新动态，前往官方宣传网站</div>
+          </div>
+          <button class="btn btn-outline" style="flex-shrink:0" onclick="openAboutSite()">关于我们</button>
         </div>
       </div>
     </div>
@@ -1429,6 +1429,10 @@ html.in-app #loginWrap {
       <div class="form-group">
         <label>项目备注（可选）</label>
         <textarea id="pubf-remark" placeholder="补充说明信息，可留空" maxlength="200"></textarea>
+      </div>
+      <div class="form-group">
+        <label>发布者（默认：九游）</label>
+        <input type="text" id="pubf-publisher" placeholder="留空则显示为九游" maxlength="30">
       </div>
       <div class="form-group">
         <label>项目本金 / 单个账户（可选，单位：元）</label>
@@ -2356,9 +2360,11 @@ function pubfLogoClear(){
 }
 
 // 发布 / 更新公共项目（新增时 created_at 由数据库默认生成；pinned=置顶，starred=星标重点）
-async function upsertPublicProject(id, name, remark, pinned = false, starred = false, logo = '', principal = null){
+async function upsertPublicProject(id, name, remark, pinned = false, starred = false, logo = '', principal = null, publisher = ''){
   const row = { id, name, remark, pinned, starred, logo, created_by: currentUserEmail };
   row.principal = (principal !== null && principal !== '' && !isNaN(Number(principal)) && Number(principal) > 0) ? Number(principal) : null;
+  // 发布者：留空回退为默认「九游」
+  row.publisher = (publisher && publisher.trim()) ? publisher.trim() : '九游';
   const {error} = await sb
     .from("public_projects")
     .upsert(row);
@@ -3965,7 +3971,7 @@ function renderPublicProjects() {
           : '🌐'} ${escapeHtml(p.name)}${badges}</div>
       </div>
       <div class="pc-remark">${p.remark ? escapeHtml(p.remark) : '<span style="opacity:.5">暂无备注</span>'}</div>
-      <div class="pc-remark" style="font-size:12px">发布者：九游</div>
+      <div class="pc-remark" style="font-size:12px">发布者：${escapeHtml(p.publisher || '九游')}</div>
       ${(p.principal !== null && p.principal !== undefined && p.principal !== '')
         ? `<div class="pc-remark" style="font-size:12px;font-weight:700">项目本金：${parseFloat(Number(p.principal).toFixed(2))}元</div>`
         : ''}
@@ -3990,6 +3996,8 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-id').value = p.id;
     document.getElementById('pubf-name').value = p.name;
     document.getElementById('pubf-remark').value = p.remark || '';
+    // 发布者回显：老数据无字段或为默认九游时显示九游
+    document.getElementById('pubf-publisher').value = p.publisher || '九游';
     document.getElementById('pubf-pinned').checked = !!p.pinned;
     document.getElementById('pubf-starred').checked = !!p.starred;
     document.getElementById('pubf-principal').value = (p.principal !== null && p.principal !== undefined && p.principal !== '') ? p.principal : '';
@@ -4003,6 +4011,7 @@ function openPublicProjectModal(id) {
     document.getElementById('pubf-id').value = '';
     document.getElementById('pubf-name').value = '';
     document.getElementById('pubf-remark').value = '';
+    document.getElementById('pubf-publisher').value = '九游';
     document.getElementById('pubf-pinned').checked = false;
     document.getElementById('pubf-starred').checked = false;
     document.getElementById('pubf-principal').value = '';
@@ -4021,6 +4030,7 @@ async function savePublicProject() {
   const id = document.getElementById('pubf-id').value;
   const name = document.getElementById('pubf-name').value.trim();
   const remark = document.getElementById('pubf-remark').value.trim();
+  const publisher = document.getElementById('pubf-publisher').value.trim();
   const pinned = document.getElementById('pubf-pinned').checked;
   const starred = document.getElementById('pubf-starred').checked;
   const principalRaw = document.getElementById('pubf-principal').value.trim();
@@ -4029,7 +4039,7 @@ async function savePublicProject() {
   // 本金可留空；填写时必须为大于 0 的数字
   if (principalRaw && !(parseFloat(principalRaw) > 0)) { toast('项目本金需为大于 0 的数字，或留空', 'warn'); return; }
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData, principalRaw);
+  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData, principalRaw, publisher);
   if (error) return toast('保存失败：' + error.message, 'error');
 
   await loadPublicProjects();
