@@ -744,8 +744,11 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .me-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* 「我的」页卡片容器：flex 纵向布局 + 统一间距（JS 切换 display 时回退到此规则） */
 #tabMeSection { display: flex; flex-direction: column; gap: 12px; }
-/* 管理员工具容器（公告/市场价/群聊管理）：内部卡片同样统一间距 */
-#meAdminTools { display: flex; flex-direction: column; gap: 12px; }
+/* 平台管理独立页（仅管理员）：顶栏标题居中、返回按钮居左；内部卡片统一间距 */
+#tabAdminSection { display: flex; flex-direction: column; gap: 12px; }
+.admin-topbar { position: relative; display: flex; align-items: center; justify-content: center; }
+.admin-back { position: absolute; left: 0; }
+#adminToolsWrap { display: flex; flex-direction: column; gap: 12px; }
 .badge-done { background: var(--done-bg-strong); color: var(--success); }
 /* 公共项目置顶（金色）/ 重点（蓝色）高亮：普通模式实色，深色模式半透明 */
 .project-card.pub-pinned { border-color: #f59e0b; background: #fffbeb; }
@@ -1052,42 +1055,25 @@ html.in-app #loginWrap {
         </div>
       </div>
 
-      <!-- 管理员后台：公告管理 + 市场价管理（仅管理员可见） -->
-      <div id="meAdminTools" style="display:none">
-        <div class="table-card">
-          <div class="me-row" style="margin-bottom:12px">
-            <h2 style="font-size:16px;font-weight:600">📢 公告管理</h2>
-            <button class="btn btn-primary btn-sm" onclick="openAnnModal()">＋ 发布公告</button>
+      <!-- 平台管理入口（仅管理员可见，默认隐藏；由 renderMeAdmin 按权限显示） -->
+      <div class="table-card" id="meAdminEntry" style="display:none;margin-bottom:14px">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">⚙️ 平台管理</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">公告管理、市场价管理、群聊管理</div>
           </div>
-          <div id="annMgrList"></div>
+          <button class="btn btn-primary" style="flex-shrink:0" onclick="openAdminPage()">进入管理</button>
         </div>
+      </div>
 
-        <div class="table-card">
-          <div class="me-row" style="margin-bottom:8px">
-            <div style="min-width:0">
-              <h2 style="font-size:16px;font-weight:600">💰 市场价管理</h2>
-              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">每日可添加多条；按份计价：单位填「2100个」表示 2100个 = 单价金额</div>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="openMarketModal()">＋ 新增市场价</button>
+      <!-- 关于我们：二次确认后跳转官方宣传站 -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">ℹ️ 关于我们</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">了解平台功能特色与最新动态，前往官方宣传网站</div>
           </div>
-          <datalist id="mpNameList"></datalist>
-          <div class="table-wrap" style="overflow:visible">
-            <table id="marketMgrTable">
-              <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
-              <tbody id="marketMgrBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 群聊管理（仅管理员）：清空全部群聊天记录 -->
-        <div class="table-card">
-          <div class="me-row">
-            <div style="min-width:0">
-              <h2 style="font-size:16px;font-weight:600">💬 群聊管理</h2>
-              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">清空全部群聊天记录，对所有成员生效且不可恢复</div>
-            </div>
-            <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
-          </div>
+          <button class="btn btn-outline" style="flex-shrink:0" onclick="openAboutSite()">关于我们</button>
         </div>
       </div>
 
@@ -1129,17 +1115,6 @@ html.in-app #loginWrap {
         </div>
       </div>
 
-      <!-- 关于我们：二次确认后跳转官方宣传站 -->
-      <div class="table-card">
-        <div class="me-row">
-          <div style="min-width:0">
-            <h2 style="font-size:15px;font-weight:600">ℹ️ 关于我们</h2>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">了解平台功能特色与最新动态，前往官方宣传网站</div>
-          </div>
-          <button class="btn btn-outline" style="flex-shrink:0" onclick="openAboutSite()">关于我们</button>
-        </div>
-      </div>
-
       <!-- 退出登录（全员可见）：从顶部栏移至此处 -->
       <div class="table-card">
         <div class="me-row">
@@ -1148,6 +1123,51 @@ html.in-app #loginWrap {
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">退出当前账号，退出后需重新登录才能查看项目数据</div>
           </div>
           <button class="btn btn-danger" style="flex-shrink:0" onclick="confirmAction('退出登录','确定要退出当前账号吗？退出后需重新登录才能查看项目数据。',supabaseLogout,'退出登录')">退出登录</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 平台管理独立页（仅管理员可进入，默认隐藏）：公告管理 + 市场价管理 + 群聊管理，卡片样式与原我的页一致 -->
+    <div id="tabAdminSection" style="display:none">
+      <div class="admin-topbar">
+        <button class="btn btn-outline btn-sm admin-back" onclick="closeAdminPage()">← 返回</button>
+        <h2 style="font-size:16px;font-weight:600;margin:0">⚙️ 平台管理</h2>
+      </div>
+      <div id="adminToolsWrap">
+        <div class="table-card">
+          <div class="me-row" style="margin-bottom:12px">
+            <h2 style="font-size:16px;font-weight:600">📢 公告管理</h2>
+            <button class="btn btn-primary btn-sm" onclick="openAnnModal()">＋ 发布公告</button>
+          </div>
+          <div id="annMgrList"></div>
+        </div>
+
+        <div class="table-card">
+          <div class="me-row" style="margin-bottom:8px">
+            <div style="min-width:0">
+              <h2 style="font-size:16px;font-weight:600">💰 市场价管理</h2>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">每日可添加多条；按份计价：单位填「2100个」表示 2100个 = 单价金额</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openMarketModal()">＋ 新增市场价</button>
+          </div>
+          <datalist id="mpNameList"></datalist>
+          <div class="table-wrap" style="overflow:visible">
+            <table id="marketMgrTable">
+              <thead><tr><th>日期</th><th>品名</th><th>单价</th><th>出货ID</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
+              <tbody id="marketMgrBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 群聊管理：清空全部群聊天记录 -->
+        <div class="table-card">
+          <div class="me-row">
+            <div style="min-width:0">
+              <h2 style="font-size:16px;font-weight:600">💬 群聊管理</h2>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">清空全部群聊天记录，对所有成员生效且不可恢复</div>
+            </div>
+            <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2565,6 +2585,46 @@ function showPage(page) {
   window.scrollTo(0, 0);
 }
 
+/* ---------- 平台管理独立页（红线：仅管理员可进入） ---------- */
+let onAdminPage = false;  // 当前是否处于平台管理页
+function openAdminPage() {
+  // 绝对红线：非管理员一律拦截，不展示任何管理内容
+  if (!isAdmin) { toast('无权访问平台管理', 'warn'); return; }
+  if (currentProjectId || onBillPage) showPage('list');
+  const cp0 = document.getElementById('chatPage');
+  if (cp0 && cp0.style.display !== 'none') chat_close();
+  onAdminPage = true;
+  // 隐藏全部普通页签与顶部横幅，仅显示平台管理页
+  ['public','mine','notice','market','me'].forEach(t => {
+    const s = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Section');
+    if (s) s.style.display = 'none';
+  });
+  const homeTop = document.querySelector('#pageProjectList .home-top');
+  if (homeTop) homeTop.style.display = 'none';
+  document.getElementById('tabAdminSection').style.display = '';
+  // 进入时刷新管理数据，保证看到最新公告/市场价
+  renderAnnMgr();
+  renderMarketMgr();
+  window.scrollTo(0, 0);
+  histPush('admin');
+}
+// 退出平台管理（纯界面切换，回到「我的」页）；不处理历史，由调用方决定
+function exitAdminPage() {
+  onAdminPage = false;
+  document.getElementById('tabAdminSection').style.display = 'none';
+  const homeTop = document.querySelector('#pageProjectList .home-top');
+  if (homeTop) homeTop.style.display = '';
+  listTab = 'me';
+  updateListTabUI();
+  renderHomeTop();
+  window.scrollTo(0, 0);
+}
+// 「← 返回」按钮：退出界面并消费已入栈历史（触发的 popstate 由 histGuard 跳过）
+function closeAdminPage() {
+  exitAdminPage();
+  histConsume();
+}
+
 /* ---------- 浏览器返回键/侧滑手势返回（SPA 视图入栈） ---------- */
 let histGuard = false;  // 程序内返回时置位，popstate 跳过处理避免重复切换
 let onBillPage = false;  // 当前是否处于生成账单页
@@ -2576,6 +2636,7 @@ window.addEventListener('popstate', () => {
   if (histGuard) { histGuard = false; return; }
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') { chat_close(); return; }  // 群聊页：返回=关闭群聊
+  if (onAdminPage) { exitAdminPage(); return; }                    // 平台管理页：返回=回「我的」
   if (onBillPage) { showPage('list'); return; }                     // 账单页：返回=回项目列表
   if (currentProjectId) showPage('list');                           // 详情页：返回=回项目列表
 });
@@ -2583,6 +2644,14 @@ window.addEventListener('popstate', () => {
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'mine';  // 默认页签：我的项目（主菜单）
 function switchListTab(tab) {
+  // 若在平台管理页：先退出管理页（隐藏管理区、恢复顶部横幅、消费入栈历史），再正常切页签
+  if (onAdminPage) {
+    onAdminPage = false;
+    document.getElementById('tabAdminSection').style.display = 'none';
+    const homeTopAdm = document.querySelector('#pageProjectList .home-top');
+    if (homeTopAdm) homeTopAdm.style.display = '';
+    histConsume();
+  }
   // 若正处于项目详情页/生成账单页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
   if (currentProjectId || onBillPage) showPage('list');
   // 若群聊页已打开，先正常关闭再切换页签
@@ -4863,7 +4932,7 @@ function renderMeAdmin() {
     : '普通用户';
   const myName = document.getElementById('myNameInput');
   if (myName) myName.value = chat_displayName();  // 用户名输入框回显当前群聊昵称
-  document.getElementById('meAdminTools').style.display = isAdmin ? '' : 'none';
+  document.getElementById('meAdminEntry').style.display = isAdmin ? '' : 'none';
   // applyThemeUI() 已在 showMainApp() 调用，此处不再重复
   renderAnnMgr();
   renderMarketMgr();
