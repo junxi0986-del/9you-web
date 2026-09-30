@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目跟踪管理平台 — 轻量云端项目收益与回本管理工具</title>
+<meta name="description" content="基于 Supabase 的轻量化项目&账户回本跟踪管理系统，云端永久存储、多设备实时同步、验证码免密登录，支持公共项目广场、项目群聊、市场价参考、Android APP。">
+<link rel="icon" type="image/jpeg" href="logo.jpg">
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --brand: #4a6cf7;
+  --brand-dark: #3b5bdb;
+  --brand-light: #6c8cff;
+  --brand-glow: rgba(74,108,247,.25);
+  --bg: #f5f7fb;
+  --bg-alt: #eef1f8;
+  --surface: #ffffff;
+  --surface-hover: #f8f9fc;
+  --text: #1a1d2e;
+  --text-secondary: #5a6178;
+  --text-muted: #8b92a8;
+  --border: rgba(0,0,0,.06);
+  --card-shadow: 0 4px 24px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+  --card-shadow-hover: 0 12px 40px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 24px;
+  --nav-bg: rgba(245,247,251,.82);
+  --gradient-hero: linear-gradient(135deg, #4a6cf7 0%, #6c8cff 50%, #a78bfa 100%);
+  --gradient-card: linear-gradient(135deg, rgba(74,108,247,.04), rgba(167,139,250,.04));
+  --success: #16a34a;
+  --orange: #ea580c;
+  --transition: .3s cubic-bezier(.4,0,.2,1);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+html.dark {
+  --bg: #0a0c14;
+  --bg-alt: #12151f;
+  --surface: #1a1d2e;
+  --surface-hover: #222640;
+  --text: #e8eaf0;
+  --text-secondary: #9ca3b8;
+  --text-muted: #6b7280;
+  --border: rgba(255,255,255,.07);
+  --card-shadow: 0 4px 24px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.2);
+  --card-shadow-hover: 0 12px 40px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25);
+  --nav-bg: rgba(10,12,20,.82);
+  --gradient-card: linear-gradient(135deg, rgba(74,108,247,.08), rgba(167,139,250,.06));
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 16px;
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a { color: var(--brand); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--brand-dark); }
+
+img { max-width: 100%; height: auto; }
+
+/* ===== Utility ===== */
+.container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 100px 0; }
+.section-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--brand);
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: ''; width: 24px; height: 2px; background: var(--brand); border-radius: 2px;
+}
+.section-title {
+  font-size: clamp(28px, 4vw, 40px); font-weight: 700;
+  line-height: 1.25; margin-bottom: 16px;
+  letter-spacing: -.02em;
+}
+.section-desc {
+  font-size: 17px; color: var(--text-secondary);
+  max-width: 600px; line-height: 1.7;
+}
+.text-center { text-align: center; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+/* ===== Nav ===== */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition), border-color var(--transition);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 15px; color: var(--text);
+  white-space: nowrap;
+}
+.nav-brand img {
+  width: 28px; height: 28px; border-radius: 7px; object-fit: cover;
+}
+.nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+.nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  transition: color var(--transition);
+}
+.nav-links a:hover { color: var(--text); }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+
+.hamburger {
+  display: none; width: 40px; height: 40px;
+  border: none; background: transparent; cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 0;
+}
+.hamburger span {
+  display: block; width: 22px; height: 2px;
+  background: var(--text); border-radius: 2px;
+  transition: all .3s ease;
+}
+.hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+.mobile-menu {
+  display: none; position: fixed;
+  top: 60px; left: 0; right: 0;
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px 24px;
+  z-index: 99;
+}
+.mobile-menu.open { display: block; }
+.mobile-menu a {
+  display: block; padding: 14px 0;
+  font-size: 16px; font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+}
+.mobile-menu a:last-child { border-bottom: none; }
+.mobile-menu a:hover { color: var(--brand); }
+.mobile-menu .mobile-cta {
+  display: block; margin-top: 16px;
+  text-align: center;
+}
+
+.theme-toggle {
+  width: 40px; height: 40px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; transition: all var(--transition);
+  color: var(--text); flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--surface-hover); border-color: var(--brand); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  border: none; transition: all var(--transition);
+  text-decoration: none; min-height: 44px;
+  -webkit-user-select: none; user-select: none;
+}
+.btn-primary {
+  background: var(--brand); color: #fff;
+  box-shadow: 0 4px 16px var(--brand-glow);
+}
+.btn-primary:hover {
+  background: var(--brand-dark); color: #fff;
+  box-shadow: 0 6px 24px rgba(74,108,247,.35);
+  transform: translateY(-1px);
+}
+.btn-outline {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover {
+  border-color: var(--brand); color: var(--brand);
+  background: rgba(74,108,247,.04);
+}
+.btn-large { padding: 14px 32px; font-size: 16px; border-radius: 14px; }
+
+/* ===== Hero ===== */
+.hero {
+  padding: 140px 0 80px;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, var(--brand-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero::after {
+  content: ''; position: absolute;
+  bottom: -100px; left: -100px;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(167,139,250,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 48px; align-items: center;
+  position: relative; z-index: 1;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 100px;
+  background: rgba(74,108,247,.08); color: var(--brand);
+  font-size: 13px; font-weight: 600; margin-bottom: 20px;
+  border: 1px solid rgba(74,108,247,.15);
+}
+.hero-badge .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success); animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+.hero h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 800; line-height: 1.2;
+  letter-spacing: -.03em; margin-bottom: 18px;
+}
+.hero h1 .gradient-text {
+  background: var(--gradient-hero);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-desc {
+  font-size: 17px; color: var(--text-secondary);
+  line-height: 1.7; margin-bottom: 32px;
+  max-width: 520px;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 36px; }
+.hero-stats {
+  display: flex; gap: 36px;
+}
+.hero-stat-value {
+  font-size: 26px; font-weight: 800; color: var(--text);
+  letter-spacing: -.02em;
+}
+.hero-stat-label {
+  font-size: 13px; color: var(--text-muted); margin-top: 2px;
+}
+
+.hero-visual {
+  position: relative;
+  display: flex; justify-content: center;
+}
+.hero-phone {
+  width: 260px;
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.1);
+  position: relative;
+  background: var(--surface);
+  border: 3px solid var(--border);
+}
+.hero-phone img {
+  width: 100%; display: block;
+  border-radius: 29px;
+}
+.hero-float-card {
+  position: absolute;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  box-shadow: var(--card-shadow-hover);
+  border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 10px;
+  animation: float 6s ease-in-out infinite;
+}
+.hero-float-card .icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.hero-float-card:nth-child(2) {
+  top: 15%; left: -50px;
+  animation-delay: -2s;
+}
+.hero-float-card:nth-child(3) {
+  bottom: 20%; right: -40px;
+  animation-delay: -4s;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* ===== Features ===== */
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px; margin-top: 48px;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 22px;
+  transition: all var(--transition);
+  position: relative; overflow: hidden;
+}
+.feature-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--gradient-hero);
+  opacity: 0; transition: opacity var(--transition);
+}
+.feature-card:hover {
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-4px);
+  border-color: rgba(74,108,247,.2);
+}
+.feature-card:hover::before { opacity: 1; }
+.feature-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: 20px;
+  background: var(--gradient-card);
+  border: 1px solid var(--border);
+}
+.feature-card h3 {
+  font-size: 18px; font-weight: 700; margin-bottom: 10px;
+  letter-spacing: -.01em;
+}
+.feature-card p {
+  font-size: 14px; color: var(--text-secondary); line-height: 1.7;
+}
+
+/* ===== Tech ===== */
+.tech-section { background: var(--bg-alt); }
+.tech-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 20px; margin-top: 56px;
+}
+.tech-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  text-align: center;
+  transition: all var(--transition);
+}
+.tech-card:hover {
+  box-shadow: var(--card-shadow);
+  transform: translateY(-2px);
+}
+.tech-card .tech-icon {
+  font-size: 32px; margin-bottom: 14px;
+  display: block;
+}
+.tech-card h4 {
+  font-size: 15px; font-weight: 700; margin-bottom: 6px;
+}
+.tech-card p {
+  font-size: 13px; color: var(--text-muted); line-height: 1.6;
+}
+
+/* ===== Use Cases ===== */
+.usecases-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 16px; margin-top: 48px;
+}
+.usecase-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  display: flex; gap: 16px;
+  transition: all var(--transition);
+}
+.usecase-card:hover {
+  box-shadow: var(--card-shadow);
+  border-color: rgba(74,108,247,.15);
+}
+.usecase-num {
+  flex-shrink: 0; width: 44px; height: 44px;
+  border-radius: 12px; background: var(--gradient-card);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: var(--brand);
+}
+.usecase-card h3 {
+  font-size: 17px; font-weight: 700; margin-bottom: 8px;
+}
+.usecase-card p {
+  font-size: 14px; color: var(--text-secondary); line-height: 1.7;
+}
+
+/* ===== Timeline ===== */
+.timeline-section { background: var(--bg-alt); }
+.timeline {
+  position: relative; margin-top: 48px;
+  padding-left: 36px;
+}
+.timeline::before {
+  content: ''; position: absolute;
+  left: 13px; top: 8px; bottom: 8px;
+  width: 2px; background: var(--border);
+}
+.timeline-item {
+  position: relative; margin-bottom: 28px;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all var(--transition);
+}
+.timeline-item:hover {
+  box-shadow: var(--card-shadow);
+}
+.timeline-item::before {
+  content: ''; position: absolute;
+  left: -31px; top: 26px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 3px solid var(--bg-alt);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+}
+.timeline-item:first-child::before {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(22,163,74,.25);
+}
+.timeline-version {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.timeline-version .ver {
+  font-size: 16px; font-weight: 700; color: var(--brand);
+}
+.timeline-version .date {
+  font-size: 13px; color: var(--text-muted);
+}
+.timeline-item ul {
+  list-style: none; padding: 0;
+}
+.timeline-item li {
+  font-size: 14px; color: var(--text-secondary);
+  padding: 4px 0; padding-left: 18px;
+  position: relative; line-height: 1.7;
+}
+.timeline-item li::before {
+  content: ''; position: absolute;
+  left: 0; top: 12px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand); opacity: .4;
+}
+
+/* ===== CTA ===== */
+.cta-section {
+  padding: 80px 0;
+  position: relative; overflow: hidden;
+}
+.cta-box {
+  background: var(--gradient-hero);
+  border-radius: 24px;
+  padding: 64px 48px;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.cta-box::before {
+  content: ''; position: absolute;
+  top: -50%; right: -20%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+.cta-box h2 {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800; color: #fff;
+  margin-bottom: 16px; letter-spacing: -.02em;
+  position: relative; z-index: 1;
+}
+.cta-box p {
+  font-size: 18px; color: rgba(255,255,255,.85);
+  margin-bottom: 36px; max-width: 500px;
+  margin-left: auto; margin-right: auto;
+  position: relative; z-index: 1;
+}
+.cta-actions {
+  display: flex; gap: 14px; justify-content: center;
+  flex-wrap: wrap; position: relative; z-index: 1;
+}
+.btn-white {
+  background: #fff; color: var(--brand);
+  box-shadow: 0 4px 20px rgba(0,0,0,.15);
+}
+.btn-white:hover {
+  background: #f0f0f0; color: var(--brand-dark);
+  transform: translateY(-1px);
+}
+.btn-ghost {
+  background: rgba(255,255,255,.15); color: #fff;
+  border: 1px solid rgba(255,255,255,.3);
+  backdrop-filter: blur(8px);
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,.25); color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ===== Footer ===== */
+.footer {
+  padding: 40px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.footer p {
+  font-size: 13px; color: var(--text-muted);
+  word-break: break-word; overflow-wrap: break-word;
+}
+.footer a { color: var(--brand); }
+
+/* ===== Scroll Animations ===== */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.reveal.visible {
+  opacity: 1; transform: translateY(0);
+}
+
+/* ===== Responsive: Tablet (<=900px) ===== */
+@media (max-width: 900px) {
+  .hero-inner { grid-template-columns: 1fr; text-align: center; gap: 40px; }
+  .hero-desc { margin-left: auto; margin-right: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-stats { justify-content: center; }
+  .hero-visual { margin-top: 20px; }
+  .hero-float-card { display: none; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .tech-grid { grid-template-columns: repeat(2, 1fr); }
+  .usecases-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .nav-actions .btn { display: none; }
+  .hamburger { display: flex; }
+  .cta-box { padding: 48px 28px; }
+  .section { padding: 72px 0; }
+  .container { padding: 0 20px; }
+}
+
+/* ===== Responsive: Mobile (<=600px) ===== */
+@media (max-width: 600px) {
+  .section { padding: 56px 0; }
+  .container { padding: 0 16px; }
+  .section-title { font-size: 26px; }
+  .section-desc { font-size: 15px; }
+  .section-label { font-size: 12px; }
+
+  /* Nav */
+  .nav-inner { height: 54px; }
+  .nav-brand { font-size: 14px; gap: 6px; }
+  .nav-brand img { width: 26px; height: 26px; }
+  .theme-toggle { width: 36px; height: 36px; font-size: 16px; }
+
+  /* Hero */
+  .hero { padding: 100px 0 48px; }
+  .hero h1 { font-size: 30px; line-height: 1.25; }
+  .hero-desc { font-size: 15px; margin-bottom: 24px; }
+  .hero-actions { flex-direction: column; align-items: stretch; margin-bottom: 28px; }
+  .hero-actions .btn { justify-content: center; }
+  .hero-stats { gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .hero-stat-value { font-size: 20px; }
+  .hero-stat-label { font-size: 12px; }
+  .hero-phone { width: 200px; border-radius: 28px; }
+  .hero-phone img { border-radius: 25px; }
+  .hero-badge { font-size: 12px; padding: 5px 12px; margin-bottom: 16px; }
+
+  /* Features */
+  .features-grid { grid-template-columns: 1fr; gap: 14px; margin-top: 32px; }
+  .feature-card { padding: 22px 18px; border-radius: 18px; }
+  .feature-icon { width: 44px; height: 44px; font-size: 20px; margin-bottom: 14px; border-radius: 12px; }
+  .feature-card h3 { font-size: 16px; margin-bottom: 8px; }
+  .feature-card p { font-size: 13px; }
+
+  /* Tech */
+  .tech-grid { grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px; }
+  .tech-card { padding: 20px 14px; border-radius: 14px; }
+  .tech-card .tech-icon { font-size: 26px; margin-bottom: 10px; }
+  .tech-card h4 { font-size: 14px; }
+  .tech-card p { font-size: 12px; }
+
+  /* Use Cases */
+  .usecases-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 32px; }
+  .usecase-card { padding: 18px 16px; border-radius: 16px; gap: 14px; }
+  .usecase-num { width: 38px; height: 38px; font-size: 15px; border-radius: 10px; flex-shrink: 0; }
+  .usecase-card h3 { font-size: 15px; margin-bottom: 6px; }
+  .usecase-card p { font-size: 13px; }
+
+  /* Timeline */
+  .timeline { padding-left: 28px; margin-top: 32px; }
+  .timeline::before { left: 10px; }
+  .timeline-item { padding: 16px; margin-bottom: 20px; border-radius: 14px; }
+  .timeline-item::before { left: -26px; top: 22px; width: 8px; height: 8px; }
+  .timeline-version { flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .timeline-version .ver { font-size: 15px; }
+  .timeline-item li { font-size: 13px; padding-left: 16px; line-height: 1.6; }
+  .timeline-item li::before { top: 10px; width: 5px; height: 5px; }
+
+  /* CTA */
+  .cta-section { padding: 48px 0; }
+  .cta-box { padding: 40px 20px; border-radius: 20px; }
+  .cta-box h2 { font-size: 24px; margin-bottom: 12px; }
+  .cta-box p { font-size: 15px; margin-bottom: 24px; }
+  .cta-actions { flex-direction: column; align-items: stretch; }
+  .cta-actions .btn { justify-content: center; }
+
+  /* Footer */
+  .footer { padding: 28px 0; }
+  .footer p { font-size: 12px; line-height: 1.6; }
+
+  /* Buttons */
+  .btn { padding: 12px 20px; font-size: 14px; }
+  .btn-large { padding: 14px 24px; font-size: 15px; border-radius: 12px; }
+}
+
+/* ===== Responsive: Small Mobile (<=380px) ===== */
+@media (max-width: 380px) {
+  .hero h1 { font-size: 26px; }
+  .hero-stats { gap: 16px; }
+  .hero-stat-value { font-size: 18px; }
+  .tech-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tech-card { padding: 16px 10px; }
+  .nav-brand { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="container nav-inner">
+    <a href="#" class="nav-brand">
+      <img src="logo.jpg" alt="Logo">
+      <span>项目跟踪管理平台</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">功能</a></li>
+      <li><a href="#tech">技术</a></li>
+      <li><a href="#usecases">场景</a></li>
+      <li><a href="#changelog">更新日志</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" aria-label="切换主题"></button>
+      <a href="https://9you.help/" class="btn btn-primary" target="_blank">立即体验</a>
+      <button class="hamburger" id="hamburger" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features">功能</a>
+  <a href="#tech">技术</a>
+  <a href="#usecases">场景</a>
+  <a href="#changelog">更新日志</a>
+  <a href="https://9you.help/" class="mobile-cta btn btn-primary" target="_blank">立即体验</a>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        V3.1 已发布
+      </div>
+      <h1>
+        项目收益与回本<br>
+        <span class="gradient-text">一站式云端管理</span>
+      </h1>
+      <p class="hero-desc">
+        轻量化的项目跟踪管理平台，基于 Supabase 云端存储，无需部署服务器。多设备实时同步，验证码免密登录，专注项目收益与账户回本精细化管理。
+      </p>
+      <div class="hero-actions">
+        <a href="https://9you.help/" class="btn btn-primary btn-large" target="_blank">
+          🚀 打开平台
+        </a>
+        <a href="#features" class="btn btn-outline btn-large">
+          了解更多
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="hero-stat-value">0 部署</div>
+          <div class="hero-stat-label">零服务器成本</div>
+        </div>
+        <div>
+          <div class="hero-stat-value">实时</div>
+          <div class="hero-stat-label">多设备同步</div>
+        </div>
+        <div>
+          <div class="hero-stat-value">全端</div>
+          <div class="hero-stat-label">PC / 移动 / APP</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-float-card">
+        <div class="icon" style="background:rgba(22,163,74,.1);">☁️</div>
+        <div>
+          <div style="font-weight:700;">云端存储</div>
+          <div style="font-size:12px;color:var(--text-muted);font-weight:400;">数据永不丢失</div>
+        </div>
+      </div>
+      <div class="hero-phone">
+        <img src="icon-512.png" alt="项目跟踪管理平台">
+      </div>
+      <div class="hero-float-card">
+        <div class="icon" style="background:rgba(74,108,247,.1);"></div>
+        <div>
+          <div style="font-weight:700;">智能统计</div>
+          <div style="font-size:12px;color:var(--text-muted);font-weight:400;">回本进度一目了然</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-label">核心功能</div>
+      <h2 class="section-title">为项目运营量身打造</h2>
+      <p class="section-desc mx-auto">从账户管理到回本追踪，从团队协作到市场分析，一个平台覆盖全部需求。</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">☁️</div>
+        <h3>云端永久存储</h3>
+        <p>基于 Supabase 云端数据库，数据不绑定本地设备。刷新、换设备、重启浏览器，数据始终完整。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔑</div>
+        <h3>验证码免密登录</h3>
+        <p>6 位邮箱验证码一键登录，滑动拼图人机验证防刷。会话自动刷新，无感持久化登录体验。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📈</div>
+        <h3>智能数据统计</h3>
+        <p>自动计算本金、累计收益、回本进度百分比。未回本显示「距回本」，已回本显示「利润」，状态一目了然。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🏛️</div>
+        <h3>公共项目广场</h3>
+        <p>管理员统一发布公共项目，支持置顶、加星标。用户新建项目时可直接选用公共项目作为数据源。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">💬</div>
+        <h3>项目实时群聊</h3>
+        <p>基于 Supabase Realtime 的实时群聊，文字/图片消息、2 分钟内撤回、未读闪烁与桌面通知。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">💰</div>
+        <h3>市场参考价</h3>
+        <p>管理员录入每日市场价，支持按份计价与小数点后 3 位精度。首页横幅滚动展示，双模式回本录入。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📤</div>
+        <h3>项目分享导入</h3>
+        <p>一键生成项目分享码（含账户与回本记录），导入即用，团队协作零门槛。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">💾</div>
+        <h3>数据备份还原</h3>
+        <p>一键导出 JSON 备份、导入备份数据，支持全覆盖数据恢复，杜绝数据丢失风险。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📱</div>
+        <h3>Android 原生 APP</h3>
+        <p>WebView 壳打包 APK，支持文件上传、长按保存图片、沉浸式状态栏、APP 内自动更新检测。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tech -->
+<section class="section tech-section" id="tech">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-label">技术架构</div>
+      <h2 class="section-title">轻量、安全、高性能</h2>
+      <p class="section-desc mx-auto">原生代码开发，无冗余依赖。企业级云端存储，全端自适应体验。</p>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-card reveal">
+        <span class="tech-icon">⚡</span>
+        <h4>原生前端</h4>
+        <p>HTML5 + CSS3 + 原生 JavaScript，无框架零依赖，加载极速</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">🗄️</span>
+        <h4>Supabase</h4>
+        <p>PostgreSQL 数据库 + RLS 行级权限 + Realtime 实时推送</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">📲</span>
+        <h4>PWA + APP</h4>
+        <p>Service Worker 离线缓存，Android APK 原生体验</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">🌗</span>
+        <h4>深色模式</h4>
+        <p>亮/暗主题一键切换，跟随系统偏好，偏好本地双保险存储</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon"></span>
+        <h4>数据安全</h4>
+        <p>账号数据严格隔离，RLS 行级权限 + 前端双重校验</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon"></span>
+        <h4>液态玻璃 UI</h4>
+        <p>backdrop-filter 模糊导航，iOS 风格交互，全端自适应</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">️</span>
+        <h4>滑动拼图验证</h4>
+        <p>原生 Canvas 人机验证，鼠标/触屏 Pointer Events 适配</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">🚀</span>
+        <h4>Cloudflare Pages</h4>
+        <p>Git 推送即上线，全球 CDN 加速，免费托管零运维</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Use Cases -->
+<section class="section" id="usecases">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-label">适用场景</div>
+      <h2 class="section-title">谁在使用这个平台？</h2>
+      <p class="section-desc mx-auto">无论你是个人运营者还是小型团队，都能找到适合的工作方式。</p>
+    </div>
+    <div class="usecases-grid">
+      <div class="usecase-card reveal">
+        <div class="usecase-num">01</div>
+        <div>
+          <h3>多项目运营收益跟踪</h3>
+          <p>同时管理多个项目的投入本金、回本流水与收益统计，全局汇总一目了然，不再靠 Excel 手动核算。</p>
+        </div>
+      </div>
+      <div class="usecase-card reveal">
+        <div class="usecase-num">02</div>
+        <div>
+          <h3>团队账户回本管理</h3>
+          <p>精细化跟踪每个账户的回本进度，智能标记未回本/已回本状态，团队数据实时同步共享。</p>
+        </div>
+      </div>
+      <div class="usecase-card reveal">
+        <div class="usecase-num">03</div>
+        <div>
+          <h3>市场价格参考与行情同步</h3>
+          <p>每日市场价自动录入与展示，支持按份计价，回本录入时自动匹配单价计算，提升效率。</p>
+        </div>
+      </div>
+      <div class="usecase-card reveal">
+        <div class="usecase-num">04</div>
+        <div>
+          <h3>团队即时沟通协作</h3>
+          <p>内置实时群聊、公告系统与公共项目广场，团队沟通无需切换工具，信息即时触达。</p>
+        </div>
+      </div>
+      <div class="usecase-card reveal">
+        <div class="usecase-num">05</div>
+        <div>
+          <h3>日常流水台账记录</h3>
+          <p>支持单条/批量录入回本金额，补录过往数据，生成出货账单，数据复盘归档一步到位。</p>
+        </div>
+      </div>
+      <div class="usecase-card reveal">
+        <div class="usecase-num">06</div>
+        <div>
+          <h3>个人轻量数据管理</h3>
+          <p>零部署零学习成本，开箱即用。数据备份还原、深色模式、全端适配，个人使用同样顺手。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Changelog -->
+<section class="section timeline-section" id="changelog">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-label">更新日志</div>
+      <h2 class="section-title">持续迭代，不断进步</h2>
+      <p class="section-desc mx-auto">从 V1.0 到 V3.1，每一次更新都带来更强大的功能与更流畅的体验。</p>
+    </div>
+    <div class="timeline">
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.1</span>
+          <span class="date">2026 年 9 月</span>
+        </div>
+        <ul>
+          <li>个人项目 Logo 全自动同步，启动时按项目名匹配同名公共项目 Logo 自动补齐</li>
+          <li>公共项目支持上传 Logo（限 2MB，压缩 80×80），市场价品名、项目详情同步显示</li>
+          <li>项目卡片 6 级智能排序：新上车未回本优先，其次按未回本金额、活跃度排序</li>
+          <li>开屏广告上线：手机端全屏开屏，强制 2 秒 + 倒计时 3 秒，1 小时内不再弹出</li>
+          <li>登录页新增用户协议与隐私政策，必须勾选才能登录</li>
+          <li>弱网防重复提交：保存回本金额时按钮锁定显示「保存中...」</li>
+          <li>启动性能优化：四项数据查询并行化，无感登录消除空列表双重渲染</li>
+          <li>Android APP v3.1：适配 HTTP 官方站跳转、边缘滑动返回、群聊通知</li>
+        </ul>
+      </div>
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.0</span>
+          <span class="date">2026 年 9 月</span>
+        </div>
+        <ul>
+          <li>Android APP 上线：WebView 壳 APK，支持文件上传、长按保存图片、沉浸式状态栏</li>
+          <li>APP 自动更新检测：打开 APP 自动对比版本号，有更新弹窗提示下载</li>
+          <li>登录验证码升级为 6 位，6 个独立输入框，支持粘贴分发和自动跳转</li>
+          <li>按份计价支持：市场价支持「2100 个=10 元」格式，账单计算自动换算</li>
+          <li>手机端液态玻璃底部椭圆导航栏，左右滑动切换页签</li>
+          <li>项目卡片手机端双列布局（淘宝商品式）</li>
+          <li>已回本账户显示「已润 XX」（利润金额）替代「剩余未回本」</li>
+        </ul>
+      </div>
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V2.0</span>
+          <span class="date">2026 年 9 月</span>
+        </div>
+        <ul>
+          <li>登录升级：邮箱验证码免密登录 + 滑动拼图人机验证 + 邮箱后缀快捷选择</li>
+          <li>新增公共项目广场：管理员发布/置顶/加星，用户一键复制</li>
+          <li>新增公告系统：首页横幅 + 公告页签 + 管理员管理</li>
+          <li>新增市场价模块：每日行情横幅、历史查询、双模式回本录入</li>
+          <li>新增项目群聊：Realtime 实时消息、图片发送、2 分钟撤回、未读闪烁</li>
+          <li>新增项目分享/导入：分享码一键流转项目与台账数据</li>
+          <li>正式域名上线：9you.help（Cloudflare Pages 自动部署）</li>
+        </ul>
+      </div>
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V1.0</span>
+          <span class="date">正式版</span>
+        </div>
+        <ul>
+          <li>完成全套账号体系：注册、登录、密码重置、自动续期会话</li>
+          <li>实现多项目管理、账户单条/批量增删改查功能</li>
+          <li>完善回本流水录入、台账查询、进度自动计算功能</li>
+          <li>支持数据导入导出、一键备份、一键清空数据</li>
+          <li>全端响应式适配，完美兼容 PC 端与移动端</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-box reveal">
+      <h2>立即开始管理你的项目</h2>
+      <p>零部署、零学习成本，浏览器打开即可使用。所有数据云端存储，换设备登录即可恢复。</p>
+      <div class="cta-actions">
+        <a href="https://9you.help/" class="btn btn-white btn-large" target="_blank">
+          🚀 打开平台
+        </a>
+        <a href="jiuyou.apk" class="btn btn-ghost btn-large" download>
+          📲 下载 Android APP
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <p>项目跟踪管理平台 &copy; 2026 &middot; <a href="https://9you.help/" target="_blank">9you.help</a> &middot; 开源免费工具，仅供个人学习与非商业用途</p>
+  </div>
+</footer>
+
+<script>
+// Theme toggle
+(function() {
+  var btn = document.getElementById('themeToggle');
+  var html = document.documentElement;
+
+  function updateIcon() {
+    btn.textContent = html.classList.contains('dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  }
+
+  btn.addEventListener('click', function() {
+    html.classList.toggle('dark');
+    localStorage.setItem('jy_theme', html.classList.contains('dark') ? 'dark' : 'light');
+    updateIcon();
+  });
+
+  updateIcon();
+})();
+
+// Mobile menu
+(function() {
+  var hamburger = document.getElementById('hamburger');
+  var mobileMenu = document.getElementById('mobileMenu');
+
+  hamburger.addEventListener('click', function() {
+    hamburger.classList.toggle('active');
+    mobileMenu.classList.toggle('open');
+  });
+
+  mobileMenu.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      hamburger.classList.remove('active');
+      mobileMenu.classList.remove('open');
+    });
+  });
+})();
+
+// Scroll reveal
+(function() {
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(function(el) {
+    observer.observe(el);
+  });
+})();
+
+// Smooth scroll for nav links
+document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      var offset = 60;
+      var top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  });
+});
+</script>
+</body>
+</html>
