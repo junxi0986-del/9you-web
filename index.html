@@ -2936,12 +2936,12 @@ function renderProjectGrid() {
   const today = nowLocal().slice(0, 10);
   // 预计算每个用户的 earned 值，后续所有地方用 u.__earned 替代 calcEarned(u)
   allUsers.forEach(u => { u.__earned = calcEarned(u); });
-  let gUserCount = allUsers.length, gPrincipal = 0, gEarned = 0, gDone = 0, gRemain = 0, gProfit = 0, gTodayEarned = 0;
+  let gUserCount = allUsers.length, gPrincipal = 0, gEarned = 0, gDoneProfit = 0, gRemain = 0, gProfit = 0, gTodayEarned = 0;
   allUsers.forEach(u => {
     const p = Number(u.principal), e = u.__earned;
     gPrincipal += p;
     gEarned += e;
-    if (e >= p && p > 0) gDone++;
+    if (e >= p && p > 0) gDoneProfit += e - p;   // 已回本账户的利润合计（超出本金部分）
     gRemain += Math.max(0, p - e);
     gProfit += e - p;
     u.prices.forEach(r => { if ((r.date || '').slice(0, 10) === today) gTodayEarned += Number(r.price); });
@@ -2954,7 +2954,7 @@ function renderProjectGrid() {
     ${gRemain > 0
       ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
-    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDone}" data-decimals="0">0</span><small>人 / </small><span class="count-up" data-target="${gUserCount - gDone}" data-decimals="0">0</span><small>人</small></div></div>`;
+    <div class="summary-card"><div class="label">已回本利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDoneProfit}" data-decimals="2">0</span><small>元</small></div></div>`;
   animateCountUps();
 
   // ---- 公共项目区（全员可见，管理员显示管理按钮） ----
@@ -3075,8 +3075,11 @@ function renderDetail() {
   const totalRemain = p.users.reduce((s, u) => s + Math.max(0, Number(u.principal) - calcEarned(u)), 0);
   const totalProfit = p.users.reduce((s, u) => s + (calcEarned(u) - Number(u.principal)), 0);
 
-  // 已回本 / 未回本人数统计
-  const doneCount = p.users.filter(u => calcEarned(u) >= Number(u.principal) && Number(u.principal) > 0).length;
+  // 已回本利润统计：已回本账户超出本金部分之和
+  const doneProfit = p.users.reduce((s, u) => {
+    const e = calcEarned(u), pr = Number(u.principal);
+    return s + (e >= pr && pr > 0 ? e - pr : 0);
+  }, 0);
 
   // 今日回本金额：本项目今天录入的回本/出货合计（点击查看本项目今日明细）
   const pToday = bill_collectToday([p]).total;
@@ -3089,7 +3092,7 @@ function renderDetail() {
     ${totalRemain > 0
       ? `<div class="summary-card"><div class="label">距回本</div><div class="value" style="color:var(--danger)">${fmtMoney(totalRemain)}<small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value" style="color:var(--success)">${fmtMoney(totalProfit)}<small>元</small></div></div>`}
-    <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${doneCount}" data-decimals="0">${doneCount.toLocaleString('zh-CN')}</span><small>人 / </small><span class="count-up" data-target="${userCount - doneCount}" data-decimals="0">${(userCount - doneCount).toLocaleString('zh-CN')}</span><small>人</small></div></div>`;
+    <div class="summary-card"><div class="label">已回本利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${doneProfit}" data-decimals="2">${fmtMoney(doneProfit)}</span><small>元</small></div></div>`;
   // 仅进入项目时播放滚动动画，搜索等重渲染直接显示最终值
   if (detailAnimate) { detailAnimate = false; animateCountUps('#detailSummary'); }
 
