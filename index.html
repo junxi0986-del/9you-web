@@ -23,7 +23,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ========== 全局基础样式 ========== */
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
   --primary: #2563eb;        /* 主色蓝 */
@@ -182,6 +182,10 @@ th, tbody tr, .empty {
   transition: background-color .3s ease, color .3s ease, border-color .3s ease;
 }
 
+/* 步骤1：html 层也裁掉横向溢出——body 的裁剪在部分移动 WebView 中不能阻止
+   「文档横向可滚动范围」因位移动画被撑大，html+body 双保险 */
+html { overflow-x: hidden; }
+
 body {
   font-family: -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg-grad);
@@ -252,11 +256,6 @@ body {
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-/* 点击按钮后不要出现一闪而过的蓝色焦点框（鼠标/触摸均去除；输入框、下拉框的聚焦光环不受影响） */
-.btn:focus, .btn:focus-visible,
-button:focus, button:focus-visible,
-[role="button"]:focus, [role="button"]:focus-visible,
-summary:focus, summary:focus-visible { outline: none; }
 .btn-primary { background: var(--primary-grad, var(--primary)); color: #fff; box-shadow: 0 4px 14px rgba(74,108,247,.35); }
 .btn-primary:hover { background: var(--primary-grad, var(--primary)); filter: brightness(1.07); }
 .btn-outline { background: var(--input-bg); color: var(--primary); border: none; }
@@ -384,20 +383,6 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 select.invalid { border-color: var(--danger); }
 select option { background: var(--option-bg); color: var(--text); }
 select optgroup { background: var(--option-bg); color: var(--text-secondary); font-weight: 600; }
-/* 详情页弹窗品名锁定：不使用通用disabled灰暗样式，保留玻璃质感，箭头位换成小锁 */
-#pr-mp:disabled {
-  opacity: 1; cursor: not-allowed;
-  background-image: var(--select-grad), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect x='2.4' y='5.6' width='7.2' height='5' rx='1.1' fill='none' stroke='%2394a3b8' stroke-width='1.2'/><path d='M4 5.6V4a2 2 0 0 1 4 0v1.6' fill='none' stroke='%2394a3b8' stroke-width='1.2'/></svg>");
-  background-size: 100% 100%, 12px 12px;
-}
-/* 快捷弹窗：选中的市场价品名无同名项目时，项目下拉红框闪烁并停在红框，直至下次有效选择 */
-@keyframes qaMissingFlash {
-  0%   { border-color: var(--danger); box-shadow: 0 0 0 0 rgba(220,38,38,.5); }
-  50%  { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(220,38,38,.28); }
-  100% { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(220,38,38,.16); }
-}
-#qa-proj.missing-flash { animation: qaMissingFlash .45s ease-in-out 5 forwards; }
-
 /* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
 tbody tr.row-done { background: var(--done-bg); }
 tbody tr.row-done:hover { background: var(--done-bg-strong); }
@@ -621,7 +606,11 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .bottom-nav {
     display: flex; position: fixed; z-index: 60;
     left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
-    transform: translateX(-50%);
+    /* 步骤3：translateZ(0) 提升为独立合成层 + 背面隐藏 + will-change，
+       避免被其它元素位移动画的重绘/合成层重建牵连（居中的 -50% 保持不变） */
+    transform: translateX(-50%) translateZ(0);
+    will-change: transform;
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
     width: min(340px, calc(100vw - 32px)); height: 60px;
     align-items: stretch;
     background: var(--nav-glass, var(--card-bg));
@@ -821,16 +810,15 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal { padding: 16px; align-items: center; }
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
   #confirmModal .modal { max-width: 380px; width: 100%; height: auto; }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
   #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
-  #earnChartModal .modal { max-width: 460px; width: 100%; height: auto; }
   #sellPickLayer .modal { max-width: 520px; width: 100%; height: auto; }
   #projectModal .modal { max-width: 460px; width: 100%; height: auto; }
   #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -874,34 +862,6 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 }
 /* 弹窗遮罩更通透 + 轻模糊 */
 .modal-mask { background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-
-/* ========== 回本曲线统计图 ========== */
-.ec-stats { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.ec-stat {
-  flex: 1; min-width: 92px; padding: 10px 12px; border-radius: 12px;
-  background: var(--input-bg); border: 1px solid var(--border);
-}
-.ec-stat .k { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
-.ec-stat .v { font-size: 16px; font-weight: 700; color: var(--text); }
-.ec-chart-wrap { position: relative; width: 100%; }
-.ec-chart-wrap svg { width: 100%; height: auto; display: block; touch-action: none; }
-.ec-tip {
-  position: absolute; z-index: 5; min-width: 132px; pointer-events: none;
-  background: rgba(255,255,255,.86); border: 1px solid rgba(255,255,255,.9);
-  border-radius: 10px; padding: 7px 10px; font-size: 11px; line-height: 1.6;
-  box-shadow: 0 6px 20px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.9);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  color: var(--text); opacity: 0; transition: opacity .12s;
-}
-html.dark-mode .ec-tip {
-  background: rgba(40,40,44,.82); border-color: rgba(255,255,255,.14);
-  box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
-}
-.ec-tip.show { opacity: 1; }
-.ec-tip .ec-tip-date { font-weight: 700; margin-bottom: 2px; }
-.ec-tip .ec-tip-row { display: flex; justify-content: space-between; gap: 10px; color: var(--text-secondary); }
-.ec-tip .ec-tip-row b { color: var(--text); font-weight: 700; }
-.ec-empty { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 44px 16px; }
 /* 置顶/重点高亮改半透明，保留玻璃质感 */
 .project-card.pub-pinned { border-color: rgba(245,158,11,.55); background: rgba(255,251,235,.7); }
 .project-card.pub-starred { border-color: rgba(37,99,235,.5); background: rgba(219,234,254,.55); }
@@ -930,10 +890,18 @@ html.in-app #loginWrap {
 }
 
 /* ===== 手机端页签左右滑动：平移切换动画 ===== */
-@keyframes tabSlideOutL { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-14%); opacity: 0; } }
-@keyframes tabSlideInR  { from { transform: translateX(14%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes tabSlideOutR { from { transform: translateX(0); opacity: 1; } to { transform: translateX(14%); opacity: 0; } }
-@keyframes tabSlideInL  { from { transform: translateX(-14%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* 步骤1：页签动画容器就地裁剪 ±14% 横向位移，不产生文档级横向溢出。
+   #pageProjectList 本身不带 transform/filter/will-change:transform，使用 clip 不会
+   改变内部 fixed 元素的基准；旧内核不支持 clip 时回退为 hidden */
+#pageProjectList { overflow-x: clip; }
+@supports not (overflow-x: clip) {
+  #pageProjectList { overflow-x: hidden; }
+}
+/* 步骤5：translateX 改 translate3d，强制走合成层、减少主线程重绘，起止状态与原来一致 */
+@keyframes tabSlideOutL { from { transform: translate3d(0,0,0); opacity: 1; } to { transform: translate3d(-14%,0,0); opacity: 0; } }
+@keyframes tabSlideInR  { from { transform: translate3d(14%,0,0); opacity: 0; } to { transform: translate3d(0,0,0); opacity: 1; } }
+@keyframes tabSlideOutR { from { transform: translate3d(0,0,0); opacity: 1; } to { transform: translate3d(14%,0,0); opacity: 0; } }
+@keyframes tabSlideInL  { from { transform: translate3d(-14%,0,0); opacity: 0; } to { transform: translate3d(0,0,0); opacity: 1; } }
 .tab-swipe-out-l { animation: tabSlideOutL .18s ease forwards; will-change: transform, opacity; }
 .tab-swipe-in-r  { animation: tabSlideInR .26s cubic-bezier(.22,.61,.36,1) forwards; will-change: transform, opacity; }
 .tab-swipe-out-r { animation: tabSlideOutR .18s ease forwards; will-change: transform, opacity; }
@@ -1257,15 +1225,18 @@ html.in-app #loginWrap {
       </div>
     </div>
 
-    <!-- 移动端底部导航：液态玻璃椭圆 pill，我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
-    <nav class="bottom-nav" id="bottomNav">
-      <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
-      <button id="bnavMine" class="active" onclick="switchListTab('mine')"><img class="nav-icon" src="iconfont/ios-albums (1).png" data-src-inactive="iconfont/ios-albums.png" data-src-active="iconfont/ios-albums (1).png" alt="我的项目"><span>我的项目</span></button>
-      <button id="bnavPublic" onclick="switchListTab('public')"><img class="nav-icon" src="iconfont/ios-globe.png" data-src-inactive="iconfont/ios-globe.png" data-src-active="iconfont/ios-globe (1).png" alt="公共项目"><span>公共项目</span></button>
-      <button id="bnavMarket" onclick="switchListTab('market')"><img class="nav-icon" src="iconfont/ios-card.png" data-src-inactive="iconfont/ios-card.png" data-src-active="iconfont/ios-card (1).png" alt="市场价"><span>市场价</span></button>
-      <button id="bnavMe" onclick="switchListTab('me')"><img class="nav-icon" src="iconfont/ios-person.png" data-src-inactive="iconfont/ios-person.png" data-src-active="iconfont/ios-person (1).png" alt="我的"><span>我的</span></button>
-    </nav>
   </section>
+
+  <!-- 步骤2：移动端底部导航移出 #pageProjectList（位移动画容器），避免页签平移时的
+       合成层重建牵连 fixed 导航；仍在 #mainApp 内，登录态显隐逻辑不变。
+       液态玻璃椭圆 pill：我的项目 / 公共项目 / 市场价 / 我的（群聊入口移至「我的」页） -->
+  <nav class="bottom-nav" id="bottomNav">
+    <span class="bottom-nav__highlight" id="bnavHighlight"><span class="bottom-nav__glass" id="bnavGlass"></span></span>
+    <button id="bnavMine" class="active" onclick="switchListTab('mine')"><img class="nav-icon" src="iconfont/ios-albums (1).png" data-src-inactive="iconfont/ios-albums.png" data-src-active="iconfont/ios-albums (1).png" alt="我的项目"><span>我的项目</span></button>
+    <button id="bnavPublic" onclick="switchListTab('public')"><img class="nav-icon" src="iconfont/ios-globe.png" data-src-inactive="iconfont/ios-globe.png" data-src-active="iconfont/ios-globe (1).png" alt="公共项目"><span>公共项目</span></button>
+    <button id="bnavMarket" onclick="switchListTab('market')"><img class="nav-icon" src="iconfont/ios-card.png" data-src-inactive="iconfont/ios-card.png" data-src-active="iconfont/ios-card (1).png" alt="市场价"><span>市场价</span></button>
+    <button id="bnavMe" onclick="switchListTab('me')"><img class="nav-icon" src="iconfont/ios-person.png" data-src-inactive="iconfont/ios-person.png" data-src-active="iconfont/ios-person (1).png" alt="我的"><span>我的</span></button>
+  </nav>
 
   <!-- ==================== 页面二：项目详情（用户列表） ==================== -->
   <section class="page" id="pageProjectDetail">
@@ -1634,16 +1605,10 @@ html.in-app #loginWrap {
         <div class="form-error">请输入大于 0 的回本金额</div>
       </div>
       <div class="form-group" id="pr-qtyGroup" style="display:none">
-        <label>市场价品名<span class="req">*</span><span style="font-weight:400;color:var(--text-secondary);font-size:11px;margin-left:4px">按项目自动匹配，不可修改</span></label>
-        <select id="pr-mp" disabled></select>
+        <label>市场价品名<span class="req">*</span></label>
+        <select id="pr-mp" onchange="updateQtyAmount()"></select>
         <div class="form-tip">单价取自「市场价」页签的历史市场参考价</div>
         <div class="form-error">请选择市场价品名</div>
-      </div>
-      <!-- 选「其他」时显示：由用户自己填写单价（金额 = 数量 × 单价） -->
-      <div class="form-group" id="pr-customGroup" style="display:none">
-        <label>自定义单价（元/个）<span class="req">*</span></label>
-        <input type="number" id="pr-customRate" placeholder="请输入该项目每个的单价" min="0.001" step="0.001" oninput="updateQtyAmount()">
-        <div class="form-error">请输入大于 0 的单价</div>
       </div>
       <div class="form-group" id="pr-qtyInputGroup" style="display:none">
         <label>出货数量<span class="req">*</span></label>
@@ -1693,8 +1658,8 @@ html.in-app #loginWrap {
         <div class="form-tip">出货数量模式：单价自动取市场参考价，金额 = 数量 × 单价</div>
       </div>
       <div class="form-group" id="qa-qtyGroup">
-        <label>市场价品名<span class="req">*</span><span style="font-weight:400;color:var(--text-secondary);font-size:11px;margin-left:4px">可手动切换，将同步选中同名项目</span></label>
-        <select id="qa-mp" onchange="qaMpChange()"></select>
+        <label>市场价品名<span class="req">*</span></label>
+        <select id="qa-mp" onchange="qaUpdate()"></select>
         <div class="form-error">请选择市场价品名</div>
       </div>
       <!-- 选「其他」时显示：由用户自己填写单价（金额 = 数量 × 单价） -->
@@ -1718,20 +1683,6 @@ html.in-app #loginWrap {
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('quickAmountModal')">取消</button>
       <button class="btn btn-primary" onclick="saveQuickAmount()">添加</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== 回本曲线统计图弹窗（汇总全部项目台账，内联SVG，无外部依赖） ========== -->
-<div class="modal-mask" id="earnChartModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>📈 回本曲线</h3>
-      <button class="modal-close" onclick="closeModal('earnChartModal')">×</button>
-    </div>
-    <div class="modal-body" id="ecBody"></div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" onclick="closeModal('earnChartModal')">知道了</button>
     </div>
   </div>
 </div>
@@ -2875,15 +2826,9 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     if (document.querySelector('.modal-mask.show')) return false;
     return true;
   };
-  // 手势跟踪排除区（命中则不跟踪、把触摸交给元素自身）：表单控件、弹窗、底部导航、选择浮层、可横向滚动的表格；
-  // 按钮/链接/公告卡片/市场价表格上一律允许起手——横向滑动超 36px 浏览器不会再触发点击，纵向滚动也不受影响
-  const onBlocker = el => {
-    if (!el || !el.closest) return false;
-    if (el.closest('input,textarea,select,label,.modal-mask,.bottom-nav,#sellPickLayer')) return true;
-    const tw = el.closest('.table-wrap');
-    if (tw && tw.scrollWidth > tw.clientWidth + 2) return true;  // 仅拦截真正可横向滚动的表格（市场价页手机端不滚动，自动放行）
-    return false;
-  };
+  // 起始点落在表单控件/按钮/链接/横向滚动表格/弹窗/导航栏上时不拦截
+  const onBlocker = el => !!(el && el.closest && el.closest(
+    'input,textarea,select,button,a,label,.table-wrap,.modal-mask,.bottom-nav,#sellPickLayer,.ann-item'));
 
   function reset() { tracking = false; locked = false; touchId = null; }
 
@@ -2915,6 +2860,8 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     tracking = false; locked = false;
     if (animating || !canSwipe() || e.touches.length !== 1) return;
     const t = e.touches[0];
+    // 步骤4：左边缘 24px 起手豁免——让给系统边缘返回手势，避免手势抢占造成「导航栏像消失」
+    if (t.clientX < 24) return;
     if (onBlocker(t.target)) return;
     tracking = true; touchId = t.identifier; sx = t.clientX; sy = t.clientY;
   }, { passive: true });
@@ -3069,13 +3016,10 @@ function renderProjectGrid() {
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card" onclick="openTodayList()" style="cursor:pointer" title="点击查看今日回本明细"><div class="label">今日回本金额 👁</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
     ${gRemain > 0
-      ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
-      : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
-    ${gUserCount > 0 && gRemain === 0
-      ? // 全部账户已回本：卡片不再隐藏，显示恭喜文案，点击仍可查看回本曲线
-        `<div class="summary-card" onclick="openEarnChart()" style="cursor:pointer" title="点击查看回本曲线"><div class="label">🎉 恭喜你已回本！</div><div class="value" style="font-size:15px;font-weight:600;color:var(--success)">点击查看回本曲线 📈</div></div>`
-      : // 仍有未回本账户：显示回本项目利润金额，点击查看回本曲线
-        `<div class="summary-card" onclick="openEarnChart()" style="cursor:pointer" title="点击查看回本曲线"><div class="label">回本项目利润 📈</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDoneProfit}" data-decimals="2">0</span><small>元</small></div></div>`}`;
+      ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>
+         <div class="summary-card"><div class="label">回本项目利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDoneProfit}" data-decimals="2">0</span><small>元</small></div></div>`
+      : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}`;
+  // 全部账户已回本时：显示「利润」卡（总利润），不再显示「回本项目利润」，避免重复统计
   animateCountUps();
 
   // ---- 公共项目区（全员可见，管理员显示管理按钮） ----
@@ -4310,11 +4254,9 @@ function setPriceMode(mode) {
   document.getElementById('pr-qtyGroup').style.display = mode === 'qty' ? '' : 'none';
   document.getElementById('pr-qtyInputGroup').style.display = mode === 'qty' ? '' : 'none';
   setError('pr-price', false); setError('pr-mp', false); setError('pr-qty', false);
-  setError('pr-customRate', false);
-  updateQtyAmount();  // 按新模式与当前品名重新显隐自定义单价组、刷新预计金额提示
 }
 
-// 品名下拉：同一品名可能多天多条，按品名去重取最新一条单价；末尾固定「其他（自定义市场价）」
+// 品名下拉：同一品名可能多天多条，按品名去重取最新一条的单价
 function fillMpOptions(projectName) {
   const sel = document.getElementById('pr-mp');
   const seen = new Set();
@@ -4324,38 +4266,27 @@ function fillMpOptions(projectName) {
     seen.add(r.name);
     opts.push(r);
   }
-  // 选项：已有市场价品名 + 末尾固定「其他（自定义市场价）」；无市场价数据时仅保留其他项
-  const customOpt = '<option value="__custom__">其他（自定义市场价）</option>';
-  sel.innerHTML = (opts.length
-    ? opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('')
-    : '') + customOpt;
-  // 项目名与市场价品名同名则自动选中；匹配不到（含市场价无此项目）统一跳转到「其他」
-  sel.value = (projectName && seen.has(projectName)) ? projectName : '__custom__';
+  sel.innerHTML = opts.length === 0
+    ? '<option value="">暂无市场价数据，请管理员在「市场价管理」录入</option>'
+    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
+  // 默认选中与项目名相同的品名（若有）
+  if ([...sel.options].some(o => o.value === projectName)) sel.value = projectName;
   updateQtyAmount();
 }
 
-// 出货数量模式下实时计算预计回本金额：数量 × 单价 ÷ 对应数量（数量必须为整数，非整数实时标红提示）
+// 出货数量模式下实时计算预计回本金额：数量 × 单价 ÷ 对应数量（单位含数量如「2100个」时按份换算；数量必须为整数，非整数实时标红提示）
 function updateQtyAmount() {
-  const opt = document.getElementById('pr-mp').selectedOptions[0];
+  const sel = document.getElementById('pr-mp');
+  const opt = sel.selectedOptions[0];
   const qty = parseFloat(document.getElementById('pr-qty').value);
   const tip = document.getElementById('pr-qtyAmount');
-  // 数量已填但不是整数：立即红标提示
+  // 数量已填但不是整数：立即红标提示（优先于金额计算提示）
   const badInt = Number(document.getElementById('pr-qty').value) > 0 && !Number.isInteger(qty);
   setError('pr-qty', badInt);
-  const isCustom = !!opt && opt.value === '__custom__';
-  // 仅在数量模式+选中其他时显示自定义单价输入框
-  document.getElementById('pr-customGroup').style.display = (prMode === 'qty' && isCustom) ? '' : 'none';
-  let rate, ref = 1, unit = '1';
-  if (isCustom) {
-    rate = parseFloat(document.getElementById('pr-customRate').value);
-    if (!(rate > 0)) { setError('pr-customRate', false); tip.textContent = '请先输入自定义单价，输入数量后自动计算'; return; }
-    setError('pr-customRate', false);
-  } else {
-    if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
-    rate = parseFloat(opt.dataset.price);
-    ref = Number(opt.dataset.ref) || 1;
-    unit = opt.dataset.unit || '1';
-  }
+  if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
+  const rate = parseFloat(opt.dataset.price);
+  const ref = Number(opt.dataset.ref) || 1;
+  const unit = opt.dataset.unit || '1';
   tip.textContent = Number(qty) > 0
     ? `预计回本金额：${fmtMoney(round3(qty * rate / ref))} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
     : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
@@ -4374,8 +4305,6 @@ async function openPriceModal(idx, preferMp) {
   document.getElementById('pr-date').value = nowLocal();
   document.getElementById('pr-price').value = '';
   document.getElementById('pr-qty').value = '';
-  document.getElementById('pr-customRate').value = '';  // 清空上次的自定义单价
-  setError('pr-customRate', false);
   setPriceMode('amount');  // 每次打开默认金额录入
   updatePriceTip(p.users[sel.selectedIndex]);
   openModal('priceModal');
@@ -4421,21 +4350,13 @@ async function savePrice() {
     // 数量必须为整数：优先校验并提示
     ok = setError('pr-qty', !(qty > 0) || !Number.isInteger(qty)) && ok;
     const opt = document.getElementById('pr-mp').selectedOptions[0];
-    const isCustom = !!opt && opt.value === '__custom__';
-    ok = setError('pr-mp', !opt || (!isCustom && !opt.dataset.price)) && ok;
-    if (isCustom) {
-      // 「其他（自定义市场价）」：单价由用户手填，金额 = 数量 × 单价，品名记项目名便于台账辨识
-      const rate = parseFloat(document.getElementById('pr-customRate').value);
-      ok = setError('pr-customRate', !(rate > 0)) && ok;
-      if (ok) {
-        price = round3(qty * rate);
-        extra = { qty, rate, refQty: 1, mpName: p.name };
-      }
-    } else if (ok && opt && opt.dataset.price) {
+    const mpName = opt ? opt.value : '';
+    ok = setError('pr-mp', !mpName || !opt || !opt.dataset.price) && ok;
+    if (ok && mpName && opt.dataset.price) {
       const rate = parseFloat(opt.dataset.price);
       const ref = Number(opt.dataset.ref) || 1;
       price = round3(qty * rate / ref);  // 数量 × 单价 ÷ 对应数量，3 位小数精度
-      extra = { qty, rate, refQty: ref, mpName: opt.value };  // 附加数量/单价/对应数量信息，供台账与账单展示
+      extra = { qty, rate, refQty: ref, mpName };  // 附加数量/单价/对应数量信息，供台账与账单展示
     }
   } else {
     price = parseFloat(document.getElementById('pr-price').value);
@@ -4474,7 +4395,6 @@ async function openQuickAmountModal() {
   setError('qa-customRate', false);
   document.getElementById('qa-customRate').value = '';  // 清空上次的自定义单价
   const sel = document.getElementById('qa-proj');
-  sel.classList.remove('missing-flash');  // 重新打开弹窗时清除无项目红框提示
   // 项目下拉排序：项目名与市场价品名精确匹配的排前面（保持创建时间原序），无市场价的按名称拼音字母排后面
   const fillQaProj = () => {
     const mpNames = new Set(marketPrices.map(r => r.name));
@@ -4498,9 +4418,7 @@ async function openQuickAmountModal() {
 
 // 项目切换后填充该项目的账户下拉（创建时间正序，与详情页一致），无账户时禁用添加
 function qaFillUsers() {
-  const projSel = document.getElementById('qa-proj');
-  projSel.classList.remove('missing-flash');  // 手动切换项目即视为有效操作，清除无项目红框
-  const p = getProject(projSel.value);
+  const p = getProject(document.getElementById('qa-proj').value);
   const uSel = document.getElementById('qa-user');
   uSel.innerHTML = p && p.users.length
     ? p.users.map((u, i) => `<option value="${i}">${escapeHtml(u.name)}${u.id ? `（ID：${u.id}）` : ''}</option>`).join('')
@@ -4527,29 +4445,6 @@ function qaSetMode(mode) {
   setError('qa-price', false); setError('qa-mp', false); setError('qa-qty', false);
   setError('qa-customRate', false);
   qaUpdate();  // 按新模式与当前品名重新显隐自定义单价组、刷新预计金额提示
-}
-
-// 手动切换品名：选中市场价品名时自动切换到同名项目并重建账户，保持品名与项目一致；
-// 「其他」或无同名项目时保持当前项目，仅刷新计算（程序化设值不触发onchange，qaFillMp 不会造成循环）
-function qaMpChange() {
-  const name = document.getElementById('qa-mp').value;
-  const projSel = document.getElementById('qa-proj');
-  projSel.classList.remove('missing-flash');
-  if (name && name !== '__custom__') {
-    const proj = projects.find(p => p.name === name);
-    if (proj) {
-      if (projSel.value !== proj.id) {
-        projSel.value = proj.id;
-        qaFillUsers();  // 重建账户下拉；qaFillMp 会按同名重新选中该品名并 qaUpdate
-        return;
-      }
-    } else {
-      // 自己没有同名项目：项目下拉红框闪烁提示，无法添加（保存时也会拦截）
-      projSel.classList.add('missing-flash');
-      toast(`你没有「${name}」项目，无法添加（可先创建同名项目后再选择）`, 'warn');
-    }
-  }
-  qaUpdate();
 }
 
 // 品名下拉：与账单页一致，按品名去重取最新单价；默认选中与项目名相同的品名
@@ -4626,17 +4521,10 @@ async function saveQuickAmount() {
         extra = { qty, rate, refQty: 1, mpName: p.name };
       }
     } else if (ok && opt && opt.dataset.price) {
-      // 所选品名必须有同名项目，否则红框提示并禁止保存，防止把别的项目单价误记到当前项目
-      if (!projects.some(pp => pp.name === opt.value)) {
-        document.getElementById('qa-proj').classList.add('missing-flash');
-        toast(`你没有「${opt.value}」项目，无法添加`, 'warn');
-        ok = false;
-      } else {
-        const rate = parseFloat(opt.dataset.price);
-        const ref = Number(opt.dataset.ref) || 1;
-        price = round3(qty * rate / ref);
-        extra = { qty, rate, refQty: ref, mpName: opt.value };
-      }
+      const rate = parseFloat(opt.dataset.price);
+      const ref = Number(opt.dataset.ref) || 1;
+      price = round3(qty * rate / ref);
+      extra = { qty, rate, refQty: ref, mpName: opt.value };
     }
   } else {
     price = parseFloat(document.getElementById('qa-price').value);
@@ -4661,187 +4549,6 @@ async function saveQuickAmount() {
   }
 }
 let qaSaving = false;  // 快捷录入保存进行中锁
-
-/* ---------- 回本曲线：汇总全部项目台账，按日累计，内联SVG折线图（本金参考线 + 触摸/悬停提示） ---------- */
-let ecData = null;
-
-// 聚合全部台账：按日求和，按日期排序后累计
-function buildEarnCurveData() {
-  const dayMap = new Map();
-  let principal = 0, recordCount = 0;
-  projects.forEach(p => (p.users || []).forEach(u => {
-    principal += Number(u.principal) || 0;
-    (u.prices || []).forEach(r => {
-      const d = String(r.date || '').slice(0, 10);
-      if (!d) return;
-      dayMap.set(d, (dayMap.get(d) || 0) + (Number(r.price) || 0));
-      recordCount++;
-    });
-  }));
-  const dates = [...dayMap.keys()].sort();
-  let cum = 0;
-  const points = dates.map(d => { cum += dayMap.get(d); return { date: d, day: dayMap.get(d), cum }; });
-  return { points, principal, recordCount };
-}
-
-// Y 轴上限取整齐刻度（1/2/5×量级）
-function ecNiceMax(v) {
-  if (v <= 0) return 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(v)));
-  const n = v / mag;
-  const s = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
-  return s * mag;
-}
-
-// Y 轴短标签：过万显示 x.x万
-function ecShort(v) {
-  if (v >= 10000) return (v / 10000).toFixed(v % 10000 === 0 ? 0 : 1) + '万';
-  return Math.round(v).toLocaleString('zh-CN');
-}
-
-// 打开回本曲线弹窗
-function openEarnChart() {
-  const { points, principal } = buildEarnCurveData();
-  const body = document.getElementById('ecBody');
-  if (!points.length) {
-    ecData = null;
-    body.innerHTML = '<div class="ec-empty">📭 暂无台账数据<br>添加回本金额后，这里会生成你的回本曲线</div>';
-  } else {
-    const lastCum = points[points.length - 1].cum;
-    const allDone = principal > 0 && lastCum >= principal;
-    const progress = principal > 0 ? Math.min(100, lastCum / principal * 100) : 100;
-    body.innerHTML = `
-      <div class="ec-stats">
-        <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(principal)}</div></div>
-        <div class="ec-stat"><div class="k">累计回本</div><div class="v" style="color:var(--primary)">${fmtMoney(lastCum)}</div></div>
-        <div class="ec-stat"><div class="k">回本进度</div><div class="v" style="color:${allDone ? 'var(--success)' : '#d97706'}">${progress.toFixed(1)}%</div></div>
-      </div>
-      <div class="ec-chart-wrap" id="ecWrap">
-        ${ecRenderSvg(points, principal)}
-        <div class="ec-tip" id="ecTip"></div>
-      </div>`;
-  }
-  openModal('earnChartModal');
-}
-
-// 生成SVG（viewBox固定，宽度自适应；几何数据写入 ecData 供命中检测）
-function ecRenderSvg(points, principal) {
-  const W = 640, H = 360;
-  const padL = 52, padR = 16, padT = 18, padB = 36;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const n = points.length;
-  const lastCum = points[n - 1].cum;
-  const yMax = ecNiceMax(Math.max(principal, lastCum, 1) * 1.05);
-  const xOf = i => padL + (n === 1 ? plotW / 2 : i / (n - 1) * plotW);
-  const yOf = v => padT + plotH - v / yMax * plotH;
-  const baseY = yOf(0);
-  ecData = { points, n, principal, W, H, padL, padR, padT, padB, plotW, plotH, yMax };
-
-  // 水平网格 + Y 刻度（0/25/50/75/100%）
-  let grid = '';
-  for (let k = 0; k <= 4; k++) {
-    const v = yMax * k / 4, y = yOf(v);
-    grid += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(148,163,184,.22)" stroke-width="1"/>`;
-    grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${ecShort(v)}</text>`;
-  }
-  // X 轴底线
-  grid += `<line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="rgba(148,163,184,.4)" stroke-width="1"/>`;
-  // X 日期标签（最多6个，等距抽取）
-  const xLabN = Math.min(6, n);
-  for (let k = 0; k < xLabN; k++) {
-    const idx = Math.round(k * (n - 1) / Math.max(1, xLabN - 1));
-    grid += `<text x="${xOf(idx)}" y="${H - padB + 20}" text-anchor="middle" font-size="10.5" fill="#94a3b8">${points[idx].date.slice(5)}</text>`;
-  }
-  // 路径：从首日轴底升起，逐日连接
-  let lineD = `M ${xOf(0)} ${baseY}`;
-  points.forEach((p, i) => { lineD += ` L ${xOf(i)} ${yOf(p.cum)}`; });
-  const areaD = `${lineD} L ${xOf(n - 1)} ${baseY} Z`;
-  // 数据点（点不多时绘制）
-  let dots = '';
-  if (n <= 50) {
-    points.forEach((p, i) => {
-      dots += `<circle cx="${xOf(i)}" cy="${yOf(p.cum)}" r="${i === n - 1 ? 3.8 : 2.6}" fill="#fff" stroke="#3b82f6" stroke-width="1.5"/>`;
-    });
-  }
-  // 本金参考线（橙色虚线 + 描边光晕文字）
-  let refLine = '';
-  if (principal > 0 && principal <= yMax) {
-    const y = yOf(principal);
-    refLine = `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#f59e0b" stroke-width="1.4" stroke-dasharray="6 4" opacity=".85"/>
-      <text x="${W - padR - 4}" y="${y - 5}" text-anchor="end" font-size="10.5" fill="#d97706" style="paint-order:stroke;stroke:var(--bg);stroke-width:3px">本金 ¥${ecShort(principal)}</text>`;
-  }
-  return `
-  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="ecAreaGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#3b82f6" stop-opacity=".3"/>
-        <stop offset="100%" stop-color="#3b82f6" stop-opacity=".02"/>
-      </linearGradient>
-    </defs>
-    ${grid}
-    ${refLine}
-    <path d="${areaD}" fill="url(#ecAreaGrad)"/>
-    <path d="${lineD}" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-    <g id="ecHover" style="display:none">
-      <line id="ecHL" y1="${padT}" y2="${padT + plotH}" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>
-      <circle id="ecHC" r="5" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
-    </g>
-    <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="transparent" pointer-events="all"
-      onpointerdown="ecMove(event)" onpointermove="ecMove(event)" onpointerleave="ecLeave()"/>
-  </svg>`;
-}
-
-// 指针（鼠标/触摸）移动：换算为SVG坐标，找最近一天
-function ecMove(ev) {
-  if (!ecData) return;
-  const svg = document.querySelector('#ecWrap svg');
-  if (!svg) return;
-  const r = svg.getBoundingClientRect();
-  const vx = (ev.clientX - r.left) / r.width * ecData.W;
-  const { padL, plotW, n } = ecData;
-  let idx = Math.round((vx - padL) / plotW * (n - 1));
-  idx = Math.max(0, Math.min(n - 1, idx));
-  ecShow(idx);
-}
-
-// 在指定日期显示高亮点与磨砂tooltip
-function ecShow(idx) {
-  const d = ecData;
-  const p = d.points[idx];
-  const x = d.padL + (d.n === 1 ? d.plotW / 2 : idx / (d.n - 1) * d.plotW);
-  const y = d.padT + d.plotH - p.cum / d.yMax * d.plotH;
-  document.getElementById('ecHover').style.display = '';
-  const hl = document.getElementById('ecHL');
-  hl.setAttribute('x1', x); hl.setAttribute('x2', x);
-  const hc = document.getElementById('ecHC');
-  hc.setAttribute('cx', x); hc.setAttribute('cy', y);
-
-  const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const wd = wk[new Date(p.date + 'T00:00:00').getDay()];
-  const prog = d.principal > 0 ? (p.cum / d.principal * 100).toFixed(1) : '—';
-  const tip = document.getElementById('ecTip');
-  tip.innerHTML = `
-    <div class="ec-tip-date">${p.date} ${wd}</div>
-    <div class="ec-tip-row"><span>当日回本</span><b>¥${fmtMoney(p.day)}</b></div>
-    <div class="ec-tip-row"><span>累计回本</span><b>¥${fmtMoney(p.cum)}</b></div>
-    <div class="ec-tip-row"><span>回本进度</span><b>${prog}%</b></div>`;
-  tip.classList.add('show');
-  // 定位：默认居中；靠边时内收；点位靠上则tooltip放下方
-  const leftPct = x / d.W * 100;
-  const tx = leftPct < 14 ? '-8%' : leftPct > 86 ? '-92%' : '-50%';
-  const ty = y < d.padT + 78 ? '14%' : '-116%';
-  tip.style.left = leftPct + '%';
-  tip.style.top = (y / d.H * 100) + '%';
-  tip.style.transform = `translate(${tx}, ${ty})`;
-}
-
-// 指针离开：隐藏高亮与提示
-function ecLeave() {
-  if (!ecData) return;
-  document.getElementById('ecHover').style.display = 'none';
-  document.getElementById('ecTip').classList.remove('show');
-}
 
 /* ---------- 台账 ---------- */
 function openLedger(idx) {
