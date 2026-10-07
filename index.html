@@ -919,6 +919,13 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 .modal-mask { background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 
 /* ========== 回本曲线统计图 ========== */
+/* 月份选择工具条：「全部月份（按月）」总览 + 各月下钻 */
+.ec-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
+.ec-toolbar select {
+  flex: 1; max-width: 240px; min-height: 38px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--input-bg); color: var(--text); font-size: 13px;
+}
 .ec-stats { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .ec-stat {
   flex: 1; min-width: 92px; padding: 10px 12px; border-radius: 12px;
@@ -4935,6 +4942,35 @@ function buildEarnCurveData() {
   return { points, principal, recordCount };
 }
 
+// 把逐日点聚合为逐月点：每月一个点，day=当月回本合计，cum=月末累计（该月最后有记录日期的全局累计）
+function buildEarnCurveMonthly(points) {
+  const map = new Map();  // month -> { day, cum }
+  points.forEach(p => {
+    const m = p.date.slice(0, 7);
+    const cur = map.get(m);
+    if (cur) { cur.day += p.day; cur.cum = p.cum; }
+    else map.set(m, { day: p.day, cum: p.cum });
+  });
+  return [...map.keys()].sort().map(m => ({
+    month: m, date: points.find(p => p.date.slice(0, 7) === m).date,
+    day: map.get(m).day, cum: map.get(m).cum
+  }));
+}
+
+// 月份中文/短标签（下拉框与 X 轴、tooltip 共用）
+function ecMonthLabel(m) { return m.slice(0, 4) + '年' + Number(m.slice(5, 7)) + '月'; }
+function ecMonthShort(m) { return m.slice(2).replace('-', '/'); }  // 如 26/10，紧凑且保留年份
+
+// 月内下钻时 Y 轴取「整齐区间」：围绕 [minV,maxV] 给出带 padding 的网格范围，让当月起伏可见
+function ecNiceBounds(minV, maxV) {
+  const rawSpan = Math.max(1e-9, maxV - minV);
+  const span = ecNiceMax(rawSpan * 1.15);
+  let lo = Math.max(0, minV - (span - rawSpan) * 0.4);
+  lo = Math.floor(lo / span) * span;  // 对齐到整齐刻度，保证网格线落在整数值
+  if (lo < 0) lo = 0;
+  return { yMin: lo, yMax: lo + span };
+}
+
 // Y 轴上限取整齐刻度（1/2/5×量级）
 function ecNiceMax(v) {
   if (v <= 0) return 1;
@@ -4950,73 +4986,126 @@ function ecShort(v) {
   return Math.round(v).toLocaleString('zh-CN');
 }
 
-// 打开回本曲线弹窗
+// 当前曲线查看的月份：''=月总览（每月一个点），'YYYY-MM'=该月下钻（逐日）
+let ecSelectedMonth = '';
+
+// 打开回本曲线弹窗（每次打开重置为月总览）
 function openEarnChart() {
+  ecSelectedMonth = '';
+  ecRenderBody();
+  openModal('earnChartModal');
+}
+
+// 下拉框切换月份：就地重绘弹窗内容（不重开弹窗），选中值由渲染时保留
+function ecSwitchMonth(value) {
+  ecSelectedMonth = value || '';
+  ecRenderBody();
+}
+
+// 按 ecSelectedMonth 重绘弹窗主体（工具条 + 统计卡 + 曲线）
+function ecRenderBody() {
   const { points, principal } = buildEarnCurveData();
   const body = document.getElementById('ecBody');
   if (!points.length) {
     ecData = null;
     body.innerHTML = '<div class="ec-empty">📭 暂无台账数据<br>添加回本金额后，这里会生成你的回本曲线</div>';
-  } else {
-    const lastCum = points[points.length - 1].cum;
-    const allDone = principal > 0 && lastCum >= principal;
-    const progress = principal > 0 ? Math.min(100, lastCum / principal * 100) : 100;
-    body.innerHTML = `
-      <div class="ec-stats">
-        <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(principal)}</div></div>
-        <div class="ec-stat"><div class="k">累计回本</div><div class="v" style="color:var(--primary)">${fmtMoney(lastCum)}</div></div>
-        <div class="ec-stat"><div class="k">回本进度</div><div class="v" style="color:${allDone ? 'var(--success)' : '#d97706'}">${progress.toFixed(1)}%</div></div>
-      </div>
-      <div class="ec-chart-wrap" id="ecWrap">
-        ${ecRenderSvg(points, principal)}
-        <div class="ec-tip" id="ecTip"></div>
-      </div>`;
+    return;
   }
-  openModal('earnChartModal');
+  // 月份选项从数据本身推导（跨年/缺月都自适应）
+  const months = [...new Set(points.map(p => p.date.slice(0, 7)))].sort();
+  const toolbar = `
+    <div class="ec-toolbar">
+      <span>📅 查看</span>
+      <select id="ecMonthSel" onchange="ecSwitchMonth(this.value)">
+        <option value="">全部月份（按月总览）</option>
+        ${months.map(m => `<option value="${m}"${m === ecSelectedMonth ? ' selected' : ''}>${ecMonthLabel(m)}</option>`).join('')}
+      </select>
+    </div>`;
+
+  // 依据模式取点：月总览=月点；下钻=该月逐日点，并记录月初累计基线
+  let shown, mode, baseCum = 0;
+  if (!ecSelectedMonth) {
+    shown = buildEarnCurveMonthly(points);
+    mode = 'month';
+  } else {
+    shown = points.filter(p => p.date.slice(0, 7) === ecSelectedMonth);
+    mode = 'day';
+    baseCum = shown.length ? shown[0].cum - shown[0].day : 0;
+  }
+  const lastCum = shown.length ? shown[shown.length - 1].cum : 0;
+  const monthSum = mode === 'day' ? Math.max(0, lastCum - baseCum) : lastCum;
+  const allDone = principal > 0 && lastCum >= principal;
+  const progress = principal > 0 ? Math.min(100, lastCum / principal * 100) : 100;
+  body.innerHTML = toolbar + `
+    <div class="ec-stats">
+      <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(principal)}</div></div>
+      <div class="ec-stat"><div class="k">${mode === 'day' ? '当月回本' : '累计回本'}</div><div class="v" style="color:var(--primary)">${fmtMoney(mode === 'day' ? monthSum : lastCum)}</div></div>
+      <div class="ec-stat"><div class="k">回本进度</div><div class="v" style="color:${allDone ? 'var(--success)' : '#d97706'}">${progress.toFixed(1)}%</div></div>
+    </div>
+    <div class="ec-chart-wrap" id="ecWrap">
+      ${ecRenderSvg(shown, principal, { mode, baseCum })}
+      <div class="ec-tip" id="ecTip"></div>
+    </div>`;
 }
 
 // 生成SVG（viewBox固定，宽度自适应；几何数据写入 ecData 供命中检测）
-function ecRenderSvg(points, principal) {
+// opts.mode：'month'=月总览（Y轴从0起，路径自轴底升起）；'day'=月内逐日（Y轴围绕
+// [baseCum,lastCum] 取整齐区间，路径自月初基线升起，让当月起伏清晰可见）
+function ecRenderSvg(points, principal, opts = {}) {
+  const mode = opts.mode || 'month';
+  const baseCum = Number(opts.baseCum) || 0;
   const W = 640, H = 360;
   const padL = 52, padR = 16, padT = 18, padB = 36;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const n = points.length;
   const lastCum = points[n - 1].cum;
-  const yMax = ecNiceMax(Math.max(principal, lastCum, 1) * 1.05);
+  // Y 轴范围：月总览从 0 起（保持原进度语义）；月下钻按基线区间放大
+  let yMin = 0, yMax;
+  if (mode === 'day') {
+    const b = ecNiceBounds(baseCum, lastCum);
+    yMin = b.yMin; yMax = b.yMax;
+  } else {
+    yMax = ecNiceMax(Math.max(principal, lastCum, 1) * 1.05);
+  }
+  const span = yMax - yMin;
   const xOf = i => padL + (n === 1 ? plotW / 2 : i / (n - 1) * plotW);
-  const yOf = v => padT + plotH - v / yMax * plotH;
-  const baseY = yOf(0);
-  ecData = { points, n, principal, W, H, padL, padR, padT, padB, plotW, plotH, yMax };
+  const yOf = v => padT + plotH - (v - yMin) / span * plotH;
+  const baseY = yOf(yMin);
+  ecData = { points, n, principal, mode, baseCum, W, H, padL, padR, padT, padB, plotW, plotH, yMin, yMax };
 
-  // 水平网格 + Y 刻度（0/25/50/75/100%）
+  // 水平网格 + Y 刻度（区间内 4 等分；月总览即 0/25/50/75/100%）
   let grid = '';
   for (let k = 0; k <= 4; k++) {
-    const v = yMax * k / 4, y = yOf(v);
+    const v = yMin + span * k / 4, y = yOf(v);
     grid += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(148,163,184,.22)" stroke-width="1"/>`;
     grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${ecShort(v)}</text>`;
   }
-  // X 轴底线
+  // X 轴底线（区间下沿）
   grid += `<line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="rgba(148,163,184,.4)" stroke-width="1"/>`;
-  // X 日期标签（最多6个，等距抽取）
+  // X 标签（最多6个，等距抽取）：月总览显示 26/10，月下钻显示 MM-DD
   const xLabN = Math.min(6, n);
   for (let k = 0; k < xLabN; k++) {
     const idx = Math.round(k * (n - 1) / Math.max(1, xLabN - 1));
-    grid += `<text x="${xOf(idx)}" y="${H - padB + 20}" text-anchor="middle" font-size="10.5" fill="#94a3b8">${points[idx].date.slice(5)}</text>`;
+    const lab = mode === 'month' ? ecMonthShort(points[idx].month) : points[idx].date.slice(5);
+    grid += `<text x="${xOf(idx)}" y="${H - padB + 20}" text-anchor="middle" font-size="10.5" fill="#94a3b8">${lab}</text>`;
   }
-  // 路径：从首日轴底升起，逐日连接
-  let lineD = `M ${xOf(0)} ${baseY}`;
+  // 路径起点：月总览从轴底升起；月下钻从月初累计基线开始（直观看到当月增长）
+  const startY = mode === 'day' ? yOf(baseCum) : baseY;
+  let lineD = `M ${xOf(0)} ${startY}`;
   points.forEach((p, i) => { lineD += ` L ${xOf(i)} ${yOf(p.cum)}`; });
-  const areaD = `${lineD} L ${xOf(n - 1)} ${baseY} Z`;
-  // 数据点（点不多时绘制）
+  // 面积路径：沿折线到最后一点 → 垂直落到轴底 → 沿轴底回到首点正下方 → Z 垂直闭合；
+  // 不能直接 Z，否则首点高于轴底时（月下钻、baseCum>0）闭合斜线会切掉左下角蓝色区域
+  const areaD = `${lineD} L ${xOf(n - 1)} ${baseY} L ${xOf(0)} ${baseY} Z`;
+  // 数据点（点不多时绘制；月点与单月逐日通常都在此范围内）
   let dots = '';
   if (n <= 50) {
     points.forEach((p, i) => {
       dots += `<circle cx="${xOf(i)}" cy="${yOf(p.cum)}" r="${i === n - 1 ? 3.8 : 2.6}" fill="#fff" stroke="#3b82f6" stroke-width="1.5"/>`;
     });
   }
-  // 本金参考线（橙色虚线 + 描边光晕文字）
+  // 本金参考线（橙色虚线 + 描边光晕文字）；仅当本金落在当前 Y 轴区间内才绘制
   let refLine = '';
-  if (principal > 0 && principal <= yMax) {
+  if (principal > 0 && principal >= yMin && principal <= yMax) {
     const y = yOf(principal);
     refLine = `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#f59e0b" stroke-width="1.4" stroke-dasharray="6 4" opacity=".85"/>
       <text x="${W - padR - 4}" y="${y - 5}" text-anchor="end" font-size="10.5" fill="#d97706" style="paint-order:stroke;stroke:var(--bg);stroke-width:3px">本金 ¥${ecShort(principal)}</text>`;
@@ -5056,27 +5145,38 @@ function ecMove(ev) {
   ecShow(idx);
 }
 
-// 在指定日期显示高亮点与磨砂tooltip
+// 在指定位置（日点或月点）显示高亮点与磨砂tooltip
 function ecShow(idx) {
   const d = ecData;
   const p = d.points[idx];
   const x = d.padL + (d.n === 1 ? d.plotW / 2 : idx / (d.n - 1) * d.plotW);
-  const y = d.padT + d.plotH - p.cum / d.yMax * d.plotH;
+  const span = d.yMax - d.yMin;
+  const y = d.padT + d.plotH - (p.cum - d.yMin) / span * d.plotH;
   document.getElementById('ecHover').style.display = '';
   const hl = document.getElementById('ecHL');
   hl.setAttribute('x1', x); hl.setAttribute('x2', x);
   const hc = document.getElementById('ecHC');
   hc.setAttribute('cx', x); hc.setAttribute('cy', y);
 
-  const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const wd = wk[new Date(p.date + 'T00:00:00').getDay()];
   const prog = d.principal > 0 ? (p.cum / d.principal * 100).toFixed(1) : '—';
   const tip = document.getElementById('ecTip');
-  tip.innerHTML = `
-    <div class="ec-tip-date">${p.date} ${wd}</div>
-    <div class="ec-tip-row"><span>当日回本</span><b>¥${fmtMoney(p.day)}</b></div>
-    <div class="ec-tip-row"><span>累计回本</span><b>¥${fmtMoney(p.cum)}</b></div>
-    <div class="ec-tip-row"><span>回本进度</span><b>${prog}%</b></div>`;
+  if (d.mode === 'month') {
+    // 月点：标题为「2026年10月」，展示当月合计与月末累计（累计线进度口径不变）
+    tip.innerHTML = `
+      <div class="ec-tip-date">${ecMonthLabel(p.month)}</div>
+      <div class="ec-tip-row"><span>当月回本</span><b>¥${fmtMoney(p.day)}</b></div>
+      <div class="ec-tip-row"><span>月末累计</span><b>¥${fmtMoney(p.cum)}</b></div>
+      <div class="ec-tip-row"><span>回本进度</span><b>${prog}%</b></div>`;
+  } else {
+    // 日点：日期+星期、当日与累计（保持原逐日视图）
+    const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const wd = wk[new Date(p.date + 'T00:00:00').getDay()];
+    tip.innerHTML = `
+      <div class="ec-tip-date">${p.date} ${wd}</div>
+      <div class="ec-tip-row"><span>当日回本</span><b>¥${fmtMoney(p.day)}</b></div>
+      <div class="ec-tip-row"><span>累计回本</span><b>¥${fmtMoney(p.cum)}</b></div>
+      <div class="ec-tip-row"><span>回本进度</span><b>${prog}%</b></div>`;
+  }
   tip.classList.add('show');
   // 定位：默认居中；靠边时内收；点位靠上则tooltip放下方
   const leftPct = x / d.W * 100;
