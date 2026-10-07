@@ -23,7 +23,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ========== 全局基础样式 ========== */
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 :root {
   --primary: #2563eb;        /* 主色蓝 */
@@ -252,6 +252,11 @@ body {
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+/* 点击按钮后不要出现一闪而过的蓝色焦点框（鼠标/触摸均去除；输入框、下拉框的聚焦光环不受影响） */
+.btn:focus, .btn:focus-visible,
+button:focus, button:focus-visible,
+[role="button"]:focus, [role="button"]:focus-visible,
+summary:focus, summary:focus-visible { outline: none; }
 .btn-primary { background: var(--primary-grad, var(--primary)); color: #fff; box-shadow: 0 4px 14px rgba(74,108,247,.35); }
 .btn-primary:hover { background: var(--primary-grad, var(--primary)); filter: brightness(1.07); }
 .btn-outline { background: var(--input-bg); color: var(--primary); border: none; }
@@ -2870,9 +2875,15 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     if (document.querySelector('.modal-mask.show')) return false;
     return true;
   };
-  // 起始点落在表单控件/按钮/链接/横向滚动表格/弹窗/导航栏上时不拦截
-  const onBlocker = el => !!(el && el.closest && el.closest(
-    'input,textarea,select,button,a,label,.table-wrap,.modal-mask,.bottom-nav,#sellPickLayer,.ann-item'));
+  // 手势跟踪排除区（命中则不跟踪、把触摸交给元素自身）：表单控件、弹窗、底部导航、选择浮层、可横向滚动的表格；
+  // 按钮/链接/公告卡片/市场价表格上一律允许起手——横向滑动超 36px 浏览器不会再触发点击，纵向滚动也不受影响
+  const onBlocker = el => {
+    if (!el || !el.closest) return false;
+    if (el.closest('input,textarea,select,label,.modal-mask,.bottom-nav,#sellPickLayer')) return true;
+    const tw = el.closest('.table-wrap');
+    if (tw && tw.scrollWidth > tw.clientWidth + 2) return true;  // 仅拦截真正可横向滚动的表格（市场价页手机端不滚动，自动放行）
+    return false;
+  };
 
   function reset() { tracking = false; locked = false; touchId = null; }
 
