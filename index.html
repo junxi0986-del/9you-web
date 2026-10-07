@@ -52,6 +52,13 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
   --radius-sm: 10px;         /* 小标签圆角 */
   --shadow: 0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
   --input-bg: rgba(255,255,255,0.65);   /* 输入框背景（玻璃上的半透明白） */
+  /* 磨砂玻璃下拉选择框（统一质感）：基材通透 + 自带顶亮底暗的玻璃光影渐变 */
+  --select-bg: rgba(255,255,255,.22);
+  --select-grad: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.14) 46%, rgba(203,213,225,.22) 100%);
+  --select-border: rgba(255,255,255,.8);
+  --select-shadow: 0 1px 3px rgba(15,23,42,.05), 0 6px 18px rgba(15,23,42,.07), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 1px rgba(15,23,42,.04);
+  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --option-bg: #ffffff;
   --th-bg: rgba(255,255,255,0.55);      /* 表头 / 只读输入框背景 */
   --row-hover: rgba(37,99,235,.05);     /* 表格行悬停背景 */
   --done-bg: rgba(34,197,94,.08);       /* 已回本行背景 */
@@ -87,6 +94,13 @@ html.dark-mode {
   --text-secondary: #94a3b8;
   --border: rgba(255,255,255,.1);
   --input-bg: rgba(255,255,255,0.08);
+  /* 磨砂玻璃下拉选择框（深色）：深色玻璃基材 + 顶部微光 */
+  --select-bg: rgba(255,255,255,.05);
+  --select-grad: linear-gradient(180deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.02) 48%, rgba(255,255,255,.05) 100%);
+  --select-border: rgba(255,255,255,.16);
+  --select-shadow: 0 1px 3px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 1px rgba(0,0,0,.25);
+  --select-arrow: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2394a3b8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --option-bg: #1c1c1e;
   --th-bg: rgba(255,255,255,0.05);
   --row-hover: rgba(255,255,255,.06);
   --done-bg: rgba(22,163,74,.12);
@@ -342,7 +356,29 @@ tbody tr:hover { background: var(--row-hover); }
 .seg-control { display: flex; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
 .seg-control button { flex: 1; border: none; background: transparent; color: var(--text-secondary); padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all .15s; min-height: 36px; }
 .seg-control button.active { background: var(--primary); color: #fff; font-weight: 600; }
-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 14px; }
+/* 统一磨砂玻璃下拉选择框：移除系统外观 + 半透明模糊底 + 自绘箭头（option 弹出面板由系统渲染，仅做底色渐进增强） */
+select {
+  width: 100%;
+  padding: 10px 38px 10px 13px;
+  font-size: 14px; font-family: inherit; color: var(--text);
+  border: 1px solid var(--select-border); border-radius: 10px;
+  background-color: var(--select-bg);
+  background-image: var(--select-grad), var(--select-arrow);
+  background-repeat: no-repeat, no-repeat;
+  background-position: 0 0, right 13px center;
+  background-size: 100% 100%, 12px 8px;
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: var(--select-shadow);
+  cursor: pointer; outline: none;
+}
+select:hover { border-color: var(--primary); }
+select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.16), var(--select-shadow); }
+select:disabled { opacity: .55; cursor: not-allowed; }
+select.invalid { border-color: var(--danger); }
+select option { background: var(--option-bg); color: var(--text); }
+select optgroup { background: var(--option-bg); color: var(--text-secondary); font-weight: 600; }
 /* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
 tbody tr.row-done { background: var(--done-bg); }
 tbody tr.row-done:hover { background: var(--done-bg-strong); }
@@ -426,12 +462,13 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text);
 }
 .form-group label .req { color: var(--danger); margin-left: 2px; }
-.form-group input, .form-group select, .form-group textarea {
+.form-group input, .form-group textarea {
   width: 100%; padding: 9px 12px; font-size: 14px;
   border: 1px solid var(--border); border-radius: 6px; outline: none;
   transition: border-color .15s; background: var(--input-bg); color: var(--text);
   font-family: inherit;
 }
+/* select 外观统一走全局磨砂玻璃规则，此处不再覆盖 */
 .form-group textarea { resize: vertical; min-height: 60px; }
 .form-group input:focus, .form-group textarea:focus {
   border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1);
@@ -549,7 +586,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 /* ========== 手机端适配（≤600px） ========== */
 @media (max-width: 600px) {
   /* 输入框字号≥16px，避免 iOS Safari 聚焦时自动放大页面 */
-  .form-group input, .form-group textarea, .search-input { font-size: 16px; }
+  .form-group input, .form-group textarea, .form-group select, .search-input { font-size: 16px; }
 
   .container { padding: 12px 10px 84px; }  /* 底部留出导航栏高度 */
   .header { padding: 14px 16px; border-radius: 8px; }
@@ -3558,7 +3595,7 @@ function billRenderConvert() {
         <span>金额 ¥${fmtMoney(x.price)}</span>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
-        <span>品名 <select id="billcv-mp-${rid}" onchange="billConvRowChange('${x.rec.id}', this)" style="display:inline-block;width:auto;min-height:30px;padding:2px 6px;font-size:12px;max-width:150px">${optHtml(detName)}</select></span>
+        <span>品名 <select id="billcv-mp-${rid}" onchange="billConvRowChange('${x.rec.id}', this)" style="display:inline-block;width:auto;min-height:30px;padding:2px 26px 2px 8px;font-size:12px;max-width:150px">${optHtml(detName)}</select></span>
         <span>单价 ¥<input type="number" id="billcv-rate-${rid}" data-ref="${ref}" value="${rate}" min="0" step="0.01" style="width:76px;min-height:30px;padding:2px 6px;font-size:12px;${rate > 0 ? '' : 'border-color:#dc2626;color:#dc2626'}" oninput="billConvRateInput('${x.rec.id}')"></span>
         <span>数量 <input type="number" id="billcv-${rid}" data-price="${x.price}" value="${infer}" min="0" step="0.01" style="width:82px;min-height:30px;padding:2px 6px;font-size:12px" oninput="billConvLiveUpdate('${x.rec.id}')"></span>
         <span id="billcv-amt-${rid}" style="color:#a16207;font-weight:600">${rate > 0 && infer > 0 ? '金额 ¥' + fmtMoney(round3(infer * rate / ref)) : `金额 ¥${fmtMoney(x.price)}`}</span>
