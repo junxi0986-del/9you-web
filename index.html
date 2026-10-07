@@ -136,7 +136,7 @@ html.dark-mode {
 
 /* ========== 项目群聊样式（浅色/深色模式自适应，见 --chat-* 变量） ========== */
 /* 群聊页为站内普通页面（非全屏覆盖）：顶部导航与底部导航保持可见可点 */
-.chat-page { display: none; flex-direction: column; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); height: calc(100dvh - 250px); min-height: 420px; overflow: hidden; margin-bottom: 20px; }
+.chat-page { display: none; flex-direction: column; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); height: calc(100vh - 250px); height: calc(100dvh - 250px); min-height: 420px; overflow: hidden; margin-bottom: 20px; }
 .chat-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card-bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .chat-back { border: none; background: transparent; color: var(--text); font-size: 22px; cursor: pointer; padding: 4px 10px; min-height: 44px; }
 .chat-top-info { flex: 1; min-width: 0; }
@@ -645,6 +645,8 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 @media (max-width: 600px) {
   /* 输入框字号≥16px，避免 iOS Safari 聚焦时自动放大页面 */
   .form-group input, .form-group textarea, .form-group select, .search-input { font-size: 16px; }
+  /* [5] 两个不在 .form-group 内的输入框同样需要 16px：清空确认输入框、群昵称浮层输入框 */
+  #confirmInputText, #chatNickInput { font-size: 16px; }
 
   .container { padding: 12px 10px 84px; }  /* 底部留出导航栏高度 */
   .header { padding: 14px 16px; border-radius: 8px; }
@@ -708,7 +710,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .summary-card .value { font-size: 18px; }
 
   /* 群聊页：站内普通页，高度适配并预留底部导航栏空间（导航保持可见可点） */
-  .chat-page { height: calc(100dvh - 190px); min-height: 320px; margin-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .chat-page { height: calc(100vh - 190px); height: calc(100dvh - 190px); min-height: 320px; margin-bottom: calc(66px + env(safe-area-inset-bottom)); }
   /* 群聊打开时锁定页面滚动，聊天区固定在页头与底部导航之间，避免滑动页面滑出聊天框 */
   body.chat-open { overflow: hidden; }
   body.chat-open .chat-page { position: fixed; left: 10px; right: 10px; bottom: calc(62px + env(safe-area-inset-bottom)); height: auto; min-height: 0; margin-bottom: 0; z-index: 55; }
@@ -1551,7 +1553,7 @@ html.in-app #loginWrap {
       <button class="modal-close" onclick="closeModal('todayListModal')">×</button>
     </div>
     <div class="modal-body">
-      <div id="todayListPaper" style="position:relative;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 14px;overflow:hidden"></div>
+      <div id="todayListPaper" style="position:relative;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:16px 14px;overflow:hidden"></div>
       <button type="button" class="btn btn-outline" style="margin-top:10px;width:100%;min-height:38px" onclick="billCopyQty(todayListScope)">📋 复制今日出货数</button>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center">本列表仅作展示核对用途，带账号水印，不可修改数据</div>
     </div>
@@ -2743,7 +2745,12 @@ const modalFocusableSel = 'button:not([disabled]), input:not([disabled]):not([ty
 // 通用弹窗开关（第二参数 triggerEl 可选，现有单参数调用无需改动）
 function openModal(id, triggerEl) {
   const el = document.getElementById(id);
-  modalLastFocus.set(id, triggerEl || document.activeElement);
+  // [17] 显式传入的 triggerEl 照常记录；未传入时仅当 activeElement 是真实可聚焦
+  // 元素才记录（body/html 关闭时 focus 无意义），否则存 null
+  let ae = null;
+  const cur = document.activeElement;
+  if (cur && cur.tagName && cur.tagName !== 'BODY' && cur.tagName !== 'HTML') ae = cur;
+  modalLastFocus.set(id, triggerEl || ae);
   el.classList.add('show');
   // [T] 打开后把焦点移到第一个可交互元素（延迟到渲染完成）
   const first = el.querySelector(modalFocusableSel);
@@ -2861,7 +2868,12 @@ function setError(inputId, hasError) {
 }
 
 /* ---------- 页面切换 ---------- */
-function showPage(page) {
+function showPage(page, opts) {
+  // [12] silent：仅做页面 class 切换与状态复位，跳过渲染与历史消费（供 chat_open 使用）
+  const silent = !!(opts && opts.silent);
+  // [3] 先存账单页标记：下面会把 onBillPage 置 false，置后再判断会导致从账单页
+  // 返回列表时汇总动画被误判为不需要（currentProjectId 在账单页也是 null）
+  const wasOnBill = onBillPage;
   // 若群聊页已打开，先正常关闭（退订实时通道、恢复未读订阅与导航高亮）
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') chat_close();
@@ -2871,13 +2883,15 @@ function showPage(page) {
   if (page !== 'bill') onBillPage = false;  // 离开账单页时复位标识
   if (page === 'list') {
     // [P] 从详情页/账单页返回列表才播放汇总动画；纯页签切换/数据刷新不播
-    homeSummaryShouldAnimate = !!(currentProjectId || onBillPage);
-    histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
+    // [3] 用复位前的 wasOnBill 判断，三种场景：详情返回(currentProjectId)、
+    // 账单返回(wasOnBill)、首次进入（showMainApp 里已置 true，本函数随后覆盖）
+    homeSummaryShouldAnimate = !!(currentProjectId || wasOnBill);
+    if (!silent) histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
     batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 返回列表时退出批量模式
-    renderProjectGrid();
+    if (!silent) renderProjectGrid();  // [12] silent 时跳过整表渲染（紧接着列表会被隐藏）
   } else if (page !== 'bill') {
-    renderDetail();
+    if (!silent) renderDetail();
   }
   if (page === 'list') requestAnimationFrame(() => bnavMoveHighlight(false));  // 返回列表页时高亮块无动画就位（导航随页面重新显示）
   window.scrollTo(0, 0);
@@ -2913,7 +2927,7 @@ function exitAdminPage() {
   const homeTop = document.querySelector('#pageProjectList .home-top');
   if (homeTop) homeTop.style.display = '';
   listTab = 'me';
-  updateListTabUI();
+  updateListTabUI(false);  // [11] 退出管理页不播高亮块弹性动画
   renderHomeTop();
   window.scrollTo(0, 0);
 }
@@ -3000,7 +3014,10 @@ function doOpenPromoSite() {
   if (/JiyouApp/i.test(navigator.userAgent)) location.href = PROMO_SITE_URL;
   else window.open(PROMO_SITE_URL, '_blank', 'noopener');
 }
-function updateListTabUI() {
+function updateListTabUI(animate) {
+  // [11] animate 默认 true：仅真正的页签切换播放高亮块弹性动画；
+  // renderProjectGrid / exitAdminPage 传 false，避免数据刷新时高亮块反复弹跳
+  const playAnim = animate !== false;
   const tabs = ['public', 'mine', 'notice', 'market', 'me'];
   tabs.forEach(t => {
     const section = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Section');
@@ -3021,7 +3038,7 @@ function updateListTabUI() {
   });
   // 群聊按钮不在 tabs 数组内，切换页签时必须手动清除其高亮（否则退出群聊后仍显示选中）
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
-  bnavMoveHighlight(true);  // 液态玻璃高亮块弹性滑到选中项
+  bnavMoveHighlight(playAnim);  // [11] 液态玻璃高亮块：页签切换才弹性滑动，数据刷新无动画就位
 }
 
 /* ---------- 底部导航液态玻璃高亮块：translateX 弹性滑动 + 挤压回弹 ---------- */
@@ -3051,6 +3068,7 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   const SWIPE_CLS = ['tab-swipe-out-l', 'tab-swipe-in-r', 'tab-swipe-out-r', 'tab-swipe-in-l'];
 
   let sx = 0, sy = 0, tracking = false, locked = false, touchId = null, animating = false;
+  let pending = null;  // [13] 动画中到达的下一次切换目标，只排队一次
   const touchable = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
   // 仅在项目列表主页可滑动：详情页/账单页/群聊页/弹窗打开时不触发
   const canSwipe = () => {
@@ -3075,7 +3093,11 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
 
   // 带平移动画的页签切换：当前页滑出 → 切换 → 新页从对侧滑入
   function swipeTo(next) {
-    if (animating) return;
+    if (animating) {
+      // [13] 动画中不丢弃第二次连划：暂存目标（只保留最后一次），动画结束后执行
+      if (next !== listTab) pending = next;
+      return;
+    }
     const cur = listTab;
     if (next === cur) { switchListTab(next); return; }   // 点击已选中页签：仅刷新不播动画
     const curEl = sectionEl(cur), newEl = sectionEl(next);
@@ -3094,6 +3116,11 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     setTimeout(() => {
       newEl.classList.remove(...SWIPE_CLS);
       animating = false;
+      // [13] 动画结束后消费排队的连划目标；若此时已在该页签则忽略
+      if (pending !== null) {
+        const p = pending; pending = null;
+        if (p !== listTab) swipeTo(p);
+      }
     }, 460);
   }
 
@@ -3271,7 +3298,7 @@ function renderProjectGrid() {
   // ---- 公共项目区（全员可见，管理员显示管理按钮） ----
   document.getElementById('pubAddBtn').style.display = isAdmin ? '' : 'none';
   renderPublicProjects();
-  updateListTabUI();
+  updateListTabUI(false);  // [11] 数据刷新重建网格时不播导航高亮块动画
 
   // 标题旁项目数统计
   document.getElementById('mineProjCount').textContent = `（共 ${projects.length} 个项目 / ${allUsers.length} 账户）`;
@@ -3359,6 +3386,7 @@ function animateCountUps(container = '#homeSummary', skip = false) {
 // HTML 转义，防止备注等内容破坏页面结构
 // [C] 补充单引号转义：数据拼入单引号包裹的属性/JS 字符串时同样安全
 function escapeHtml(s) {
+  if (s == null) return '';  // [7] null/undefined 直接返回空串，不渲染 "null"/"undefined"；数字/布尔仍走 String()
   return String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -3450,7 +3478,7 @@ function renderDetail() {
   const withIdx = p.users.map((u, uidx) => ({ u, uidx }));
   const list = kw
     ? withIdx.filter(({ u }) =>
-        u.name.toLowerCase().includes(kw) ||
+        (u.name || '').toLowerCase().includes(kw) ||  // [6] 旧数据 name 可能缺失，渲染层防御不改数据
         (u.id || '').toLowerCase().includes(kw) ||  // [A] 旧数据 id 可能缺失，空串为合法值
         (u.remark || '').toLowerCase().includes(kw))
     : withIdx;
@@ -3740,7 +3768,7 @@ async function openBillPage() {
 let billShots = [];  // 佐证截图 dataURL 列表（必传，嵌入账单图片）
 
 // [N] 账单截图限制：单张原图 ≤ 8MB；含已选在内总数 ≤ 9，超出部分丢弃并提示
-function billAddFiles(files) {
+async function billAddFiles(files) {
   let list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
   if (!list.length) return;
   const MAX_SIZE = 8 * 1024 * 1024;
@@ -3750,12 +3778,17 @@ function billAddFiles(files) {
   const room = 9 - billShots.length;
   if (room <= 0) { toast('最多上传 9 张截图，请先删除部分图片', 'warn'); return; }
   if (list.length > room) { toast(`最多 9 张，已自动舍弃后 ${list.length - room} 张`, 'warn'); list = list.slice(0, room); }
-  list.forEach(f => {
-    const rd = new FileReader();
-    rd.onload = () => billCompress(String(rd.result), url => { billShots.push(url); billRenderThumbs(); renderBill(); });
-    rd.onerror = () => toast('图片读取失败', 'error');
-    rd.readAsDataURL(f);
-  });
+  // [10] 串行「读取 → 压缩」：避免 9 个 FileReader 并发 + canvas 同时压缩，
+  // 低内存机型容易 OOM；billShots 顺序与选择顺序一致
+  for (const f of list) {
+    await new Promise(resolve => {
+      const rd = new FileReader();
+      rd.onload = () => billCompress(String(rd.result), url => { billShots.push(url); resolve(); });
+      rd.onerror = () => { toast('图片读取失败', 'error'); resolve(); };
+      rd.readAsDataURL(f);
+    });
+  }
+  billRenderThumbs(); renderBill();  // 全部处理完只渲染一次，减少重排
 }
 
 // 压缩到最长边 1200px 的 JPEG，避免账单图片体积过大
@@ -4081,7 +4114,7 @@ function renderBill() {
       </div>
       <div style="margin-top:12px;font-size:13px;color:#0f172a">日期：<b>${y}年${Number(m)}月${Number(d)}日</b></div>
       <div style="margin-top:3px;font-size:13px;color:#0f172a">范围：<b>${one ? escapeHtml((scope[0] && scope[0].name) || '') : '全部项目'} · 账号 ${escapeHtml(email)}</b></div>
-      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a;table-layout:fixed;word-break:break-word">
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11.5px;color:#0f172a;table-layout:fixed;word-break:break-word;overflow-wrap:anywhere">
         <thead><tr style="background:#f1f5f9">
           <th style="${cs}text-align:center;width:34px">编号</th>
           <th style="${cs}text-align:left">项目ID</th>
@@ -4243,7 +4276,7 @@ function openTodayList(scope) {
     <div style="font-size:13px;color:var(--text);position:relative;z-index:2">${today} <b id="todayClock" style="color:var(--primary);font-family:Consolas,Menlo,monospace">${nowLocal().slice(11, 19)}</b> ｜ 共 <b>${rows.length}</b> 笔 ｜ 合计 <b style="color:var(--success)">¥${fmtMoney(total)}</b></div>
     <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3">${wm}</div>
     <div style="position:relative;z-index:2">
-      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px;color:var(--text);table-layout:fixed;word-break:break-word">
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px;color:var(--text);table-layout:fixed;word-break:break-word;overflow-wrap:anywhere">
         <thead><tr style="background:var(--bg)">
           <th style="${cs}text-align:center;width:34px">编号</th>
           <th style="${cs}text-align:left">项目ID</th>
@@ -4971,9 +5004,11 @@ function ecNiceBounds(minV, maxV) {
   lo = Math.floor(lo / span) * span;  // 对齐到整齐刻度，保证网格线落在整数值
   if (lo < 0) lo = 0;
   // 修复：lo 向下对齐后 lo + span 可能仍 < maxV，会导致 yOf 把超出的点全部夹到
-  // 顶部（表现为贴顶直线）；这里保证 yMax >= maxV，不够就按 span 逐倍扩大。
-  let yMax = lo + span;
-  while (yMax < maxV) yMax += span;
+  // 顶部（表现为贴顶直线）；这里保证 yMax >= maxV。
+  // 用一次 ceil 算出「还需几个 span」，不用 while 循环：脏数据（如 maxV=1e10）
+  // 也不会冻结主线程；结果与逐次相加完全一致，且 yMax 恒为 span 整数倍。
+  const need = Math.max(1, Math.ceil((maxV - lo) / span));
+  const yMax = lo + span * need;
   return { yMin: lo, yMax };
 }
 
@@ -5289,7 +5324,7 @@ function toggleSelectAll(checked) {
   const kw = document.getElementById('userSearch').value.trim().toLowerCase();
   p.users.forEach((u, i) => {
     const hit = kw
-      ? u.name.toLowerCase().includes(kw) ||
+      ? (u.name || '').toLowerCase().includes(kw) ||  // [6] 同 renderDetail，name 缺失不崩
         (u.id || '').toLowerCase().includes(kw) ||  // [A] 同 renderDetail，id 缺失不崩
         (u.remark || '').toLowerCase().includes(kw)
       : true;
@@ -5754,7 +5789,9 @@ const chatState = {
   loadingMore: false,    // 分页加载中标记
   memberCount: 0,        // 成员总数
   titleTimer: null,      // 标题闪烁定时器
-  closing: false         // [J] 主动关闭标记（true 时断线回调不重连）
+  closing: false,        // [J] 主动关闭标记（true 时断线回调不重连）
+  mentionLast: null,     // [16] 最近一次 @ 的昵称（长按后 click 去重）
+  mentionAt: 0           // [16] 最近一次 @ 的时间戳
 };
 
 // 群聊显示名：localStorage → cookie（存储被浏览器阻止时降级）→ 邮箱前缀
@@ -5884,7 +5921,7 @@ async function chat_open() {
   document.getElementById('chatMsgs').innerHTML =
     '<div class="chat-load" id="chatLoadMore" style="display:none"><button class="btn btn-outline btn-sm" onclick="chat_loadMore()">加载更早的消息</button></div>' +
     '<div style="text-align:center;color:var(--text-secondary);padding:30px;font-size:13px">加载中…</div>';
-  showPage('list');  // 若在项目详情页先退回列表页（渲染并复位状态）
+  showPage('list', { silent: true });  // [12] 若在详情页先退回列表：仅复位状态，不渲染整表（列表马上被隐藏）
   document.getElementById('pageProjectList').classList.remove('active');  // 隐藏列表区块，仅显示聊天区
   document.getElementById('chatPage').style.display = 'flex';
   window.scrollTo(0, 0);                 // 复位到顶部，保证页头完整可见
@@ -6120,7 +6157,9 @@ function chat_keepUnsubscribe() {
 async function chat_refreshMembers() {
   const { count } = await sb.from('chat_members').select('user_email', { count: 'exact', head: true }).eq('project_id', chatState.projectId);
   chatState.memberCount = count || 0;
-  document.getElementById('chatMemberCount').textContent = `成员 ${chatState.memberCount} 人`;
+  const el = document.getElementById('chatMemberCount');  // [20] DOM 重建时可能短暂为 null
+  if (!el) return;
+  el.textContent = `成员 ${chatState.memberCount} 人`;
 }
 
 // 收到新消息：去重后渲染 + 滚动/通知
@@ -6138,13 +6177,28 @@ function chat_onIncoming(msg) {
   }
   // 系统消息不通知；非本人消息且聊天页不可见时标题闪烁 + 桌面通知
   if (msg.msg_type !== 'system' && !isMine) chat_notify(msg);
+
+  // [9] 内存/DOM 上限：消息超过 300 条时从头部裁掉多余部分，防止长时间挂群聊
+  // 累积几千节点导致移动端滚动卡顿
+  const MAX_MSGS = 300;
+  if (chatState.messages.length > MAX_MSGS) {
+    const cut = chatState.messages.length - MAX_MSGS;
+    const removed = chatState.messages.splice(0, cut);  // messages 与 DOM 按时间正序一一对应
+    removed.forEach(m => {
+      const node = box.querySelector(`[data-id="${m.id}"]`);  // 普通消息与系统消息均带 data-id
+      if (node) node.remove();
+    });
+    // 同步分页游标：裁掉的是最前面的消息，oldestAt 指向新的最早一条（向上翻页仍正确）
+    chatState.oldestAt = chatState.messages.length ? chatState.messages[0].created_at : null;
+  }
 }
 
 // 渲染单条消息（追加到列表末尾）
 function chat_append(msg) {
   const box = document.getElementById('chatMsgs');
   if (msg.msg_type === 'system') {
-    box.insertAdjacentHTML('beforeend', `<div class="chat-sys"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`);
+    // [9] 系统消息同样带 data-id：上限清理按 id 精确删节点时不会漏掉系统消息
+    box.insertAdjacentHTML('beforeend', `<div class="chat-sys" data-id="${msg.id}"><span>${escapeHtml(msg.body)}</span><div class="chat-time" style="text-align:center">${chat_fmtTime(msg.created_at)}</div></div>`);
     return;
   }
   const mine = msg.user_email === currentUserEmail;
@@ -6181,8 +6235,9 @@ document.addEventListener('click', e => {
 function chat_mention(name) {
   if (!chatState.projectId) return;
   const input = document.getElementById('chatText');
-  if (chat_mention._last === name && Date.now() - (chat_mention._t || 0) < 800) return;  // 长按后 click 去重
-  chat_mention._last = name; chat_mention._t = Date.now();
+  // [16] 去重状态挂在 chatState 上（替代函数对象属性）：长按后 click 800ms 内同昵称不重复插入
+  if (chatState.mentionLast === name && Date.now() - (chatState.mentionAt || 0) < 800) return;
+  chatState.mentionLast = name; chatState.mentionAt = Date.now();
   const cur = input.value;
   if (!cur || cur.endsWith(' ')) input.value = cur + '@' + name + ' ';
   else input.value = cur + ' @' + name + ' ';
@@ -6447,6 +6502,15 @@ function notif_updateUI() {
 }
 
 // 切换开关：未授权时先请求权限；被拒时引导去浏览器设置
+// [8] 在用户手势（点开关）中创建/resume 一次 AudioContext：iOS 要求 AudioContext
+// 必须由用户手势激活，否则非手势触发 beep 时 ctx 处于 suspended，永远无声
+function notif_primeAudio() {
+  try {
+    notifState.audio = notifState.audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (notifState.audio.state === 'suspended') notifState.audio.resume();
+  } catch (e) {}
+}
+
 async function notif_toggle(input) {
   // Android APP 环境：通过 JS 接口调原生通知
   if (isAndroidApp()) {
@@ -6475,24 +6539,35 @@ async function notif_toggle(input) {
     notifState.enabled = p === 'granted';
     localStorage.setItem('notification_enabled', notifState.enabled ? 'true' : 'false');
     notif_updateUI();
+    if (p === 'granted') notif_primeAudio();  // [8] 用户手势内激活音频
     return toast(p === 'granted' ? '通知已开启' : '未获得通知授权', p === 'granted' ? 'success' : 'warn');
   }
   notifState.enabled = want;
   localStorage.setItem('notification_enabled', want ? 'true' : 'false');
   notif_updateUI();
+  if (want) notif_primeAudio();  // [8] 用户手势内激活音频（权限此前已授予的情况）
   toast(want ? '通知已开启' : '通知已关闭', 'success');
 }
 
 // 短促提示音（WebAudio 合成，失败静默）
 function notif_beep() {
+  // [8] 发声逻辑抽出：ctx 处于 suspended（iOS 未被手势激活/刚从后台回来）时
+  // 先 resume，成功后再发声；resume 失败则本次无声，不抛错、不阻塞
+  const play = () => {
+    try {
+      const ctx = notifState.audio, o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      o.start(); o.stop(ctx.currentTime + 0.25);
+    } catch (e) {}
+  };
   try {
     notifState.audio = notifState.audio || new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = notifState.audio, o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 880; o.type = 'sine';
-    g.gain.setValueAtTime(0.12, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    o.start(); o.stop(ctx.currentTime + 0.25);
+    const ctx = notifState.audio;
+    if (ctx.state === 'suspended') { ctx.resume().then(play).catch(() => {}); return; }
+    play();
   } catch (e) {}
 }
 
@@ -6537,7 +6612,11 @@ function notif_send(msg) {
 function notif_show(body) {
   try {
     const n = new Notification('📊 平台群聊 新消息', { body, icon: 'logo.jpg', tag: 'jy-chat', lang: 'zh-CN' });
-    n.onclick = () => { window.focus(); n.close(); chat_open_from_notify(); };
+    n.onclick = () => {
+      window.focus(); n.close();
+      notifState.t = 0; notifState.count = 0;  // [14] 点开通知后重置合并窗口，下条消息重新计数
+      chat_open_from_notify();
+    };
     setTimeout(() => { try { n.close(); } catch (e) {} }, 4000);
     notif_beep();
     return n;
