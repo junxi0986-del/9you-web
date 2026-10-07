@@ -4963,12 +4963,18 @@ function ecMonthShort(m) { return m.slice(2).replace('-', '/'); }  // 如 26/10�
 
 // 月内下钻时 Y 轴取「整齐区间」：围绕 [minV,maxV] 给出带 padding 的网格范围，让当月起伏可见
 function ecNiceBounds(minV, maxV) {
-  const rawSpan = Math.max(1e-9, maxV - minV);
-  const span = ecNiceMax(rawSpan * 1.15);
-  let lo = Math.max(0, minV - (span - rawSpan) * 0.4);
+  // 最小跨度不能取固定极小值：金额很大时浮点对齐会失真，点会飞出画布。
+  // 取「当月波动 ×1.15」与「累计量级 2%」中的较大者（至少 1），无波动的月份显示为平稳直线
+  const minSpan = Math.max(1, Math.abs(maxV) * 0.02);
+  const span = ecNiceMax(Math.max((maxV - minV) * 1.15, minSpan));
+  let lo = Math.max(0, minV - (span - (maxV - minV)) * 0.4);
   lo = Math.floor(lo / span) * span;  // 对齐到整齐刻度，保证网格线落在整数值
   if (lo < 0) lo = 0;
-  return { yMin: lo, yMax: lo + span };
+  // 修复：lo 向下对齐后 lo + span 可能仍 < maxV，会导致 yOf 把超出的点全部夹到
+  // 顶部（表现为贴顶直线）；这里保证 yMax >= maxV，不够就按 span 逐倍扩大。
+  let yMax = lo + span;
+  while (yMax < maxV) yMax += span;
+  return { yMin: lo, yMax };
 }
 
 // Y 轴上限取整齐刻度（1/2/5×量级）
@@ -5069,7 +5075,12 @@ function ecRenderSvg(points, principal, opts = {}) {
   }
   const span = yMax - yMin;
   const xOf = i => padL + (n === 1 ? plotW / 2 : i / (n - 1) * plotW);
-  const yOf = v => padT + plotH - (v - yMin) / span * plotH;
+  // 数据点 Y 坐标夹取到 [yMin,yMax]：即使个别记录值超出区间（异常/极端数据），
+  // 曲线也不会飞出 SVG 外导致整体消失；网格刻度本来就在区间内，不受影响
+  const yOf = v => {
+    const cv = Math.max(yMin, Math.min(yMax, v));
+    return padT + plotH - (cv - yMin) / span * plotH;
+  };
   const baseY = yOf(yMin);
   ecData = { points, n, principal, mode, baseCum, W, H, padL, padR, padT, padB, plotW, plotH, yMin, yMax };
 
@@ -5151,7 +5162,9 @@ function ecShow(idx) {
   const p = d.points[idx];
   const x = d.padL + (d.n === 1 ? d.plotW / 2 : idx / (d.n - 1) * d.plotW);
   const span = d.yMax - d.yMin;
-  const y = d.padT + d.plotH - (p.cum - d.yMin) / span * d.plotH;
+  // 与 ecRenderSvg 中 yOf 保持一致：夹取到区间内，高亮点不飞出画布
+  const cv = Math.max(d.yMin, Math.min(d.yMax, p.cum));
+  const y = d.padT + d.plotH - (cv - d.yMin) / span * d.plotH;
   document.getElementById('ecHover').style.display = '';
   const hl = document.getElementById('ecHL');
   hl.setAttribute('x1', x); hl.setAttribute('x2', x);
