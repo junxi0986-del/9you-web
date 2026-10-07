@@ -379,12 +379,20 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 select.invalid { border-color: var(--danger); }
 select option { background: var(--option-bg); color: var(--text); }
 select optgroup { background: var(--option-bg); color: var(--text-secondary); font-weight: 600; }
-/* 快捷弹窗品名锁定：不使用通用disabled灰暗样式，保留玻璃质感，箭头位换成小锁 */
-#qa-mp:disabled {
+/* 详情页弹窗品名锁定：不使用通用disabled灰暗样式，保留玻璃质感，箭头位换成小锁 */
+#pr-mp:disabled {
   opacity: 1; cursor: not-allowed;
   background-image: var(--select-grad), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect x='2.4' y='5.6' width='7.2' height='5' rx='1.1' fill='none' stroke='%2394a3b8' stroke-width='1.2'/><path d='M4 5.6V4a2 2 0 0 1 4 0v1.6' fill='none' stroke='%2394a3b8' stroke-width='1.2'/></svg>");
   background-size: 100% 100%, 12px 12px;
 }
+/* 快捷弹窗：选中的市场价品名无同名项目时，项目下拉红框闪烁并停在红框，直至下次有效选择 */
+@keyframes qaMissingFlash {
+  0%   { border-color: var(--danger); box-shadow: 0 0 0 0 rgba(220,38,38,.5); }
+  50%  { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(220,38,38,.28); }
+  100% { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(220,38,38,.16); }
+}
+#qa-proj.missing-flash { animation: qaMissingFlash .45s ease-in-out 5 forwards; }
+
 /* 已回本的账户行为淡绿色（深色模式自动切换为半透明绿） */
 tbody tr.row-done { background: var(--done-bg); }
 tbody tr.row-done:hover { background: var(--done-bg-strong); }
@@ -1621,10 +1629,16 @@ html.in-app #loginWrap {
         <div class="form-error">请输入大于 0 的回本金额</div>
       </div>
       <div class="form-group" id="pr-qtyGroup" style="display:none">
-        <label>市场价品名<span class="req">*</span></label>
-        <select id="pr-mp" onchange="updateQtyAmount()"></select>
+        <label>市场价品名<span class="req">*</span><span style="font-weight:400;color:var(--text-secondary);font-size:11px;margin-left:4px">按项目自动匹配，不可修改</span></label>
+        <select id="pr-mp" disabled></select>
         <div class="form-tip">单价取自「市场价」页签的历史市场参考价</div>
         <div class="form-error">请选择市场价品名</div>
+      </div>
+      <!-- 选「其他」时显示：由用户自己填写单价（金额 = 数量 × 单价） -->
+      <div class="form-group" id="pr-customGroup" style="display:none">
+        <label>自定义单价（元/个）<span class="req">*</span></label>
+        <input type="number" id="pr-customRate" placeholder="请输入该项目每个的单价" min="0.001" step="0.001" oninput="updateQtyAmount()">
+        <div class="form-error">请输入大于 0 的单价</div>
       </div>
       <div class="form-group" id="pr-qtyInputGroup" style="display:none">
         <label>出货数量<span class="req">*</span></label>
@@ -1674,8 +1688,8 @@ html.in-app #loginWrap {
         <div class="form-tip">出货数量模式：单价自动取市场参考价，金额 = 数量 × 单价</div>
       </div>
       <div class="form-group" id="qa-qtyGroup">
-        <label>市场价品名<span class="req">*</span><span style="font-weight:400;color:var(--text-secondary);font-size:11px;margin-left:4px">按项目自动匹配，不可修改</span></label>
-        <select id="qa-mp" disabled></select>
+        <label>市场价品名<span class="req">*</span><span style="font-weight:400;color:var(--text-secondary);font-size:11px;margin-left:4px">可手动切换，将同步选中同名项目</span></label>
+        <select id="qa-mp" onchange="qaMpChange()"></select>
         <div class="form-error">请选择市场价品名</div>
       </div>
       <!-- 选「其他」时显示：由用户自己填写单价（金额 = 数量 × 单价） -->
@@ -4285,9 +4299,11 @@ function setPriceMode(mode) {
   document.getElementById('pr-qtyGroup').style.display = mode === 'qty' ? '' : 'none';
   document.getElementById('pr-qtyInputGroup').style.display = mode === 'qty' ? '' : 'none';
   setError('pr-price', false); setError('pr-mp', false); setError('pr-qty', false);
+  setError('pr-customRate', false);
+  updateQtyAmount();  // 按新模式与当前品名重新显隐自定义单价组、刷新预计金额提示
 }
 
-// 品名下拉：同一品名可能多天多条，按品名去重取最新一条的单价
+// 品名下拉：同一品名可能多天多条，按品名去重取最新一条单价；末尾固定「其他（自定义市场价）」
 function fillMpOptions(projectName) {
   const sel = document.getElementById('pr-mp');
   const seen = new Set();
@@ -4297,27 +4313,38 @@ function fillMpOptions(projectName) {
     seen.add(r.name);
     opts.push(r);
   }
-  sel.innerHTML = opts.length === 0
-    ? '<option value="">暂无市场价数据，请管理员在「市场价管理」录入</option>'
-    : opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('');
-  // 默认选中与项目名相同的品名（若有）
-  if ([...sel.options].some(o => o.value === projectName)) sel.value = projectName;
+  // 选项：已有市场价品名 + 末尾固定「其他（自定义市场价）」；无市场价数据时仅保留其他项
+  const customOpt = '<option value="__custom__">其他（自定义市场价）</option>';
+  sel.innerHTML = (opts.length
+    ? opts.map(r => `<option value="${escapeHtml(r.name)}" data-price="${r.price}" data-ref="${mpRefQty(r.unit)}" data-unit="${escapeHtml(r.unit || '1')}">${escapeHtml(r.name)}（¥${fmtMoney(r.price)}/${escapeHtml(r.unit || '1')}）</option>`).join('')
+    : '') + customOpt;
+  // 项目名与市场价品名同名则自动选中；匹配不到（含市场价无此项目）统一跳转到「其他」
+  sel.value = (projectName && seen.has(projectName)) ? projectName : '__custom__';
   updateQtyAmount();
 }
 
-// 出货数量模式下实时计算预计回本金额：数量 × 单价 ÷ 对应数量（单位含数量如「2100个」时按份换算；数量必须为整数，非整数实时标红提示）
+// 出货数量模式下实时计算预计回本金额：数量 × 单价 ÷ 对应数量（数量必须为整数，非整数实时标红提示）
 function updateQtyAmount() {
-  const sel = document.getElementById('pr-mp');
-  const opt = sel.selectedOptions[0];
+  const opt = document.getElementById('pr-mp').selectedOptions[0];
   const qty = parseFloat(document.getElementById('pr-qty').value);
   const tip = document.getElementById('pr-qtyAmount');
-  // 数量已填但不是整数：立即红标提示（优先于金额计算提示）
+  // 数量已填但不是整数：立即红标提示
   const badInt = Number(document.getElementById('pr-qty').value) > 0 && !Number.isInteger(qty);
   setError('pr-qty', badInt);
-  if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
-  const rate = parseFloat(opt.dataset.price);
-  const ref = Number(opt.dataset.ref) || 1;
-  const unit = opt.dataset.unit || '1';
+  const isCustom = !!opt && opt.value === '__custom__';
+  // 仅在数量模式+选中其他时显示自定义单价输入框
+  document.getElementById('pr-customGroup').style.display = (prMode === 'qty' && isCustom) ? '' : 'none';
+  let rate, ref = 1, unit = '1';
+  if (isCustom) {
+    rate = parseFloat(document.getElementById('pr-customRate').value);
+    if (!(rate > 0)) { setError('pr-customRate', false); tip.textContent = '请先输入自定义单价，输入数量后自动计算'; return; }
+    setError('pr-customRate', false);
+  } else {
+    if (!opt || !opt.dataset.price) { tip.textContent = '预计回本金额：— 元（数量必须为整数）'; return; }
+    rate = parseFloat(opt.dataset.price);
+    ref = Number(opt.dataset.ref) || 1;
+    unit = opt.dataset.unit || '1';
+  }
   tip.textContent = Number(qty) > 0
     ? `预计回本金额：${fmtMoney(round3(qty * rate / ref))} 元（${qty} × ¥${fmtMoney(rate)}/${unit}）`
     : `单价 ¥${fmtMoney(rate)}/${unit}，输入数量后自动计算`;
@@ -4336,6 +4363,8 @@ async function openPriceModal(idx, preferMp) {
   document.getElementById('pr-date').value = nowLocal();
   document.getElementById('pr-price').value = '';
   document.getElementById('pr-qty').value = '';
+  document.getElementById('pr-customRate').value = '';  // 清空上次的自定义单价
+  setError('pr-customRate', false);
   setPriceMode('amount');  // 每次打开默认金额录入
   updatePriceTip(p.users[sel.selectedIndex]);
   openModal('priceModal');
@@ -4381,13 +4410,21 @@ async function savePrice() {
     // 数量必须为整数：优先校验并提示
     ok = setError('pr-qty', !(qty > 0) || !Number.isInteger(qty)) && ok;
     const opt = document.getElementById('pr-mp').selectedOptions[0];
-    const mpName = opt ? opt.value : '';
-    ok = setError('pr-mp', !mpName || !opt || !opt.dataset.price) && ok;
-    if (ok && mpName && opt.dataset.price) {
+    const isCustom = !!opt && opt.value === '__custom__';
+    ok = setError('pr-mp', !opt || (!isCustom && !opt.dataset.price)) && ok;
+    if (isCustom) {
+      // 「其他（自定义市场价）」：单价由用户手填，金额 = 数量 × 单价，品名记项目名便于台账辨识
+      const rate = parseFloat(document.getElementById('pr-customRate').value);
+      ok = setError('pr-customRate', !(rate > 0)) && ok;
+      if (ok) {
+        price = round3(qty * rate);
+        extra = { qty, rate, refQty: 1, mpName: p.name };
+      }
+    } else if (ok && opt && opt.dataset.price) {
       const rate = parseFloat(opt.dataset.price);
       const ref = Number(opt.dataset.ref) || 1;
       price = round3(qty * rate / ref);  // 数量 × 单价 ÷ 对应数量，3 位小数精度
-      extra = { qty, rate, refQty: ref, mpName };  // 附加数量/单价/对应数量信息，供台账与账单展示
+      extra = { qty, rate, refQty: ref, mpName: opt.value };  // 附加数量/单价/对应数量信息，供台账与账单展示
     }
   } else {
     price = parseFloat(document.getElementById('pr-price').value);
@@ -4426,6 +4463,7 @@ async function openQuickAmountModal() {
   setError('qa-customRate', false);
   document.getElementById('qa-customRate').value = '';  // 清空上次的自定义单价
   const sel = document.getElementById('qa-proj');
+  sel.classList.remove('missing-flash');  // 重新打开弹窗时清除无项目红框提示
   // 项目下拉排序：项目名与市场价品名精确匹配的排前面（保持创建时间原序），无市场价的按名称拼音字母排后面
   const fillQaProj = () => {
     const mpNames = new Set(marketPrices.map(r => r.name));
@@ -4449,7 +4487,9 @@ async function openQuickAmountModal() {
 
 // 项目切换后填充该项目的账户下拉（创建时间正序，与详情页一致），无账户时禁用添加
 function qaFillUsers() {
-  const p = getProject(document.getElementById('qa-proj').value);
+  const projSel = document.getElementById('qa-proj');
+  projSel.classList.remove('missing-flash');  // 手动切换项目即视为有效操作，清除无项目红框
+  const p = getProject(projSel.value);
   const uSel = document.getElementById('qa-user');
   uSel.innerHTML = p && p.users.length
     ? p.users.map((u, i) => `<option value="${i}">${escapeHtml(u.name)}${u.id ? `（ID：${u.id}）` : ''}</option>`).join('')
@@ -4476,6 +4516,29 @@ function qaSetMode(mode) {
   setError('qa-price', false); setError('qa-mp', false); setError('qa-qty', false);
   setError('qa-customRate', false);
   qaUpdate();  // 按新模式与当前品名重新显隐自定义单价组、刷新预计金额提示
+}
+
+// 手动切换品名：选中市场价品名时自动切换到同名项目并重建账户，保持品名与项目一致；
+// 「其他」或无同名项目时保持当前项目，仅刷新计算（程序化设值不触发onchange，qaFillMp 不会造成循环）
+function qaMpChange() {
+  const name = document.getElementById('qa-mp').value;
+  const projSel = document.getElementById('qa-proj');
+  projSel.classList.remove('missing-flash');
+  if (name && name !== '__custom__') {
+    const proj = projects.find(p => p.name === name);
+    if (proj) {
+      if (projSel.value !== proj.id) {
+        projSel.value = proj.id;
+        qaFillUsers();  // 重建账户下拉；qaFillMp 会按同名重新选中该品名并 qaUpdate
+        return;
+      }
+    } else {
+      // 自己没有同名项目：项目下拉红框闪烁提示，无法添加（保存时也会拦截）
+      projSel.classList.add('missing-flash');
+      toast(`你没有「${name}」项目，无法添加（可先创建同名项目后再选择）`, 'warn');
+    }
+  }
+  qaUpdate();
 }
 
 // 品名下拉：与账单页一致，按品名去重取最新单价；默认选中与项目名相同的品名
@@ -4552,10 +4615,17 @@ async function saveQuickAmount() {
         extra = { qty, rate, refQty: 1, mpName: p.name };
       }
     } else if (ok && opt && opt.dataset.price) {
-      const rate = parseFloat(opt.dataset.price);
-      const ref = Number(opt.dataset.ref) || 1;
-      price = round3(qty * rate / ref);
-      extra = { qty, rate, refQty: ref, mpName: opt.value };
+      // 所选品名必须有同名项目，否则红框提示并禁止保存，防止把别的项目单价误记到当前项目
+      if (!projects.some(pp => pp.name === opt.value)) {
+        document.getElementById('qa-proj').classList.add('missing-flash');
+        toast(`你没有「${opt.value}」项目，无法添加`, 'warn');
+        ok = false;
+      } else {
+        const rate = parseFloat(opt.dataset.price);
+        const ref = Number(opt.dataset.ref) || 1;
+        price = round3(qty * rate / ref);
+        extra = { qty, rate, refQty: ref, mpName: opt.value };
+      }
     }
   } else {
     price = parseFloat(document.getElementById('qa-price').value);
