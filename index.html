@@ -18,7 +18,25 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[项目跟踪管理平台] 代码版本 20260-完整版');</script>
+<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.07');</script>  <!-- [V] 版本号格式统一 -->
+<!-- [W] Content-Security-Policy：仅允许本站资源、jsdelivr CDN 与 Supabase。
+     刻意保持适度宽松（见各指令注释），避免误伤导致页面/PWA 挂掉：
+     - script-src 保留 'unsafe-inline'：主题预加载、全部内联脚本依赖它；
+     - style-src 保留 'unsafe-inline'：动态样式/内联样式大量使用；
+     - img-src 覆盖 data:/blob:/Supabase Storage（chat_images 等）；
+     - connect-src 同时放行 https 与 wss（Realtime）；
+     - manifest-src/worker-src 显式放行 'self'，保证 manifest.json 与 sw.js PWA 可用；
+     - 未设置 navigate-to，故 http://8.137.100.55、推广站等外部跳转不受限制。 -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob: https://*.supabase.co;
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+  font-src 'self' data:;
+  manifest-src 'self';
+  worker-src 'self';
+  base-uri 'self';">
 <!-- Supabase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -604,7 +622,24 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   39%, 61% { transform: translateY(-1.5em); }
   78%, 100% { transform: translateY(-3em); }
 }
-@media (prefers-reduced-motion: reduce) { .official-btn-txt .roll { animation: none; } }
+/* [R] 用户在系统层开启「减少动态效果」（iOS 辅助功能 / Android 开发者选项）时：
+   统一大幅缩短全部动画与过渡。覆盖全部 keyframes：tabSlideOutL/InR/OutR/InL、
+   annScroll、pop、capShake、listSpin、chat-spin、chatUnreadPulse、bnavSqueeze、
+   slideDown、qaMissingFlash、officialTxtRoll 等（含后续新增动画，无需逐一声明）。
+   说明：
+   - duration 压到 0.001ms 且只播 1 次：无限循环类（跑马灯/脉冲/转圈）即刻停在初始态；
+   - qaMissingFlash 带 forwards 且末帧就是红框警示，错误提示不丢失；
+   - 过渡时长同步缩短，滑动切页签变为瞬切；
+   - scroll-behavior 改为 auto，避免长距离平滑滚动造成不适。 */
+@media (prefers-reduced-motion: reduce) {
+  .official-btn-txt .roll { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ========== 手机端适配（≤600px） ========== */
 @media (max-width: 600px) {
@@ -1315,7 +1350,7 @@ html.in-app #loginWrap {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:16px;font-weight:600">账户列表 <span style="font-size:12px;color:var(--text-secondary);font-weight:400">共 <b id="userCount">0</b> 人</span></h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input type="text" class="search-input" id="userSearch" placeholder="🔍 搜索姓名 / 账户ID / 备注" oninput="renderDetail()">
+        <input type="text" class="search-input" id="userSearch" placeholder="🔍 搜索姓名 / 账户ID / 备注" oninput="onUserSearchInput()">
         <button class="btn btn-outline btn-sm" id="batchToggleBtn" onclick="toggleBatchMode()">批量操作</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ 添加账户</button>
       </div>
@@ -1432,7 +1467,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 新增/编辑项目弹窗 ========== -->
-<div class="modal-mask" id="projectModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="projectModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="projectModalTitle">新增项目</h3>
@@ -1469,7 +1504,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 分享项目弹窗 ========== -->
-<div class="modal-mask" id="shareProjectModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="shareProjectModal">
   <div class="modal">
     <div class="modal-head">
       <h3>🔗 分享项目</h3>
@@ -1502,7 +1537,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 今日回本明细弹窗（仅展示，带账号水印） ========== -->
-<div class="modal-mask" id="todayListModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="todayListModal">
   <div class="modal" style="max-width:620px">
     <div class="modal-head">
       <h3>📋 今日回本明细</h3>
@@ -1517,7 +1552,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 发布/编辑公共项目弹窗（仅管理员） ========== -->
-<div class="modal-mask" id="publicProjectModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="publicProjectModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="publicProjectModalTitle">发布公共项目</h3>
@@ -1573,7 +1608,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 新增/编辑用户弹窗 ========== -->
-<div class="modal-mask" id="userModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="userModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="userModalTitle">添加账户</h3>
@@ -1620,7 +1655,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 价格录入弹窗 ========== -->
-<div class="modal-mask" id="priceModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="priceModal">
   <div class="modal">
     <div class="modal-head">
       <h3>添加回本金额</h3>
@@ -1679,7 +1714,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 项目列表快捷录入回本金额弹窗（先选项目→账户，再按市场价数量或直接金额录入） ========== -->
-<div class="modal-mask" id="quickAmountModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="quickAmountModal">
   <div class="modal">
     <div class="modal-head">
       <h3>新增回本金额</h3>
@@ -1742,7 +1777,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 回本曲线统计图弹窗（汇总全部项目台账，内联SVG，无外部依赖） ========== -->
-<div class="modal-mask" id="earnChartModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="earnChartModal">
   <div class="modal">
     <div class="modal-head">
       <h3>📈 回本曲线</h3>
@@ -1756,7 +1791,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 市场价新增 / 编辑浮窗（管理员·我的页，复用同一弹窗） ========== -->
-<div class="modal-mask" id="marketModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="marketModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="marketModalTitle">新增市场价</h3>
@@ -1797,7 +1832,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 用户协议 / 隐私政策查看弹窗（登录页勾选行点击打开） ========== -->
-<div class="modal-mask" id="agreementModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="agreementModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="agreementTitle">用户协议</h3>
@@ -1813,7 +1848,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 台账查看弹窗 ========== -->
-<div class="modal-mask" id="ledgerModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="ledgerModal">
   <div class="modal wide">
     <div class="modal-head">
       <h3 id="ledgerTitle">查看台账</h3>
@@ -1843,7 +1878,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 批量添加回本金额弹窗 ========== -->
-<div class="modal-mask" id="batchPriceModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="batchPriceModal">
   <div class="modal">
     <div class="modal-head">
       <h3>批量添加回本金额</h3>
@@ -1875,7 +1910,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- iOS 描述文件安装教程弹窗（三步引导） -->
-<div class="modal-mask" id="iosGuideModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="iosGuideModal">
   <div class="modal" style="max-width:400px">
     <div class="modal-head"><h3>📲 iOS Installation</h3><button class="modal-close" onclick="closeModal('iosGuideModal')">×</button></div>
     <div class="modal-body">
@@ -1901,7 +1936,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- 确认操作弹窗（二次确认） -->
-<div class="modal-mask" id="confirmModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="confirmModal">
   <div class="modal" style="max-width:380px">
     <div class="modal-head"><h3 id="confirmTitle">确认操作</h3><button class="modal-close" onclick="closeModal('confirmModal')">×</button></div>
     <div class="modal-body">
@@ -1919,7 +1954,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 发布/编辑公告弹窗（仅管理员） ========== -->
-<div class="modal-mask" id="annModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="annModal">
   <div class="modal">
     <div class="modal-head">
       <h3 id="annModalTitle">发布公告</h3>
@@ -1953,7 +1988,7 @@ html.in-app #loginWrap {
 </div>
 
 <!-- ========== 滑动拼图人机验证弹窗（发送验证码前） ========== -->
-<div class="modal-mask" id="captchaModal">
+<div role="dialog" aria-modal="true" class="modal-mask" id="captchaModal">
   <div class="modal" style="max-width:340px">
     <div class="modal-head">
       <h3>🛡️ 安全验证</h3>
@@ -2293,23 +2328,33 @@ async function supabaseLogout(){
 // ========== 无感登录：监听会话状态变化 ==========
 // 令牌自动刷新成功 / 会话恢复时，无缝进入主界面，用户无需重新登录
 let authReady = false;  // 标记首次 checkAuth 是否已完成，避免 onAuthStateChange 重复触发
-sb.auth.onAuthStateChange(async (event, session) => {
+// [B] SIGNED_OUT 清理逻辑抽为独立函数（onAuthStateChange 回调内只做同步派发，
+// 真正的清理放到下一宏任务，避免回调持有 auth 锁时其内部请求与 SDK 互等死锁）
+function handleSignedOutCleanup() {
+  currentUserId = null;
+  currentUserEmail = '';
+  isAdmin = false;
+  projects = [];
+  publicProjects = [];
+  announcements = [];
+  marketPrices = [];
+  hideMainApp();
+}
+sb.auth.onAuthStateChange((event, session) => {
   // TOKEN_REFRESHED：令牌自动刷新成功，用户无感知，无需操作
   // SIGNED_IN：会话恢复或登录成功（首次 checkAuth 已处理登录后的跳转，这里仅处理刷新场景）
   if(event === 'SIGNED_IN' && authReady && session && !currentUserId){
-    await afterLogin(session.user);
-    showMainApp();
+    // [B] 同步返回：afterLogin 内的 sb.from 请求放到宏任务，SDK 回调先释放 auth 锁
+    setTimeout(async () => {
+      try {
+        await afterLogin(session.user);
+        showMainApp();
+      } catch (e) { toast('登录初始化失败，请重试', 'error'); }
+    }, 0);
   }
-  // 令牌刷新失败 / 被踢下线：静默退出到登录页
+  // 令牌刷新失败 / 被踢下线：清理逻辑同样延迟到下一宏任务
   if(event === 'SIGNED_OUT' && authReady){
-    currentUserId = null;
-    currentUserEmail = '';
-    isAdmin = false;
-    projects = [];
-    publicProjects = [];
-    announcements = [];
-    marketPrices = [];
-    hideMainApp();
+    setTimeout(handleSignedOutCleanup, 0);
   }
 });
 
@@ -2318,11 +2363,17 @@ async function afterLogin(user){
   currentUserId = user.id;
   currentUserEmail = (user.email || '').toLowerCase();
   isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
-  // 记住已登录邮箱，下次刷新可立即切主界面（无需等网络验证）
-  try { localStorage.setItem('jy_last_email', currentUserEmail); } catch(e){}
+  // [U] 已移除 jy_last_email 写入：该键全文从未被读取，属死代码
   // 优化：四个查询完全独立，一次性并行发起，将 ~900ms 串行等待缩短为 ~300ms
   // allSettled：单个查询失败不影响其他模块渲染（各 load 内部已处理错误回退为空数据）
-  await Promise.allSettled([loadCloudData(), loadPublicProjects(), loadAnnouncements(), loadMarketPrices()]);
+  // [H] 每个 load 再包 8s 超时（loadCloudData 内部已自超时，会先 resolve）
+  const guardLoad = p => withTimeout(p).catch(e => {
+    if (e && e.message === '请求超时') toast('部分数据加载超时，请稍后刷新', 'warn');
+  });
+  await Promise.allSettled([
+    guardLoad(loadCloudData()), guardLoad(loadPublicProjects()),
+    guardLoad(loadAnnouncements()), guardLoad(loadMarketPrices())
+  ]);
   // 自动补齐个人项目 Logo：与同名公共项目 Logo 匹配，无需用户手动编辑；有变更静默写回云端
   if (syncProjectLogosFromPublic()) {
     try { await saveCloudData(true); } catch(e) {}
@@ -2357,25 +2408,36 @@ async function checkAuth(){
     // 优化：先切换界面容器避免白屏，但不渲染数据（避免空列表闪烁），等数据加载完一次性 showMainApp
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
-    // 后台验证令牌 + 加载数据
-    const {data:{user}} = await sb.auth.getUser();
-    if(user){
-      await afterLogin(user);            // 加载云端数据（并行化后 ~300ms）
-      showMainApp();                     // 数据就绪后一次性渲染
-    }else{
-      // 令牌已失效：回退到登录页
-      try{ localStorage.removeItem('jy_last_email'); }catch(e){}
-      currentUserId = null;
-      currentUserEmail = '';
-      isAdmin = false;
+    // [H] 后台验证令牌 + 加载数据（弱网 8s 超时，超时按失败分支处理，不抛出未捕获错误）
+    try {
+      const {data:{user}} = await withTimeout(sb.auth.getUser());
+      if(user){
+        await afterLogin(user);            // 加载云端数据（并行化后 ~300ms）
+        showMainApp();                     // 数据就绪后一次性渲染
+      }else{
+        // 令牌已失效：回退到登录页
+        try{ localStorage.removeItem('jy_last_email'); }catch(e){}
+        currentUserId = null;
+        currentUserEmail = '';
+        isAdmin = false;
+        hideMainApp();
+      }
+    } catch (e) {
+      // [H] 超时或网络错误：回到登录页并提示，不留在无数据空壳
+      toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
+      currentUserId = null; currentUserEmail = ''; isAdmin = false;
       hideMainApp();
     }
   }else{
     // 无本地会话：正常走网络验证
-    const {data:{user}} = await sb.auth.getUser();
-    if(user){
-      await afterLogin(user);
-      showMainApp();
+    try {
+      const {data:{user}} = await withTimeout(sb.auth.getUser());
+      if(user){
+        await afterLogin(user);
+        showMainApp();
+      }
+    } catch (e) {
+      toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
     }
   }
   authReady = true;  // 标记首次检测完成，后续 onAuthStateChange 可正常响应
@@ -2389,6 +2451,7 @@ function showMainApp(){
   renderHomeTop();       // 市场价 + 公告横幅
   renderNoticeTab();
   renderMeAdmin();
+  homeSummaryShouldAnimate = true;  // [P] 首次进入主界面：播放一次汇总数字动画
   renderProjectGrid();
   chat_keepSubscribe();  // 登录后开启群聊未读常驻订阅（新消息时导航栏群聊按钮闪烁）
   notif_load();          // 消息通知功能：读取通知偏好并同步「我的」Tab 开关
@@ -2405,26 +2468,86 @@ function hideMainApp(){
 }
 
 // =========云端读写函数（替代localStorage）=========
+// [H] 弱网兜底：给任意 Promise 加超时，超时拒绝（调用方 catch 后走错误分支/toast）
+const withTimeout = (p, ms = 8000) =>
+  Promise.race([p, new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('请求超时')), ms))]);
+
+// [I] 全局未捕获 Promise 拒绝兜底：只记录日志，避免静默失败难以排查；
+// toast 带 5 秒节流，弱网下大量拒绝也不会刷屏
+let lastRejectToastAt = 0;
+window.addEventListener('unhandledrejection', e => {
+  console.error('[unhandled]', e.reason);
+  const now = Date.now();
+  if (now - lastRejectToastAt > 5000) {
+    lastRejectToastAt = now;
+    try { toast('网络异常，请稍后重试', 'warn'); } catch (e2) {}
+  }
+});
+
+// [G] 本机最后一次与云端一致的 content 快照（原始字符串）；null 表示云端尚无数据行
+let lastSyncedSnapshot = null;
+
 // silent 为 true 时不弹"已同步"提示（由操作本身的成功提示代替，避免双重弹窗）
+// silent 不影响冲突检测
 async function saveCloudData(silent = false){
   const jsonStr = JSON.stringify(projects);
-  const {error} = await sb
-    .from("user_data")
-    .upsert([{user_id:currentUserId,content:jsonStr}]);
-  if(error) toast("云端保存失败:"+error.message,"error");
-  else if(!silent) toast("✅数据已同步云端","success");
-}
-async function loadCloudData(){
-  const {data,error} = await sb
-    .from("user_data")
-    .select("content")
-    .eq("user_id", currentUserId)   // 只读取当前登录用户的数据行
-    .maybeSingle();                 // 新账号尚无数据行时返回 null（用 single 会报 406）
-  if(error){
-    toast("读取云端失败","error");
+  // [G] 保存前先读取云端 content，与本机快照对比，识别其他标签页/设备的写入
+  let remote;
+  try {
+    const q = sb.from("user_data").select("content").eq("user_id", currentUserId).maybeSingle();
+    const { data, error } = await withTimeout(q);
+    if (error) { toast("云端保存失败:" + error.message, "error"); return; }
+    remote = (data && data.content) || null;
+  } catch (e) {
+    toast(e && e.message === '请求超时' ? '网络请求超时，云端保存失败' : ('云端保存失败：' + (e.message || e)), 'error');
     return;
   }
-  projects = (data && data.content) ? JSON.parse(data.content) : [];
+  if (remote !== lastSyncedSnapshot) {
+    // [G] 云端已被其他设备改动：让用户选择覆盖或放弃；取消按钮即「放弃本次保存」
+    confirmAction(
+      '检测到云端数据冲突',
+      '云端数据与本机最后同步的内容不一致（可能在其他设备或标签页上修改过）。选择保存将用本机版本覆盖云端，选择取消则放弃本次保存。',
+      () => doSaveCloudUpsert(jsonStr, silent),
+      '仍要保存（覆盖云端）', '', false
+    );
+    // [G] 放弃保存：confirmModal 自带取消路径，通过一次性 cancel hook 提示；云端不会被写入
+    confirmCancelHook = () => toast('已放弃保存，云端数据未被覆盖', 'warn');
+    return;
+  }
+  await doSaveCloudUpsert(jsonStr, silent);
+}
+
+// [G] 实际执行 upsert（冲突确认覆盖 / 无冲突共用），成功后更新本机快照
+async function doSaveCloudUpsert(jsonStr, silent) {
+  try {
+    const q = sb.from("user_data").upsert([{ user_id: currentUserId, content: jsonStr }]);
+    const { error } = await withTimeout(q);
+    if (error) { toast("云端保存失败:" + error.message, "error"); return; }
+    lastSyncedSnapshot = jsonStr;  // 保存成功，快照推进到新版本
+    if (!silent) toast("✅数据已同步云端", "success");
+  } catch (e) {
+    toast(e && e.message === '请求超时' ? '网络请求超时，云端保存失败' : ('云端保存失败：' + (e.message || e)), 'error');
+  }
+}
+async function loadCloudData(){
+  try {
+    const q = sb
+      .from("user_data")
+      .select("content")
+      .eq("user_id", currentUserId)   // 只读取当前登录用户的数据行
+      .maybeSingle();                 // 新账号尚无数据行时返回 null（用 single 会报 406）
+    const {data,error} = await withTimeout(q);  // [H] 弱网 8s 超时
+    if(error){
+      toast("读取云端失败","error");
+      return;
+    }
+    projects = (data && data.content) ? JSON.parse(data.content) : [];
+    // [G] 记录云端原始内容作为冲突检测基线（新账号无行时为 null）
+    lastSyncedSnapshot = (data && data.content) || null;
+  } catch (e) {
+    toast(e && e.message === '请求超时' ? '读取云端超时，请检查网络' : ('读取云端失败：' + (e.message || e)), 'error');
+  }
 }
 
 // =========公共项目云端读写（public_projects 表，全员可读、仅管理员可写）=========
@@ -2607,15 +2730,37 @@ function toast(msg, type = '') {
   setTimeout(() => el.remove(), 2600);
 }
 
-// 通用弹窗开关
-function openModal(id) { document.getElementById(id).classList.add('show'); }
+// [T] 焦点管理：记录每个弹窗打开前的触发元素，关闭时归还
+const modalLastFocus = new Map();
+const modalFocusableSel = 'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+// 通用弹窗开关（第二参数 triggerEl 可选，现有单参数调用无需改动）
+function openModal(id, triggerEl) {
+  const el = document.getElementById(id);
+  modalLastFocus.set(id, triggerEl || document.activeElement);
+  el.classList.add('show');
+  // [T] 打开后把焦点移到第一个可交互元素（延迟到渲染完成）
+  const first = el.querySelector(modalFocusableSel);
+  if (first) setTimeout(() => { try { first.focus(); } catch (e) {} }, 0);
+}
 // iOS 描述文件安装教程弹窗
 function openIosGuideModal() { openModal('iosGuideModal'); }
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
   // 关闭今日明细弹窗时停止实时时钟，避免空转
   if (id === 'todayListModal' && todayClockTimer) { clearInterval(todayClockTimer); todayClockTimer = null; }
+  // [T] 焦点归还给触发元素
+  const trigger = modalLastFocus.get(id);
+  if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch (e) {} }
+  modalLastFocus.delete(id);
 }
+
+// [T] 全局 Esc：关闭所有已显示弹窗；正在保存的弹窗（savingModals）除外
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.modal-mask.show').forEach(m => {
+    if (!savingModals.has(m.id)) closeModal(m.id);
+  });
+});
 
 /* ---------- 弱网防重复提交：保存期间锁定弹窗按钮 + 禁止遮罩关闭，返回解锁函数 ---------- */
 const savingModals = new Set();
@@ -2685,10 +2830,18 @@ function confirmAction(title, msg, cb, okText = '确认删除', keyword = '', da
     okBtn.disabled = false;
   }
   confirmCallback = cb;
+  // [G] 新的确认框打开时清空上一次残留的取消 hook
+  confirmCancelHook = null;
   openModal('confirmModal');
 }
+// [G] confirmModal「取消」按钮的一次性 hook（如保存冲突时用于提示「已放弃保存」）
+let confirmCancelHook = null;
+document.querySelector('#confirmModal .btn-ghost').addEventListener('click', () => {
+  if (confirmCancelHook) { const h = confirmCancelHook; confirmCancelHook = null; h(); }
+});
 document.getElementById('confirmOkBtn').onclick = () => {
   closeModal('confirmModal');
+  confirmCancelHook = null;  // 用户点了确认，取消 hook 作废
   if (confirmCallback) { confirmCallback(); confirmCallback = null; }
 };
 
@@ -2710,6 +2863,8 @@ function showPage(page) {
   document.getElementById('pageBill').classList.toggle('active', page === 'bill');
   if (page !== 'bill') onBillPage = false;  // 离开账单页时复位标识
   if (page === 'list') {
+    // [P] 从详情页/账单页返回列表才播放汇总动画；纯页签切换/数据刷新不播
+    homeSummaryShouldAnimate = !!(currentProjectId || onBillPage);
     histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
     batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 返回列表时退出批量模式
@@ -2769,6 +2924,11 @@ function histConsume() {  // 程序内正常返回路径：消费掉已入栈的
   if (history.state && history.state.app) { histGuard = true; try { history.back(); } catch (e) { histGuard = false; } }
 }
 window.addEventListener('popstate', () => {
+  // [M] 弹窗保存进行中：拦截浏览器返回，不做任何视图切换，避免中途退出导致状态错乱
+  if (typeof savingModals !== 'undefined' && savingModals.size > 0) {
+    toast('正在保存，请稍候', 'warn');
+    return;
+  }
   if (histGuard) { histGuard = false; return; }
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') { chat_close(); return; }  // 群聊页：返回=关闭群聊
@@ -3090,14 +3250,16 @@ function renderProjectGrid() {
     <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card" onclick="openTodayList()" style="cursor:pointer" title="点击查看今日回本明细"><div class="label">今日回本金额 👁</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
     ${gRemain > 0
-      ? `<div class="summary-card"><div class="label">距回本</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
+      ? `<div class="summary-card"><div class="label">未回本项目金额</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
     ${gUserCount > 0 && gRemain === 0
       ? // 全部账户已回本：卡片不再隐藏，显示恭喜文案，点击仍可查看回本曲线
         `<div class="summary-card" onclick="openEarnChart()" style="cursor:pointer" title="点击查看回本曲线"><div class="label">🎉 恭喜你已回本！</div><div class="value" style="font-size:15px;font-weight:600;color:var(--success)">点击查看回本曲线 📈</div></div>`
       : // 仍有未回本账户：显示回本项目利润金额，点击查看回本曲线
         `<div class="summary-card" onclick="openEarnChart()" style="cursor:pointer" title="点击查看回本曲线"><div class="label">回本项目利润 📈</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDoneProfit}" data-decimals="2">0</span><small>元</small></div></div>`}`;
-  animateCountUps();
+  // [P] 依据标记决定是否播放；消费后立即复位
+  animateCountUps('#homeSummary', !homeSummaryShouldAnimate);
+  homeSummaryShouldAnimate = false;
 
   // ---- 公共项目区（全员可见，管理员显示管理按钮） ----
   document.getElementById('pubAddBtn').style.display = isAdmin ? '' : 'none';
@@ -3158,18 +3320,25 @@ function renderProjectGrid() {
   });
 }
 
+// [P] 首页汇总数字是否应播放滚动动画：仅「首次进入主界面」和「从详情/账单页返回列表」为 true，
+// 渲染一次后自动复位；切页签、数据刷新等场景直接显示最终值，不再从 0 重播
+let homeSummaryShouldAnimate = false;
+
 // 统计数字滚动动画：从 0 缓动滚动到目标值（约 0.9 秒，ease-out）
 // container：指定要查找 .count-up 元素的容器选择器，默认首页汇总区
-function animateCountUps(container = '#homeSummary') {
+// skip：true 时不播动画，直接把最终值写入 textContent
+function animateCountUps(container = '#homeSummary', skip = false) {
   document.querySelectorAll(container + ' .count-up').forEach(el => {
     const target = Number(el.dataset.target) || 0;
     const decimals = Number(el.dataset.decimals) || 0;
-    const duration = 900;
-    const start = performance.now();
     // 格式化：2 位小数用金额格式（千分位），整数用千分位，其余直接 toFixed
     const format = v => decimals === 2 ? fmtMoney(v)
       : decimals === 0 ? Math.round(v).toLocaleString('zh-CN')
       : v.toFixed(decimals);
+    // [P] 非动画场景：直接落最终值
+    if (skip) { el.textContent = format(target); return; }
+    const duration = 900;
+    const start = performance.now();
     function step(now) {
       const t = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);  // ease-out：先快后慢
@@ -3181,8 +3350,11 @@ function animateCountUps(container = '#homeSummary') {
 }
 
 // HTML 转义，防止备注等内容破坏页面结构
+// [C] 补充单引号转义：数据拼入单引号包裹的属性/JS 字符串时同样安全
 function escapeHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // 进入项目详情页
@@ -3198,6 +3370,23 @@ function enterProject(id) {
 }
 
 /* ---------- 详情页渲染 ---------- */
+// [O] 通用防抖：连续调用只在停止 ms 毫秒后执行一次
+function debounce(fn, ms) {
+  let t = null;
+  return function (...args) {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => { t = null; fn.apply(this, args); }, ms);
+  };
+}
+// [O] 搜索框 150ms 防抖，避免每按一个键都整表重排
+const onUserSearchInput = debounce(() => renderDetail(), 150);
+
+// [Q] 详情表格分批渲染：首屏上限 100 行，点击「显示更多」翻倍；
+// 搜索关键字变化时回到 100。勾选状态存 selectedUserIdx（按 uidx），翻页天然保持
+let detailRowLimit = 100;
+let detailLastKw = '';
+function detailShowMore() { detailRowLimit *= 2; renderDetail(); }
+
 function renderDetail() {
   const p = getProject(currentProjectId);
   if (!p) { showPage('list'); return; }
@@ -3249,11 +3438,13 @@ function renderDetail() {
 
   // 搜索过滤（匹配姓名 / 账户ID / 备注，不区分大小写）；账户ID可留空，行操作定位一律使用行序号 uidx
   const kw = document.getElementById('userSearch').value.trim().toLowerCase();
+  // [Q] 搜索条件变化：重置渲染行数上限
+  if (kw !== detailLastKw) { detailLastKw = kw; detailRowLimit = 100; }
   const withIdx = p.users.map((u, uidx) => ({ u, uidx }));
   const list = kw
     ? withIdx.filter(({ u }) =>
         u.name.toLowerCase().includes(kw) ||
-        u.id.toLowerCase().includes(kw) ||
+        (u.id || '').toLowerCase().includes(kw) ||  // [A] 旧数据 id 可能缺失，空串为合法值
         (u.remark || '').toLowerCase().includes(kw))
     : withIdx;
 
@@ -3271,7 +3462,9 @@ function renderDetail() {
     return;
   }
 
-  tbody.innerHTML = list.map(({ u, uidx }, idx) => {
+  // [Q] 只渲染前 detailRowLimit 行（默认100），其余通过「显示更多」翻倍加载
+  const shown = list.slice(0, detailRowLimit);
+  tbody.innerHTML = shown.map(({ u, uidx }, idx) => {
     const earned = calcEarned(u);
     const remain = calcRemain(u);
     const progress = calcProgress(u);
@@ -3282,7 +3475,7 @@ function renderDetail() {
       <tr class="${isDone ? 'row-done' : ''} ${selectedUserIdx.has(uidx) ? 'row-selected' : ''}">
         <td class="chk" data-label="选择"><input type="checkbox" ${selectedUserIdx.has(uidx) ? 'checked' : ''} onclick="toggleSelect(${uidx}, this.checked)"></td>
         <td data-label="序号">${idx + 1}</td>
-        <td data-label="账户ID" style="font-size:12px;color:var(--text-secondary)">${escapeHtml(u.id)}</td>
+        <td data-label="账户ID" style="font-size:12px;color:var(--text-secondary)">${escapeHtml(u.id || '')}</td>  <!-- [A] id 缺失留空，不渲染 undefined -->
         <td data-label="姓名" class="td-block">
           <div class="cell-main">${escapeHtml(u.name)}</div>
           ${u.remark ? `<div class="cell-sub" title="${escapeHtml(u.remark)}">📝 ${escapeHtml(u.remark)}</div>` : ''}
@@ -3307,7 +3500,10 @@ function renderDetail() {
           </div>
         </td>
       </tr>`;
-  }).join('');
+  }).join('') + (list.length > shown.length
+    // [Q] 剩余行入口：点击后行数翻倍重渲；勾选状态由 selectedUserIdx 保持
+    ? `<tr><td colspan="11" style="text-align:center;padding:12px"><button class="btn btn-outline" onclick="detailShowMore()">显示更多（剩余 ${list.length - shown.length} 人）</button></td></tr>`
+    : '');
 }
 
 /* ---------- 新增 / 编辑项目 ---------- */
@@ -3446,7 +3642,12 @@ function generateShareCode() {
     if (!p) return;
     payload = { v: 1, ...share_packProject(p) };
   }
-  const code = SHARE_PREFIX + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  // [E] TextEncoder 产出 UTF-8 字节后逐字节转二进制串再 base64，
+  // 与原 unescape(encodeURIComponent()) 逐字节等价，编码结果完全一致（兼容旧码）
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  const code = SHARE_PREFIX + btoa(bin);
   document.getElementById('sp-code').value = code;
   document.getElementById('sp-result-group').style.display = '';
   toast('分享码已生成，复制后发给对方即可', 'success');
@@ -3465,7 +3666,11 @@ function share_parseCode(raw) {
   const idx = raw.indexOf(SHARE_PREFIX);
   const body = (idx >= 0 ? raw.slice(idx + SHARE_PREFIX.length) : raw).trim();
   try {
-    const payload = JSON.parse(decodeURIComponent(escape(atob(body))));
+    // [E] atob 得二进制串 → 按字节构造 Uint8Array → TextDecoder 按 UTF-8 解码，
+    // 与原 decodeURIComponent(escape()) 等价；旧分享码照样可解
+    const rawBin = atob(body);
+    const u8 = Uint8Array.from(rawBin, c => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(u8));
     if (payload && Array.isArray(payload.users)) return payload;          // 单项目分享码
     if (payload && Array.isArray(payload.list) && payload.list.length) return payload;  // 全部分享码（多项目打包）
   } catch (e) {}
@@ -3527,9 +3732,17 @@ async function openBillPage() {
 // ===== 出货截图佐证：上传 → 压缩 → 缩略图管理 → 嵌入账单并打水印 =====
 let billShots = [];  // 佐证截图 dataURL 列表（必传，嵌入账单图片）
 
+// [N] 账单截图限制：单张原图 ≤ 8MB；含已选在内总数 ≤ 9，超出部分丢弃并提示
 function billAddFiles(files) {
-  const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+  let list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
   if (!list.length) return;
+  const MAX_SIZE = 8 * 1024 * 1024;
+  const oversize = list.filter(f => f.size > MAX_SIZE);
+  if (oversize.length) toast(`单张图片不能超过 8MB，已跳过 ${oversize.length} 张`, 'warn');
+  list = list.filter(f => f.size <= MAX_SIZE);
+  const room = 9 - billShots.length;
+  if (room <= 0) { toast('最多上传 9 张截图，请先删除部分图片', 'warn'); return; }
+  if (list.length > room) { toast(`最多 9 张，已自动舍弃后 ${list.length - room} 张`, 'warn'); list = list.slice(0, room); }
   list.forEach(f => {
     const rd = new FileReader();
     rd.onload = () => billCompress(String(rd.result), url => { billShots.push(url); billRenderThumbs(); renderBill(); });
@@ -3936,26 +4149,43 @@ function bill_embedLSB(canvas, payload) {
   } catch (e) { return false; }
 }
 
+// [S] 在已提取的 R 通道最低位数组中查找同步帧并解码（顶部局部/全图共用，逻辑与原全图扫描一致）
+function bill_scanBits(bits, n) {
+  const byte = (off) => { let v = 0; for (let k = 0; k < 8; k++) v = (v << 1) | bits[off + k]; return v; };
+  for (let s = 0; s + 48 <= n; s++) {
+    if (bits[s] !== 1) continue;  // 快速过滤：同步帧首比特为 1
+    if (byte(s) !== 0xA5 || byte(s + 8) !== 0x5A) continue;  // 同步帧 0xA5,0x5A
+    const len = (byte(s + 16) << 8) | byte(s + 24);
+    if (len <= 0 || len > 512) continue;  // 长度合理性校验
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = byte(s + 32 + i * 8);
+    const text = new TextDecoder().decode(bytes);
+    if (/^[\x20-\x7e\u4e00-\u9fa5@.|_-]+$/.test(text)) return text;  // 内容合法性校验
+    return null;
+  }
+  return null;
+}
+
+// [S] 提取指定高度区域内像素 R 通道的最低位
+function bill_extractBits(ctx, w, h) {
+  const d = ctx.getImageData(0, 0, w, h).data;
+  const n = d.length / 4;
+  const bits = new Uint8Array(n);
+  for (let i = 0; i < n; i++) bits[i] = d[i * 4] & 1;
+  return bits;
+}
+
 // 解码盲水印：传入 canvas 返回隐写内容，失败返回 null
 function bill_decodeLSB(canvas) {
   try {
     const ctx = canvas.getContext('2d');
-    const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const n = d.length / 4;
-    const bits = new Uint8Array(n);
-    for (let i = 0; i < n; i++) bits[i] = d[i * 4] & 1;
-    const byte = (off) => { let v = 0; for (let k = 0; k < 8; k++) v = (v << 1) | bits[off + k]; return v; };
-    for (let s = 0; s + 48 <= n; s++) {
-      if (bits[s] !== 1) continue;  // 快速过滤：同步帧首比特为 1
-      if (byte(s) !== 0xA5 || byte(s + 8) !== 0x5A) continue;  // 同步帧 0xA5,0x5A
-      const len = (byte(s + 16) << 8) | byte(s + 24);
-      if (len <= 0 || len > 512) continue;  // 长度合理性校验
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = byte(s + 32 + i * 8);
-      const text = new TextDecoder().decode(bytes);
-      if (/^[\x20-\x7e\u4e00-\u9fa5@.|_-]+$/.test(text)) return text;  // 内容合法性校验
-      return null;
-    }
+    const w = canvas.width, h = canvas.height;
+    // [S] 快速路径：水印从第 0 像素开始冗余重复，先只扫顶部 200 行（命中率极高，大图提速明显）
+    const topH = Math.min(200, h);
+    const top = bill_scanBits(bill_extractBits(ctx, w, topH), w * topH);
+    if (top !== null) return top;
+    // 顶部未命中（如顶部恰好被纯色区/再压缩破坏）：回退全图扫描，行为与旧版完全一致
+    if (h > topH) return bill_scanBits(bill_extractBits(ctx, w, h), w * h);
     return null;
   } catch (e) { return null; }
 }
@@ -4947,7 +5177,7 @@ function toggleSelectAll(checked) {
   p.users.forEach((u, i) => {
     const hit = kw
       ? u.name.toLowerCase().includes(kw) ||
-        u.id.toLowerCase().includes(kw) ||
+        (u.id || '').toLowerCase().includes(kw) ||  // [A] 同 renderDetail，id 缺失不崩
         (u.remark || '').toLowerCase().includes(kw)
       : true;
     if (hit) { checked ? selectedUserIdx.add(i) : selectedUserIdx.delete(i); }
@@ -5126,6 +5356,14 @@ function sellIdPrompt(r) {
     layer.id = 'sellPickLayer';
     layer.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px';
     layer.addEventListener('click', e => { if (e.target === layer) closeSellPick(); });
+    // [D] 「选择」按钮事件委托：项目id/行序号/品名走 dataset，不再拼进内联 JS
+    layer.addEventListener('click', e => {
+      const btn = e.target.closest && e.target.closest('.sell-pick-btn');
+      if (!btn) return;
+      const { pid, uidx, name } = btn.dataset;
+      closeSellPick();
+      jumpToSellBill(pid, Number(uidx), name);
+    });
     document.body.appendChild(layer);
   }
   layer.innerHTML = `
@@ -5148,7 +5386,8 @@ function sellIdPrompt(r) {
               <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.p.name)}</td>
               <td style="border-bottom:1px solid var(--border);padding:7px 4px">${escapeHtml(m.u.name)}</td>
               <td style="border-bottom:1px solid var(--border);padding:7px 4px;text-align:right">
-                <button class="btn btn-sm btn-primary" onclick="closeSellPick();jumpToSellBill('${m.p.id}',${m.i},'${escapeHtml(r.name)}')">选择</button>
+                <!-- [D] data-* 传参 + 浮层委托，避免拼内联 JS -->
+                <button class="btn btn-sm btn-primary sell-pick-btn" data-pid="${escapeHtml(m.p.id)}" data-uidx="${m.i}" data-name="${escapeHtml(r.name)}">选择</button>
               </td>
             </tr>`).join('')}
           </tbody>
@@ -5371,16 +5610,9 @@ async function saveMyName() {
   const name = (input.value || '').trim();
   if (!name) return toast('请输入用户名', 'warn');
   if (name.length > 20) return toast('用户名最长20个字', 'warn');
-  chat_saveNick(name);
-  try {
-    await sb.from('chat_members').upsert({
-      project_id: CHAT_GLOBAL_ID, user_email: currentUserEmail,
-      user_name: name, joined_at: new Date().toISOString()
-    }, { onConflict: 'project_id,user_email' });
-    toast('用户名已保存，群聊昵称已同步', 'success');
-  } catch (e) {
-    toast('用户名已保存本机，云端同步失败', 'warn');
-  }
+  // [F] 同步逻辑改用共享的 chat_syncNick，与群聊内改名完全一致
+  const ok = await chat_syncNick(name);
+  toast(ok ? '用户名已保存，群聊昵称已同步' : '用户名已保存本机，云端同步失败', ok ? 'success' : 'warn');
   input.value = name;
 }
 
@@ -5408,7 +5640,8 @@ const chatState = {
   loadedAll: false,      // 历史消息是否已全部加载
   loadingMore: false,    // 分页加载中标记
   memberCount: 0,        // 成员总数
-  titleTimer: null       // 标题闪烁定时器
+  titleTimer: null,      // 标题闪烁定时器
+  closing: false         // [J] 主动关闭标记（true 时断线回调不重连）
 };
 
 // 群聊显示名：localStorage → cookie（存储被浏览器阻止时降级）→ 邮箱前缀
@@ -5425,24 +5658,61 @@ function chat_saveNick(name) {
   try { document.cookie = 'chat_nick=' + encodeURIComponent(name) + ';max-age=31536000;path=/;SameSite=Lax'; } catch (e) {}
 }
 
-// 更改自己的群昵称（存 localStorage + 同步 chat_members 表）
-async function chat_changeNick() {
-  if (!currentUserEmail) return;
-  const cur = chat_displayName();
-  const name = (prompt('请输入你的群昵称（最长20字）：', cur) || '').trim();
-  if (!name || name === cur) return;
-  if (name.length > 20) return toast('昵称最长20个字', 'warn');
+// [F] 昵称同步核心：本机存储 + chat_members upsert（「我的」saveMyName 与群聊改名共用同一逻辑）
+async function chat_syncNick(name) {
   chat_saveNick(name);
   try {
     await sb.from('chat_members').upsert({
       project_id: CHAT_GLOBAL_ID, user_email: currentUserEmail,
       user_name: name, joined_at: new Date().toISOString()
     }, { onConflict: 'project_id,user_email' });
-    toast('群昵称已更改为「' + name + '」', 'success');
-  } catch (e) {
-    toast('昵称已保存到本机，云端同步失败', 'warn');
+    return true;
+  } catch (e) { return false; }
+}
+
+// [F] 更改自己的群昵称：不再用原生 prompt()（WebView/TWA 常被拦截、样式割裂），
+// 改为自研居中卡片浮层；保存复用共享的 chat_syncNick（chat_saveNick + chat_members upsert）
+function chat_changeNick() {
+  if (!currentUserEmail) return;
+  let layer = document.getElementById('chatNickLayer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'chatNickLayer';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:16px';
+    layer.innerHTML = `
+      <div style="background:var(--card,#fff);border-radius:14px;width:100%;max-width:360px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+        <div style="font-size:16px;font-weight:600;margin-bottom:12px">✏️ 修改群昵称</div>
+        <input id="chatNickInput" maxlength="20" placeholder="请输入群昵称（最长20字）"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:15px;min-height:44px;background:var(--bg);color:var(--text)">
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button id="chatNickCancel" class="btn btn-ghost" style="flex:1;min-height:44px">取消</button>
+          <button id="chatNickSave" class="btn btn-primary" style="flex:1;min-height:44px">保存</button>
+        </div>
+      </div>`;
+    const input = layer.querySelector('#chatNickInput');
+    const close = () => { layer.style.display = 'none'; };
+    layer.addEventListener('click', e => { if (e.target === layer) close(); });
+    layer.querySelector('#chatNickCancel').addEventListener('click', close);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') close();
+      if (e.key === 'Enter') layer.querySelector('#chatNickSave').click();
+    });
+    layer.querySelector('#chatNickSave').addEventListener('click', async () => {
+      const name = (input.value || '').trim();
+      if (!name) return toast('请输入群昵称', 'warn');
+      if (name.length > 20) return toast('昵称最长20个字', 'warn');
+      const ok = await chat_syncNick(name);
+      toast(ok ? '群昵称已更改为「' + name + '」' : '昵称已保存到本机，云端同步失败', ok ? 'success' : 'warn');
+      renderMeAdmin();  // 同步「我的」Tab 用户名输入框显示
+      close();
+    });
+    document.body.appendChild(layer);
   }
-  renderMeAdmin();  // 同步「我的」Tab 用户名输入框显示
+  layer.querySelector('#chatNickInput').value = chat_displayName();
+  layer.style.display = 'flex';
+  layer.querySelector('#chatNickInput').focus();
 }
 
 // 兜底：确保聊天页全部 DOM 存在（任一关键元素缺失即重建完整聊天页，避免 null 报错）
@@ -5487,8 +5757,11 @@ function chat_ensureDom() {
 }
 
 // 进入群聊：以站内普通页打开（隐藏列表/详情区块，导航保持可用）、加入成员、加载最近50条、订阅实时消息
+// [L] resize 监听是否已注册（只在首次 chat_open 注册一次，不覆盖全局 onresize）
+let chatResizeBound = false;
 async function chat_open() {
   chat_ensureDom();  // 确保聊天页 DOM 存在
+  chatState.closing = false;  // [J] 新的打开流程，复位主动关闭标记
   chatState.projectId = CHAT_GLOBAL_ID;
   chat_keepUnsubscribe();   // 停用未读常驻订阅（页内订阅接管）
   chat_setUnread(false);    // 清除未读闪烁
@@ -5505,7 +5778,8 @@ async function chat_open() {
   document.body.classList.add('chat-open');  // 手机端锁定滚动并固定聊天区
   histPush('chat');  // 群聊页入栈：浏览器返回键/手机侧滑可退出群聊
   chat_fitMobile();                      // 测量页头底缘，定位聊天区顶部
-  window.onresize = chat_fitMobile;      // 旋转/缩放时重新定位
+  // [L] 改用 addEventListener，且只注册一次；将来其他模块再监听 resize 不会互相顶掉
+  if (!chatResizeBound) { window.addEventListener('resize', chat_fitMobile); chatResizeBound = true; }
   document.getElementById('chatMentionAll').style.display = ADMIN_EMAILS.includes(currentUserEmail) ? '' : 'none';  // 仅管理员显示 @所有人
   chat_stopTitleFlash();
   // 导航栏高亮群聊入口
@@ -5516,11 +5790,25 @@ async function chat_open() {
   });
   ['tabBtnChat', 'bnavChat'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add('active'); });
   chat_renderAnnBanner();  // 群聊公告横幅（复用首页公告数据）
-  await chat_join();
-  await chat_loadInitial();
-  chat_subscribe();
+  // [K] join / 初始加载失败时不能把用户困在半残页：catch 中收尾恢复，finally 双保险
+  let chatReadyOk = false;
+  try {
+    await chat_join();
+    await chat_loadInitial();
+    chat_subscribe();
+    chatReadyOk = true;
+  } catch (e) {
+    toast('进入群聊失败：' + ((e && e.message) || e), 'error');
+    chat_close();  // 收尾：退订通道、恢复列表 active、隐藏 chatPage、解除 chat-open
+  } finally {
+    if (!chatReadyOk) {
+      document.getElementById('pageProjectList').classList.add('active');
+      document.getElementById('chatPage').style.display = 'none';
+      document.body.classList.remove('chat-open');
+    }
+  }
   // 触屏设备（手机/平板）不自动聚焦输入框，避免键盘弹出遮挡消息列表
-  if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) {
+  if (chatReadyOk && !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) {
     document.getElementById('chatText').focus();
   }
 }
@@ -5537,8 +5825,13 @@ function chat_fitMobile() {
 
 // 关闭群聊：退订实时通道、恢复页面与导航栏高亮
 function chat_close() {
+  chatState.closing = true;  // [J] 主动关闭标记：断线重连逻辑据此跳过，避免主动关闭→重连死循环
   histConsume();  // 消费群聊历史记录（若存在），保持返回手势语义一致
-  if (chatState.channel) { sb.removeChannel(chatState.channel); chatState.channel = null; }
+  if (chatState.channel) {
+    // [J] removeChannel 可能触发 CLOSED 回调，此时 closing 已置位，重连被拦截
+    try { sb.removeChannel(chatState.channel); } catch (e) {}
+    chatState.channel = null;
+  }
   chatState.projectId = null;
   chat_keepSubscribe();     // 恢复未读常驻订阅
   chatState.messages = [];
@@ -5664,7 +5957,26 @@ function chat_subscribe() {
       payload => chat_onDeleted(payload.old && payload.old.id))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: 'project_id=eq.' + chatState.projectId },
       () => chat_refreshMembers())
-    .subscribe(status => { if (status === 'SUBSCRIBED') chat_refreshMembers(); });
+    .subscribe(status => {
+      // [J] 订阅成功：刷新成员列表
+      if (status === 'SUBSCRIBED') {
+        if (chatState.reconnTimer) { clearTimeout(chatState.reconnTimer); chatState.reconnTimer = null; }
+        chat_refreshMembers();
+        return;
+      }
+      // [J] 断线类状态：3 秒后移除旧通道并重连
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        // 主动关闭（chat_close）或已安排重连：不再重连，避免死循环与重复定时器
+        if (chatState.closing || chatState.reconnTimer) return;
+        chatState.reconnTimer = setTimeout(() => {
+          chatState.reconnTimer = null;
+          if (chatState.closing) return;  // 等待期间用户已关闭群聊
+          try { if (chatState.channel) sb.removeChannel(chatState.channel); } catch (e) {}
+          chatState.channel = null;
+          try { chat_subscribe(); } catch (e) { console.error('[chat] resubscribe failed', e); }
+        }, 3000);
+      }
+    });
 }
 
 // ===== 未读提示：聊天页关闭期间常驻轻量订阅，新消息让导航栏群聊按钮闪烁 =====
@@ -5735,7 +6047,8 @@ function chat_append(msg) {
     : escapeHtml(msg.body || '');
   box.insertAdjacentHTML('beforeend', `
     <div class="chat-row ${mine ? 'me' : ''}" data-id="${msg.id}">
-      <div class="chat-avatar ${isAdminMsg ? 'admin' : ''}" data-name="${escapeHtml(name)}" title="点击或长按 @${escapeHtml(name)}" onclick="chat_mention('${escapeHtml(name).replace(/'/g, "\\'")}')">${escapeHtml(initial)}</div>
+      <!-- [D] 移除内联 onclick：昵称含 &/引号时不再产生实体化错乱；点击由全局委托读取 dataset.name -->
+      <div class="chat-avatar ${isAdminMsg ? 'admin' : ''}" data-name="${escapeHtml(name)}" title="点击或长按 @${escapeHtml(name)}">${escapeHtml(initial)}</div>
       <div class="chat-col">
         ${mine ? '' : `<div class="chat-sender ${isAdminMsg ? 'chat-admin-name' : ''}">${escapeHtml(name)}${isAdminMsg ? ' 👑' : ''}</div>`}
         <div class="chat-bubble ${msg.pending ? 'pending' : ''} ${mentionAll ? 'mention-all' : ''}">${content}</div>
@@ -5743,6 +6056,13 @@ function chat_append(msg) {
       </div>
     </div>`);
 }
+
+// [D] 头像点击事件委托（全局只注册一次）：替代内联 onclick，dataset.name 由
+// HTML 属性解析天然完成实体解码，昵称含 & ' " 均能原样传入
+document.addEventListener('click', e => {
+  const av = e.target.closest && e.target.closest('.chat-avatar');
+  if (av && av.dataset && av.dataset.name) chat_mention(av.dataset.name);
+});
 
 // 点击/长按头像：在输入框插入 @名字
 function chat_mention(name) {
@@ -5849,23 +6169,31 @@ function chat_canRecall(msg) {
     && (Date.now() - new Date(msg.created_at).getTime() < 120000);
 }
 
-// 撤回消息：软删除——把原消息更新为系统提示「[name] 撤回了一条消息」，全员实时可见、刷新后保留
+// [F] 撤回消息：软删除——把原消息更新为系统提示「[name] 撤回了一条消息」，
+// 全员实时可见、刷新后保留。原 confirm() 在 WebView/TWA 易被拦截，改复用 confirmAction
 async function chat_recall(id) {
   const msg = chatState.messages.find(m => m.id === id);
   if (!msg || !chat_canRecall(msg)) return;
-  if (!confirm('撤回这条消息？')) return;
-  const notice = `[${chat_displayName()}] 撤回了一条消息`;
-  const recalled = { ...msg, msg_type: 'system', body: notice, image_url: '' };
-  chatState.messages = chatState.messages.map(m => m.id === id ? recalled : m);
-  chat_renderRecalled(recalled);
-  const { error } = await sb.from('chat_messages')
-    .update({ msg_type: 'system', body: notice, image_url: '' })
-    .eq('id', id);
-  if (error) {
-    toast('撤回失败：' + error.message, 'error');
-    chatState.messages = chatState.messages.map(m => m.id === id ? msg : m);
-    chat_renderAll();  // 回滚恢复原消息
-  }
+  // 确认后的实际撤回逻辑（闭包持有 msg/id）
+  const doRecall = async () => {
+    const notice = `[${chat_displayName()}] 撤回了一条消息`;
+    const recalled = { ...msg, msg_type: 'system', body: notice, image_url: '' };
+    chatState.messages = chatState.messages.map(m => m.id === id ? recalled : m);
+    chat_renderRecalled(recalled);
+    const { error } = await sb.from('chat_messages')
+      .update({ msg_type: 'system', body: notice, image_url: '' })
+      .eq('id', id);
+    if (error) {
+      toast('撤回失败：' + error.message, 'error');
+      chatState.messages = chatState.messages.map(m => m.id === id ? msg : m);
+      chat_renderAll();  // 回滚恢复原消息
+    }
+  };
+  confirmAction(
+    '撤回消息',
+    '撤回后所有人会看到「撤回了一条消息」，确定吗？',
+    doRecall, '确认撤回', '', false
+  );
 }
 
 // 把某条消息行替换为撤回系统提示（本地撤回与收到他人撤回事件共用）
