@@ -141,7 +141,9 @@ img { max-width: 100%; height: auto; }
 
 /* ===== 移动端侧边导航（抽屉 + 悬浮触发按钮） ===== */
 .side-trigger {
-  display: none; position: fixed; right: 16px; bottom: 20px; z-index: 97;
+  display: none; position: fixed; right: 16px; z-index: 97;
+  /* 上移至顶栏下方；100vh-112px 兜底，矮屏时不会被推出可视区域 */
+  bottom: min(720px, calc(100vh - 112px));
   width: 48px; height: 48px; border-radius: 16px;
   background: var(--nav-bg);
   backdrop-filter: blur(18px) saturate(1.6);
@@ -748,7 +750,7 @@ body.side-open { overflow: hidden; }
   .nav-inner { height: 54px; }
   .nav-brand { font-size: 14px; gap: 6px; }
   .nav-brand img { width: 26px; height: 26px; }
-  .side-trigger { right: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .side-trigger { right: 14px; }
   .side-nav { width: min(82vw, 288px); padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); }
   .side-links a { padding: 13px 2px; font-size: 15px; }
 
@@ -904,7 +906,7 @@ body.side-open { overflow: hidden; }
     <div class="hero-content">
       <div class="hero-badge">
         <span class="dot"></span>
-        V3.1 已发布
+        V3.2 已发布
       </div>
       <h1>
         项目收益与回本<br>
@@ -1011,6 +1013,21 @@ body.side-open { overflow: hidden; }
         <div class="feature-icon">📱</div>
         <h3>Android 原生 APP</h3>
         <p>WebView 壳打包 APK，支持文件上传、长按保存图片、沉浸式状态栏、APP 内自动更新检测。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📢</div>
+        <h3>站内公告</h3>
+        <p>首页横幅滚动 + 公告页签双入口，管理员发布、编辑、删除，平台与市场动态即时触达所有用户。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🧾</div>
+        <h3>出货账单与凭证</h3>
+        <p>一键生成含实时时钟的账单图，可见平铺水印叠加不可见 LSB 盲水印双重确权，支持上传最多 9 张出货截图作凭证。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🛡️</div>
+        <h3>多端冲突检测</h3>
+        <p>保存前先比对云端内容，若其他标签页或设备已改动，提示选择覆盖或放弃，杜绝多端互相覆盖导致的数据丢失。</p>
       </div>
     </div>
   </div>
@@ -1197,9 +1214,26 @@ body.side-open { overflow: hidden; }
     <div class="text-center">
       <div class="section-label">更新日志</div>
       <h2 class="section-title">持续迭代，不断进步</h2>
-      <p class="section-desc mx-auto">从 V1.0 到 V3.1，每一次更新都带来更强大的功能与更流畅的体验。</p>
+      <p class="section-desc mx-auto">从 V1.0 到 V3.2，每一次更新都带来更强大的功能与更稳定的体验。</p>
     </div>
     <div class="timeline">
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.2</span>
+          <span class="date">2026 年 10 月</span>
+        </div>
+        <ul>
+          <li>云端保存新增多标签页/多设备冲突检测：内容被其他端改动时可选择覆盖或放弃</li>
+          <li>弱网加固：登录验证、数据加载、云端保存统一 8 秒超时兜底，新增全局异常捕获与节流提示</li>
+          <li>群聊 Realtime 断线 3 秒自动重连，进入失败自动收尾回列表页，不再困在空白页</li>
+          <li>撤回、改昵称改用自研居中弹窗，替代在 WebView/TWA 中常被拦截的原生对话框</li>
+          <li>旧数据与导入数据的空账户 ID 全链路兼容，搜索、批量勾选不再整表异常</li>
+          <li>性能优化：账户搜索 150ms 防抖，超 100 行分批渲染，「显示更多」翻倍加载</li>
+          <li>账单凭证加固：单张原图 ≤ 8MB、最多 9 张，盲水印解码先扫顶部像素大幅提速</li>
+          <li>无障碍与体验：弹窗补齐 role="dialog"、Esc 关闭与焦点归还，全量适配系统「减少动态效果」</li>
+          <li>安全加固：新增 CSP 策略，分享码编解码改用 TextEncoder（新旧分享码互通）</li>
+        </ul>
+      </div>
       <div class="timeline-item reveal">
         <div class="timeline-version">
           <span class="ver">V3.1</span>
