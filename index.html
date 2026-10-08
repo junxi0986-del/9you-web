@@ -1021,7 +1021,13 @@ html.in-app #loginWrap {
 <!-- 开屏广告（仅手机端显示）：全屏展示 open.png，右上角磨砂「跳过 Ns」按钮，5秒倒计时自动关闭 -->
 <div id="splashAd">
   <img src="open.png?v=20260930" alt="开屏广告">
-  <button id="splashSkip" onclick="closeSplashAd()" style="display:none">跳过 <span id="splashCount">3</span>s</button>
+  <button id="splashSkip" onclick="closeSplashAd()" style="display:none">跳过</button>
+</div>
+
+<!-- [任务二] 启动过渡遮罩：广告关闭但数据未就绪时显示，绝不露出登录页（z-index 低于开屏广告 9999） -->
+<div id="bootLoading" style="display:none;position:fixed;inset:0;z-index:9998;background:var(--bg-grad);align-items:center;justify-content:center;flex-direction:column;gap:14px">
+  <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:listSpin .8s linear infinite"></div>
+  <div style="font-size:14px;color:var(--text-secondary)">正在进入…</div>
 </div>
 
 <!-- 登录界面 -->
@@ -2046,8 +2052,38 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// [任务四] 脚本一执行就启动 getSession，广告展示期间把这次网络往返提前做掉
+let authWarmupPromise = null;
+function authWarmup() {
+  if (!authWarmupPromise) {
+    authWarmupPromise = sb.auth.getSession()
+      .catch(err => ({ data: { session: null }, error: err }));
+  }
+  return authWarmupPromise;
+}
+authWarmup();
+
 //全局数据
 let projects = [];
+// [任务五] projects 本地缓存：弱网/超时也能用上次数据秒开主界面（按用户 id 隔离）
+const PROJECTS_CACHE_PREFIX = 'jy_projects_cache_';
+const cacheKeyProjects = uid => PROJECTS_CACHE_PREFIX + uid;
+function saveProjectsCache() {
+  if (!currentUserId) return;
+  try {
+    localStorage.setItem(cacheKeyProjects(currentUserId),
+      JSON.stringify({ ts: Date.now(), content: projects }));
+  } catch (e) {}
+}
+function tryLoadProjectsFromCache() {
+  if (!currentUserId) return false;
+  try {
+    const obj = JSON.parse(localStorage.getItem(cacheKeyProjects(currentUserId)) || 'null');
+    if (!obj || !Array.isArray(obj.content)) return false;
+    projects = obj.content;
+    return true;
+  } catch (e) { return false; }
+}
 let currentUserId = null;
 let currentProjectId = null;
 let detailAnimate = false;             // 是否为详情页汇总数字播放滚动动画（仅进入项目时播放）
@@ -2323,6 +2359,7 @@ async function supabaseSignIn(){
   toast("登录成功","success");
 }
 async function supabaseLogout(){
+  if (currentUserId) { try { localStorage.removeItem(cacheKeyProjects(currentUserId)); } catch (e) {} }  // [任务五] 主动登出：清掉本账号缓存
   await sb.auth.signOut();
   currentUserId = null;
   currentUserEmail = '';
@@ -2340,6 +2377,7 @@ let authReady = false;  // 标记首次 checkAuth 是否已完成，避免 onAut
 // [B] SIGNED_OUT 清理逻辑抽为独立函数（onAuthStateChange 回调内只做同步派发，
 // 真正的清理放到下一宏任务，避免回调持有 auth 锁时其内部请求与 SDK 互等死锁）
 function handleSignedOutCleanup() {
+  if (currentUserId) { try { localStorage.removeItem(cacheKeyProjects(currentUserId)); } catch (e) {} }  // [任务五] 会话失效：清缓存
   currentUserId = null;
   currentUserEmail = '';
   isAdmin = false;
@@ -2399,9 +2437,12 @@ function tryInstantLogin(){
     // Supabase SDK v2 存储格式：{ user: {...}, access_token, ... }
     const user = session?.user || (session?.data?.user);
     if(!user?.email) return false;
-    // 检查令牌是否过期（exp 字段，提前 60 秒判定）
-    const exp = session?.expires_at || session?.data?.expires_at;
-    if(exp && Date.now() / 1000 > exp - 60) return false;
+    // [任务三] 不再按 expires_at 判定：access_token 默认 1h 过期、冷启动必然命中。
+    // 只要本地还有 access_token 或 refresh_token 就乐观放行，过期由 SDK 用 refresh_token 后台刷新；
+    // 真正失效时 getUser 返回 null / onAuthStateChange 触发 SIGNED_OUT 兜底。
+    const hasAccess  = !!(session?.access_token  || session?.data?.access_token);
+    const hasRefresh = !!(session?.refresh_token || session?.data?.refresh_token);
+    if (!hasAccess && !hasRefresh) return false;
     // 立即设置身份、切换主界面，数据在后台加载
     currentUserId = user.id;
     currentUserEmail = (user.email || '').toLowerCase();
@@ -2410,53 +2451,95 @@ function tryInstantLogin(){
   }catch(e){ return false; }
 }
 
+// [任务二] 显式显示登录页：同时关闭过渡遮罩与主界面
+function showLoginPage() {
+  document.getElementById('bootLoading').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginWrap').style.display = 'flex';
+}
+
+// [任务二/任务五] 启动验证：过渡遮罩遮盖全程；本地有缓存则秒开，后台静默刷新
 async function checkAuth(){
-  // 优化：先用本地缓存的会话信息秒切主界面，再后台验证令牌有效性
-  const instant = tryInstantLogin();
-  if(instant){
-    // 优化：先切换界面容器避免白屏，但不渲染数据（避免空列表闪烁），等数据加载完一次性 showMainApp
-    document.getElementById("loginWrap").style.display = "none";
-    document.getElementById("mainApp").style.display = "block";
-    // [H] 后台验证令牌 + 加载数据（弱网 8s 超时，超时按失败分支处理，不抛出未捕获错误）
-    try {
-      const {data:{user}} = await withTimeout(sb.auth.getUser());
-      if(user){
-        await afterLogin(user);            // 加载云端数据（并行化后 ~300ms）
-        showMainApp();                     // 数据就绪后一次性渲染
-      }else{
-        // 令牌已失效：回退到登录页
-        try{ localStorage.removeItem('jy_last_email'); }catch(e){}
-        currentUserId = null;
-        currentUserEmail = '';
-        isAdmin = false;
-        hideMainApp();
-      }
-    } catch (e) {
-      // [H] 超时或网络错误：回到登录页并提示，不留在无数据空壳
-      toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
-      currentUserId = null; currentUserEmail = ''; isAdmin = false;
-      hideMainApp();
-    }
-  }else{
-    // 无本地会话：正常走网络验证
-    try {
-      const {data:{user}} = await withTimeout(sb.auth.getUser());
-      if(user){
-        await afterLogin(user);
+  // 首行先显示过渡遮罩，广告关闭时用户看到的是「正在进入…」而不是登录页
+  document.getElementById('bootLoading').style.display = 'flex';
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+  try {
+    const instant = tryInstantLogin();
+    if (instant) {
+      const fromCache = tryLoadProjectsFromCache();
+      if (fromCache) {
+        // [任务五] 有缓存：直接用缓存秒开主界面，后台再静默刷新为最新数据
         showMainApp();
+        try {
+          const { data: { user } } = await withTimeout(sb.auth.getUser());
+          if (user) {
+            await afterLogin(user);          // 后台拉取最新云端数据
+            saveProjectsCache();             // 拉取成功后更新本地缓存
+            renderProjectGrid();             // 用最新数据覆盖渲染（不播动画）
+          } else {
+            // 令牌真正失效（非超时）：回退登录页
+            try { localStorage.removeItem('jy_last_email'); } catch (e) {}
+            currentUserId = null;
+            currentUserEmail = '';
+            isAdmin = false;
+            showLoginPage();
+          }
+        } catch (e) {
+          // 弱网超时/网络错误：保留缓存界面，仅提示网络慢，不清缓存、不回登录页
+          toast(e && e.message === '请求超时' ? '网络较慢，当前显示的是本地缓存数据' : ('登录验证失败：' + (e.message || e)), 'warn');
+        }
+      } else {
+        // [任务二] 无缓存：显示主界面容器（过渡遮罩仍盖在上面），数据就绪再一次性渲染
+        document.getElementById('mainApp').style.display = 'block';
+        try {
+          const { data: { user } } = await withTimeout(sb.auth.getUser());
+          if (user) {
+            await afterLogin(user);          // 加载云端数据
+            showMainApp();                   // 数据就绪后一次性渲染
+          } else {
+            // 令牌已失效：回退到登录页
+            try { localStorage.removeItem('jy_last_email'); } catch (e) {}
+            currentUserId = null;
+            currentUserEmail = '';
+            isAdmin = false;
+            showLoginPage();
+          }
+        } catch (e) {
+          // 超时或网络错误且无缓存：回到登录页并提示
+          toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
+          currentUserId = null; currentUserEmail = ''; isAdmin = false;
+          showLoginPage();
+        }
       }
-    } catch (e) {
-      toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
+    } else {
+      // 本地无任何令牌：走网络验证（首次安装/已登出场景）
+      try {
+        const { data: { user } } = await withTimeout(sb.auth.getUser());
+        if (user) {
+          await afterLogin(user);
+          showMainApp();
+        } else {
+          showLoginPage();
+        }
+      } catch (e) {
+        toast(e && e.message === '请求超时' ? '登录验证超时，请检查网络后重试' : ('登录验证失败：' + (e.message || e)), 'error');
+        showLoginPage();
+      }
     }
+  } finally {
+    // 兜底：无论成功失败都关掉过渡遮罩（成功时 showMainApp/showLoginPage 已提前关，此处无副作用）
+    document.getElementById('bootLoading').style.display = 'none';
   }
   authReady = true;  // 标记首次检测完成，后续 onAuthStateChange 可正常响应
 }
 function showMainApp(){
+  document.getElementById('bootLoading').style.display = 'none';  // [任务二] 进入主界面即关过渡遮罩
   document.getElementById("loginWrap").style.display = "none";
   document.getElementById("mainApp").style.display = "block";
   document.getElementById("welcomeEmail").textContent = `欢迎 ${currentUserEmail}`;  // 顶栏欢迎邮箱
   applyThemeUI();        // 同步深色模式按钮文案
-  listTab = 'mine';  // 每次进入主界面默认显示我的项目（主菜单）
+  if (!userPickedTab) listTab = 'mine';  // [修复] 用户加载期间已手动切页签则不覆盖，未切过才用默认「我的项目」
   renderHomeTop();       // 市场价 + 公告横幅
   renderNoticeTab();
   renderMeAdmin();
@@ -2474,6 +2557,7 @@ function hideMainApp(){
   document.getElementById("mainApp").style.display = "none";
   const og = document.getElementById('otpGroup');  // 重置登录页验证码输入区为隐藏
   if (og) og.style.display = 'none';
+  userPickedTab = false;  // [修复] 退出登录/被踢下线/checkAuth 失败后复位，下次进入恢复默认页签
 }
 
 // =========云端读写函数（替代localStorage）=========
@@ -2534,6 +2618,7 @@ async function doSaveCloudUpsert(jsonStr, silent) {
     const { error } = await withTimeout(q);
     if (error) { toast("云端保存失败:" + error.message, "error"); return; }
     lastSyncedSnapshot = jsonStr;  // 保存成功，快照推进到新版本
+    saveProjectsCache();  // [任务五] 云端保存成功，同步刷新本地缓存
     if (!silent) toast("✅数据已同步云端", "success");
   } catch (e) {
     toast(e && e.message === '请求超时' ? '网络请求超时，云端保存失败' : ('云端保存失败：' + (e.message || e)), 'error');
@@ -2554,6 +2639,7 @@ async function loadCloudData(){
     projects = (data && data.content) ? JSON.parse(data.content) : [];
     // [G] 记录云端原始内容作为冲突检测基线（新账号无行时为 null）
     lastSyncedSnapshot = (data && data.content) || null;
+    saveProjectsCache();  // [任务五] 云端数据拉取成功，写入本地缓存供下次弱网兜底
   } catch (e) {
     toast(e && e.message === '请求超时' ? '读取云端超时，请检查网络' : ('读取云端失败：' + (e.message || e)), 'error');
   }
@@ -2960,7 +3046,10 @@ window.addEventListener('popstate', () => {
 
 /* ---------- 主页面：项目列表页签切换（公共项目/我的项目/公告/市场价/我的） ---------- */
 let listTab = 'mine';  // 默认页签：我的项目（主菜单）
+// [修复] 用户是否在本次进入主界面后手动切换过页签
+let userPickedTab = false;
 function switchListTab(tab) {
+  userPickedTab = true;  // [修复] 任何路径进入本函数都算用户手动切页签（顶部tab/底部nav/横幅跳notice）
   // 若在平台管理页：先退出管理页（隐藏管理区、恢复顶部横幅、消费入栈历史），再正常切页签
   if (onAdminPage) {
     onAdminPage = false;
@@ -6679,7 +6768,8 @@ function chat_fmtTime(iso) {
 }
 
 // 启动：检测登录状态（刷新后自动恢复会话）
-checkAuth();
+// [任务一] 把启动 Promise 暴露给开屏广告：数据就绪即关广告
+window.__bootReady = checkAuth();
 
 // APP 更新检测：从 UA 解析 APP 版本号，对比 app-version.json，有更新弹窗引导下载
 (function () {
@@ -6725,22 +6815,22 @@ function closeSplashAd() {
     return;
   }
   try { localStorage.setItem('splashAdLastTs', String(now)); } catch (e) {}  // 本次展示立即记录时间戳
-  // 前 2 秒强制展示，关闭按钮不显示
-  var total = 5, force = 2, btn = document.getElementById('splashSkip');
+  // [任务一] 最短 2s 品牌曝光、数据就绪即关闭、最长 8s 兜底；点跳过可立即关闭
+  var MIN_SHOW = 2000, MAX_SHOW = 8000, btn = document.getElementById('splashSkip');
+  var closed = false;
+  function finish() { if (closed) return; closed = true; closeSplashAd(); }
   setTimeout(function () {
-    // 2 秒后显示关闭按钮，开始 3 秒倒计时
+    // 2 秒后显示跳过按钮，并开始轮询启动 Promise（200ms 一次），就绪立即关闭
     if (btn) btn.style.display = '';
-    var left = 3, el = document.getElementById('splashCount');
     splashTimer = setInterval(function () {
-      left--;
-      if (left <= 0) return closeSplashAd();
-      if (el) el.textContent = left;
-    }, 1000);
-  }, force * 1000);
-  // 总时长 5 秒强制关闭（即使倒计时异常也保证关闭）
-  setTimeout(function () {
-    closeSplashAd();
-  }, total * 1000);
+      if (window.__bootReady) {
+        clearInterval(splashTimer); splashTimer = null;
+        window.__bootReady.then(finish).catch(finish);
+      }
+    }, 200);
+  }, MIN_SHOW);
+  // 最长 8 秒兜底强制关闭
+  setTimeout(finish, MAX_SHOW);
 })();
 
 /* ---------- PWA：Service Worker 注册 + 安装引导 ---------- */
