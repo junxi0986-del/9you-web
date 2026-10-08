@@ -521,7 +521,7 @@ body.side-open { overflow: hidden; }
 /* ===== Tech ===== */
 .tech-section { background: var(--bg-alt); }
 .tech-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 20px; margin-top: 56px;
 }
 .tech-card {
@@ -906,14 +906,14 @@ body.side-open { overflow: hidden; }
     <div class="hero-content">
       <div class="hero-badge">
         <span class="dot"></span>
-        V3.2 已发布
+        V3.3 已发布
       </div>
       <h1>
         项目收益与回本<br>
         <span class="gradient-text">一站式云端管理</span>
       </h1>
       <p class="hero-desc">
-        轻量化的项目跟踪管理平台，基于 Supabase 云端存储，无需部署服务器。多设备实时同步，验证码免密登录，专注项目收益与账户回本精细化管理。
+        轻量化的项目跟踪管理平台，基于 Supabase 云端存储，无需部署服务器。多设备实时同步，邮箱 / 手机号验证码免密登录，专注项目收益与账户回本精细化管理。
       </p>
       <div class="hero-actions">
         <a href="https://9you.help/" class="btn btn-primary btn-large" target="_blank">
@@ -977,7 +977,7 @@ body.side-open { overflow: hidden; }
       <div class="feature-card reveal">
         <div class="feature-icon">🔑</div>
         <h3>验证码免密登录</h3>
-        <p>6 位邮箱验证码一键登录，滑动拼图人机验证防刷。会话自动刷新，无感持久化登录体验。</p>
+        <p>邮箱 / 手机号双模式，6 位验证码一键登录，滑动拼图人机验证防刷。会话自动刷新，无感持久化登录。</p>
       </div>
       <div class="feature-card reveal">
         <div class="feature-icon">📈</div>
@@ -1028,6 +1028,16 @@ body.side-open { overflow: hidden; }
         <div class="feature-icon">🛡️</div>
         <h3>多端冲突检测</h3>
         <p>保存前先比对云端内容，若其他标签页或设备已改动，提示选择覆盖或放弃，杜绝多端互相覆盖导致的数据丢失。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔐</div>
+        <h3>账号资料与安全</h3>
+        <p>独立设置页管理手机号、邮箱、昵称与通知。联系方式脱敏展示，修改须先验证当前值，每 30 天可改一次，免短信 / 邮件验证直接生效。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">✨</div>
+        <h3>顺手的全端体验</h3>
+        <p>移动端液态玻璃底部导航、左右滑动切换页签、双列卡片布局；深浅色主题跟随系统，长列表分批渲染，弱网有超时兜底。</p>
       </div>
     </div>
   </div>
@@ -1117,7 +1127,12 @@ body.side-open { overflow: hidden; }
       <div class="tech-card reveal">
         <span class="tech-icon">🗄️</span>
         <h4>Supabase</h4>
-        <p>PostgreSQL 数据库 + RLS 行级权限 + Realtime 实时推送</p>
+        <p>PostgreSQL 数据库 + RLS 行级权限 + Realtime 实时推送 + Auth 验证码登录</p>
+      </div>
+      <div class="tech-card reveal">
+        <span class="tech-icon">🧩</span>
+        <h4>Deno Edge Functions</h4>
+        <p>send-sms-hook 转发阿里云 dypnsapi 下发短信验证码，bind-contact 校验 JWT 后以 Admin API 直写联系方式</p>
       </div>
       <div class="tech-card reveal">
         <span class="tech-icon">📲</span>
@@ -1214,9 +1229,25 @@ body.side-open { overflow: hidden; }
     <div class="text-center">
       <div class="section-label">更新日志</div>
       <h2 class="section-title">持续迭代，不断进步</h2>
-      <p class="section-desc mx-auto">从 V1.0 到 V3.2，每一次更新都带来更强大的功能与更稳定的体验。</p>
+      <p class="section-desc mx-auto">从 V1.0 到 V3.3，每一次更新都带来更强大的功能与更稳定的体验。</p>
     </div>
     <div class="timeline">
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.3</span>
+          <span class="date">2026 年 10 月</span>
+        </div>
+        <ul>
+          <li>新增手机号短信登录：邮箱 / 手机双模式一键切换，+86 E.164 传参，6 位短信验证码即登即用</li>
+          <li>新增 Edge Function send-sms-hook：接入 Supabase Send SMS Auth Hook，经阿里云号码认证 dypnsapi 下发验证码，支持 Webhook 签名校验防盗刷</li>
+          <li>新增 Edge Function bind-contact：校验调用者 JWT 后以 Admin API 直写手机号 / 邮箱，免短信 / 邮件验证，底层错误完整中文化</li>
+          <li>登录后补全资料引导：老用户提示绑定手机号、手机注册用户提示绑定邮箱，非强制；「暂不绑定」7 天内免提示，按用户隔离</li>
+          <li>新增设置页：手机号、邮箱、昵称、消息通知四区块，返回键与底部导航联动退出</li>
+          <li>联系方式脱敏展示，修改前须输入当前完整值验证身份，服务端强制比对防接口绕过</li>
+          <li>手机号 / 邮箱每 30 天仅可修改一次，冷却期标红剩余天数与可修改日期并置灰按钮；首次绑定不受限、不计时</li>
+          <li>协议勾选框改为邮箱 / 手机登录共享，切换登录模式时勾选状态保留</li>
+        </ul>
+      </div>
       <div class="timeline-item reveal">
         <div class="timeline-version">
           <span class="ver">V3.2</span>
@@ -1301,14 +1332,14 @@ body.side-open { overflow: hidden; }
 <section class="section poster-section">
   <div class="container poster-inner">
     <div class="poster-copy">
-      <div class="section-label">全端体验</div>
+      <div class="section-label">多端同步</div>
       <h2 class="section-title">PC、手机、APP<br>一张图看懂</h2>
       <p>同一套云端数据，三种打开方式。浏览器、手机浏览器与 Android 客户端读取同一个 Supabase 数据库，在电脑上录入的一笔回本，手机刷新即见。</p>
       <ul class="poster-list">
         <li><b>手机端双列卡片流</b>：我的项目、公共广场、群聊、市场价、我的五大区块收进底部导航，单手可达。</li>
         <li><b>液态玻璃导航</b>：移动端底部导航采用毛玻璃悬浮样式，跟随页面滚动保持可见。</li>
         <li><b>Android 原生 APP</b>：支持文件上传、长按保存图片、沉浸式状态栏与内置更新检测。</li>
-        <li><b>验证码免密登录</b>：无需记忆密码，验证码直接进入，换设备登录零成本。</li>
+        <li><b>验证码免密登录</b>：邮箱或手机号收取 6 位验证码直接进入，无需记忆密码，换设备登录零成本。</li>
         <li><b>分享码 + JSON 备份</b>：项目数据可整份分享给同伴，也可随时导出留档、一键还原。</li>
         <li><b>深色模式</b>：跟随系统自动切换，也可手动锁定，夜间记录不刺眼。</li>
       </ul>
