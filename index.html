@@ -261,6 +261,21 @@ body {
 /* 标题左侧竖排：标题 + 欢迎邮箱（邮箱显示在标题下方） */
 .header-left { display: flex; flex-direction: column; min-width: 0; }
 .header-left .welcome-email { font-size: 12px; color: rgba(255,255,255,.8); margin: 3px 0 0 46px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* [新按钮] header 下载 App 按钮：半透明白底适配蓝色渐变 header；与标题区左右横向并排；显隐完全交给 JS */
+.header-dl-app {
+  display: none;
+  flex-shrink: 0;          /* 与 .header-left 并排：不被压缩，标题区 min-width:0 可收缩、邮箱省略号截断 */
+  white-space: nowrap;
+  justify-content: center;
+  min-height: 38px;
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .32);
+  font-weight: 600;
+}
+.header-dl-app:hover,
+.header-dl-app:active { background: rgba(255, 255, 255, .28); }
+@media (max-width: 600px) { .header-dl-app { min-height: 38px; } }
 
 /* 底部导航栏（移动端专属，桌面端隐藏） */
 .bottom-nav { display: none; }
@@ -1087,6 +1102,9 @@ html.in-app #loginWrap {
       <h1 id="headerTitle"><img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台</h1>
       <span class="welcome-email" id="welcomeEmail"></span>
     </div>
+    <!-- [新按钮] 手机浏览器未安装 App 时显示：安卓下载 APK / iOS 打开安装教程（显隐由底部 PWA IIFE 控制） -->
+    <button id="headerDlAppBtn" class="btn btn-sm header-dl-app"
+            onclick="headerDownloadApp()" style="display:none">📲 下载 App</button>
     <div class="header-actions">
       <div class="tab-switch tab-switch-desktop">
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
@@ -2097,6 +2115,8 @@ const ADMIN_EMAILS = ['3088238757@qq.com', '466998276@qq.com'];
 let currentUserEmail = '';             // 当前登录用户邮箱
 let isAdmin = false;                   // 是否管理员
 let publicProjects = [];               // 公共项目列表（云端 public_projects 表）
+// [修复] 公共项目是否仍在加载：加载中显示转圈（对齐市场价页），而非「暂无公共项目」空态
+let publicProjectsLoading = false;
 let announcements = [];                // 公告列表（云端 announcements 表，按发布时间倒序）
 let marketPrices = [];                 // 市场参考价列表（云端 market_prices 表，按日期倒序）
 
@@ -2647,16 +2667,21 @@ async function loadCloudData(){
 
 // =========公共项目云端读写（public_projects 表，全员可读、仅管理员可写）=========
 async function loadPublicProjects(){
-  const {data,error} = await sb
-    .from("public_projects")
-    .select("*")
-    .order("created_at", { ascending: true });
-  if(error){
-    toast("公共项目加载失败:"+error.message,"error");
-    publicProjects = [];
-    return;
+  publicProjectsLoading = true;  // [修复] 进入加载态：renderPublicProjects 期间显示转圈
+  try {
+    const {data,error} = await sb
+      .from("public_projects")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if(error){
+      toast("公共项目加载失败:"+error.message,"error");
+      publicProjects = [];
+      return;
+    }
+    publicProjects = data || [];
+  } finally {
+    publicProjectsLoading = false;  // [修复] 无论成功失败都退出加载态
   }
-  publicProjects = data || [];
 }
 // 个人项目 Logo 自动同步：项目本身无 Logo 且同名公共项目有 Logo 时自动补齐，无需用户手动编辑保存
 // 仅补空值，不覆盖用户已自定义的 Logo；返回是否有变更（调用方据此静默写回云端）
@@ -2844,6 +2869,19 @@ function openModal(id, triggerEl) {
 }
 // iOS 描述文件安装教程弹窗
 function openIosGuideModal() { openModal('iosGuideModal'); }
+// [新按钮] header 下载 App：iOS 复用安装教程弹窗，其余平台（安卓）确认后下载 APK
+function headerDownloadApp() {
+  const ua = navigator.userAgent;
+  const onIOS = /iPhone|iPad|iPod/i.test(ua)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (onIOS) { openIosGuideModal(); return; }
+  confirmAction(
+    '下载 App',
+    '即将下载 Android 安装包并安装。首次安装时需在系统弹窗中允许「安装未知应用」，是否继续？',
+    () => { window.location.href = '/jiuyou.apk'; },
+    '立即下载', '', false
+  );
+}
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
   // 关闭今日明细弹窗时停止实时时钟，避免空转
@@ -3066,6 +3104,12 @@ function switchListTab(tab) {
   listTab = tab;
   updateListTabUI();
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
+  // [修复] 进入公共项目页时也刷新一次：立即渲染转圈，加载完成后覆盖为数据
+  if (tab === 'public') {
+    publicProjectsLoading = true;
+    renderPublicProjects();
+    loadPublicProjects().then(renderPublicProjects);
+  }
   renderHomeTop();  // 切换页签时同步顶部横幅显隐（公告页隐藏公告横幅）
   window.scrollTo(0, 0);
 }
@@ -4443,6 +4487,12 @@ function deleteProject(id) {
 function renderPublicProjects() {
   const grid = document.getElementById('publicProjectGrid');
   grid.innerHTML = '';
+
+  // [修复] 数据仍在加载：显示转圈（与市场价页同款 .list-loading），不显示「暂无」空态
+  if (publicProjectsLoading) {
+    grid.innerHTML = '<div class="list-loading"><div class="spinner"></div>加载中...</div>';
+    return;
+  }
 
   if (publicProjects.length === 0) {
     grid.innerHTML = `
@@ -6865,6 +6915,10 @@ function closeSplashAd() {
     if (iosCard) iosCard.style.display = 'none';
     return;
   }
+
+  // [新按钮] 手机浏览器（iOS/安卓）显示 header 下载 App 按钮；用 UA 判定，横竖屏切换不消失
+  const dlBtn = document.getElementById('headerDlAppBtn');
+  if (dlBtn && (isIOS || isAndroid)) dlBtn.style.display = 'inline-flex';
 
   if (isIOS) {
     // iOS：显示描述文件安装引导卡片（点击弹出三步教程）
