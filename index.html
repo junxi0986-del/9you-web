@@ -3104,11 +3104,16 @@ function switchListTab(tab) {
   listTab = tab;
   updateListTabUI();
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
-  // [修复] 进入公共项目页时也刷新一次：立即渲染转圈，加载完成后覆盖为数据
+  // [修复] 进入公共项目页：无数据才显示转圈；已有数据保留并后台静默刷新（完成后覆盖），
+  // 不无条件重渲转圈，避免「数据→转圈→数据」的重复转圈；已有加载在飞则不重复发起
   if (tab === 'public') {
-    publicProjectsLoading = true;
-    renderPublicProjects();
-    loadPublicProjects().then(renderPublicProjects);
+    if (!publicProjectsLoading) {
+      if (publicProjects.length === 0) {
+        publicProjectsLoading = true;
+        renderPublicProjects();
+      }
+      loadPublicProjects().then(renderPublicProjects);
+    }
   }
   renderHomeTop();  // 切换页签时同步顶部横幅显隐（公告页隐藏公告横幅）
   window.scrollTo(0, 0);
