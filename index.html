@@ -12,6 +12,8 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <meta name="theme-color" content="#4a6cf7">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<!-- 新版标准全屏声明（替代已弃用的 apple-mobile-web-app-capable；旧声明保留兼容旧 iOS） -->
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="项目跟踪管理平台"> 
 <!-- 主题预加载：在 CSS 解析前恢复用户主题偏好，避免深色模式闪白 -->
@@ -805,7 +807,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .breadcrumb { font-size: 12px; }
 
   /* 「我的」Tab 手机端优化 */
-  .me-row { flex-direction: column; align-items: stretch; }
+  /* [修复] align-items 加 !important：需压过 L860 通用规则 .me-row{align-items:center}
+     （该规则定义在本媒体查询之后，同特异性会覆盖此处，导致手机端标题块居中、左侧留空）；
+     .me-row-inline 的 !important 规则在更后面，通知开关行仍保持 row 不受影响 */
+  .me-row { flex-direction: column; align-items: stretch !important; }
   .me-row .btn { width: 100%; justify-content: center; min-height: 44px; }
   /* 数据管理：两个按钮手机端保持左右等宽摆放，不上下堆叠 */
   .me-actions-row { flex-wrap: nowrap !important; justify-content: stretch !important; }
@@ -862,7 +867,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 #tabMeSection { display: flex; flex-direction: column; gap: 12px; }
 /* 平台管理独立页（仅管理员）：顶栏标题居中、返回按钮居左；内部卡片统一间距 */
 #tabAdminSection { display: flex; flex-direction: column; gap: 12px; }
-.admin-topbar { position: relative; display: flex; align-items: center; justify-content: center; }
+/* [需求三·修复] 设置页同样 flex 纵向 + gap12（原缺失导致 block 流卡片紧贴 topbar） */
+#tabSettingsSection { display: flex; flex-direction: column; gap: 12px; }
+/* [修复] topbar 最小 44px：absolute 的返回按钮手机端高 44px，避免其溢出盖到下方卡片（管理页同受益） */
+.admin-topbar { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; }
 .admin-back { position: absolute; left: 0; }
 #adminToolsWrap { display: flex; flex-direction: column; gap: 12px; }
 .badge-done { background: var(--done-bg-strong); color: var(--success); }
@@ -881,9 +889,10 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal-mask { padding: 0; align-items: stretch; }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal { padding: 16px; align-items: center; }
+  /* [需求五] 新增绑定/修改手机号、修改邮箱弹窗同样居中小卡片 */
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -896,6 +905,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* [需求五] 四个手机/邮箱弹窗宽度（高度自适应内容，超长可滚） */
+  #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal { max-width: 400px; width: 100%; height: auto; }
+  #bindPhoneModal .modal-body, #bindEmailModal .modal-body, #changePhoneModal .modal-body, #changeEmailModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal-body { padding: 16px; }
 }
 
@@ -1049,44 +1061,85 @@ html.in-app #loginWrap {
 <div id="loginWrap">
   <div class="login-card">
     <h2 style="display:flex;align-items:center;justify-content:center;margin-bottom:24px"><img src="logo.jpg" class="header-logo login-logo" alt="logo">项目跟踪平台</h2>
-    <div class="form-group">
-      <label>邮箱</label>
-      <div style="display:flex;gap:8px">
-        <input type="email" id="loginEmail" placeholder="邮箱账号名" style="flex:1">
-        <select id="loginDomain" onchange="applyEmailDomain()" style="width:auto;min-width:118px" title="选择邮箱后缀，免输入@域名">
-          <option value="@qq.com" selected>@qq.com</option>
-          <option value="@163.com">@163.com</option>
-          <option value="@126.com">@126.com</option>
-          <option value="@foxmail.com">@foxmail.com</option>
-          <option value="@gmail.com">@gmail.com</option>
-          <option value="@outlook.com">@outlook.com</option>
-        </select>
+    <!-- [需求一] 邮箱登录面板（原有元素原样保留，仅外包一层容器用于与手机号登录切换） -->
+    <div id="emailLoginPane">
+      <div class="form-group">
+        <label>邮箱</label>
+        <div style="display:flex;gap:8px">
+          <input type="email" id="loginEmail" placeholder="邮箱账号名" style="flex:1">
+          <select id="loginDomain" onchange="applyEmailDomain()" style="width:auto;min-width:118px" title="选择邮箱后缀，免输入@域名">
+            <option value="@qq.com" selected>@qq.com</option>
+            <option value="@163.com">@163.com</option>
+            <option value="@126.com">@126.com</option>
+            <option value="@foxmail.com">@foxmail.com</option>
+            <option value="@gmail.com">@gmail.com</option>
+            <option value="@outlook.com">@outlook.com</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <button class="btn btn-outline" id="sendCodeBtn" style="width:100%" onclick="sendLoginCode()">发送验证码</button>
+      </div>
+      <!-- 验证码输入区：点击发送验证码成功后才显示 -->
+      <div class="form-group" id="otpGroup" style="display:none">
+        <label>验证码</label>
+        <div style="display:flex;gap:6px" id="otpBoxes">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
+      </div>
+      <!-- 协议勾选框已移至两个登录面板之外共享（邮箱/手机登录均需勾选） -->
+      <!-- [需求一] 切换到手机号登录 -->
+      <div style="text-align:center;margin-top:12px">
+        <button type="button" onclick="switchLoginMode('phone')" style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:8px">手机号登录</button>
       </div>
     </div>
-    <div class="form-group">
-      <button class="btn btn-outline" id="sendCodeBtn" style="width:100%" onclick="sendLoginCode()">发送验证码</button>
-    </div>
-    <!-- 验证码输入区：点击发送验证码成功后才显示 -->
-    <div class="form-group" id="otpGroup" style="display:none">
-      <label>验证码</label>
-      <div style="display:flex;gap:6px" id="otpBoxes">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
-        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
+
+    <!-- [需求一] 手机号登录面板（默认隐藏，与邮箱登录互不干扰；样式复用现有类） -->
+    <div id="phoneLoginPane" style="display:none">
+      <div class="form-group">
+        <label>手机号</label>
+        <input type="tel" id="loginPhone" inputmode="numeric" maxlength="11" placeholder="请输入11位手机号" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)">
+      </div>
+      <div class="form-group">
+        <button class="btn btn-outline" id="sendPhoneCodeBtn" style="width:100%" onclick="sendPhoneLoginCode()">发送验证码</button>
+      </div>
+      <!-- 验证码输入区：发送短信成功后才显示 -->
+      <div class="form-group" id="phoneOtpGroup" style="display:none">
+        <label>验证码</label>
+        <div style="display:flex;gap:6px" id="phoneOtpBoxes">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的手机号将自动创建账号，无需密码</div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="phoneSignIn()">登录账号</button>
+      </div>
+      <!-- [需求一] 切换回邮箱登录 -->
+      <div style="text-align:center;margin-top:12px">
+        <button type="button" onclick="switchLoginMode('email')" style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:8px">邮箱登录</button>
       </div>
     </div>
-    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">未注册的邮箱将自动创建账号，无需密码</div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="supabaseSignIn()">登录账号</button>
-      <!-- 用户协议与隐私政策：必须勾选才能发送验证码/登录，点击名称可查看全文 -->
-      <label style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-size:12px;color:var(--text-secondary);line-height:1.6;user-select:none">
-        <input type="checkbox" id="agreeCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--primary)">
-        <span>我已阅读并同意<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('user')" style="color:var(--primary)">《用户协议》</a>和<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('privacy')" style="color:var(--primary)">《隐私政策》</a></span>
-      </label>
-    </div>
+
+    <!-- [共享] 用户协议与隐私政策勾选：邮箱/手机号两种登录均需勾选；id 不变，状态在切换时保留 -->
+    <label style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-size:12px;color:var(--text-secondary);line-height:1.6;user-select:none;margin-top:14px">
+      <input type="checkbox" id="agreeCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--primary)">
+      <span>我已阅读并同意<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('user')" style="color:var(--primary)">《用户协议》</a>和<a href="javascript:void(0)" onclick="event.preventDefault();openAgreementModal('privacy')" style="color:var(--primary)">《隐私政策》</a></span>
+    </label>
+
     <!-- 关于我们：卡片底部文字链，二次确认后跳转官方宣传站 -->
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
       <a href="javascript:void(0)" onclick="event.preventDefault();openAboutSite()" style="display:inline-block;padding:6px 12px;font-size:12px;color:var(--primary);text-decoration:none">关于我们</a>
@@ -1191,12 +1244,18 @@ html.in-app #loginWrap {
           </div>
           <button class="btn btn-outline" id="themeBtn" onclick="toggleTheme()">🌙 切换到深色模式</button>
         </div>
-        <!-- 用户名：同步为群聊昵称（localStorage + cookie 双保险 + 云端 chat_members） -->
-        <div class="form-group" style="margin-top:12px;margin-bottom:10px">
-          <label>用户名（群聊昵称）</label>
-          <input type="text" id="myNameInput" maxlength="20" placeholder="群聊中显示的名称">
+        <!-- [需求四] 用户名（群聊昵称）已移至「设置」页 -->
+      </div>
+
+      <!-- [需求三] 设置入口：手机号 / 邮箱 / 用户名 / 通知设置 -->
+      <div class="table-card" style="margin-bottom:14px">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">⚙️ 设置</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">手机号 / 邮箱 / 用户名 / 通知设置</div>
+          </div>
+          <button class="btn btn-primary" style="flex-shrink:0" onclick="openSettingsPage()">进入设置</button>
         </div>
-        <button class="btn btn-outline" style="width:100%" onclick="saveMyName()">保存用户名</button>
       </div>
 
       <!-- 项目群聊入口（原导航栏群聊按钮移至此处） -->
@@ -1210,19 +1269,7 @@ html.in-app #loginWrap {
         </div>
       </div>
 
-      <!-- 消息通知设置：桌面弹窗通知（iOS 风格开关，偏好存 localStorage） -->
-      <div class="table-card" style="margin-bottom:14px">
-        <div class="me-row me-row-inline">
-          <div style="min-width:0">
-            <h2 style="font-size:15px;font-weight:600">🔔 消息通知设置</h2>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="notifStatus">—</div>
-          </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="notifSwitch" onchange="notif_toggle(this)">
-            <span class="ios-slider"></span>
-          </label>
-        </div>
-      </div>
+      <!-- [需求四] 消息通知设置已移至「设置」页 -->
 
       <!-- 平台管理入口（仅管理员可见，默认隐藏；由 renderMeAdmin 按权限显示） -->
       <div class="table-card" id="meAdminEntry" style="display:none;margin-bottom:14px">
@@ -1337,6 +1384,63 @@ html.in-app #loginWrap {
             </div>
             <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== [需求三/需求四] 独立设置页（默认隐藏，结构参照平台管理页；返回键 histPush/histConsume） ========== -->
+    <div id="tabSettingsSection" style="display:none">
+      <div class="admin-topbar">
+        <button class="btn btn-outline btn-sm admin-back" onclick="closeSettingsPage()">← 返回</button>
+        <h2 style="font-size:16px;font-weight:600;margin:0">⚙️ 设置</h2>
+      </div>
+
+      <!-- [需求四·区块1] 修改手机号（[30天限制] 每30天仅可修改一次，冷却期标红并置灰） -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">📱 手机号</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="settingsPhoneDisplay">—</div>
+            <!-- [30天限制] 冷却期红色提示 -->
+            <div id="settingsPhoneLimit" style="display:none;font-size:12px;color:#e53935;margin-top:6px;line-height:1.5"></div>
+          </div>
+          <button class="btn btn-outline" id="changePhoneBtn" style="flex-shrink:0" onclick="openChangePhoneModal()">修改</button>
+        </div>
+      </div>
+
+      <!-- [需求四·区块2] 修改邮箱（[30天限制] 每30天仅可修改一次，冷却期标红并置灰） -->
+      <div class="table-card">
+        <div class="me-row">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">📧 邮箱</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="settingsEmailDisplay">—</div>
+            <!-- [30天限制] 冷却期红色提示 -->
+            <div id="settingsEmailLimit" style="display:none;font-size:12px;color:#e53935;margin-top:6px;line-height:1.5"></div>
+          </div>
+          <button class="btn btn-outline" id="changeEmailBtn" style="flex-shrink:0" onclick="openChangeEmailModal()">修改</button>
+        </div>
+      </div>
+
+      <!-- [需求四·区块3] 用户名（群聊昵称）：saveMyName 逻辑不变 -->
+      <div class="table-card">
+        <div class="form-group" style="margin:0 0 10px">
+          <label>用户名（群聊昵称）</label>
+          <input type="text" id="myNameInput" maxlength="20" placeholder="群聊中显示的名称">
+        </div>
+        <button class="btn btn-outline" style="width:100%" onclick="saveMyName()">保存用户名</button>
+      </div>
+
+      <!-- [需求四·区块4] 消息通知设置：notif_toggle/notif_updateUI 逻辑不变 -->
+      <div class="table-card">
+        <div class="me-row me-row-inline">
+          <div style="min-width:0">
+            <h2 style="font-size:15px;font-weight:600">🔔 消息通知设置</h2>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="notifStatus">—</div>
+          </div>
+          <label class="ios-switch">
+            <input type="checkbox" id="notifSwitch" onchange="notif_toggle(this)">
+            <span class="ios-slider"></span>
+          </label>
         </div>
       </div>
     </div>
@@ -1968,6 +2072,108 @@ html.in-app #loginWrap {
   </div>
 </div>
 
+<!-- ========== [需求二] 登录后联系方式补全弹窗（免验证码，经 Edge Function 直写 auth.users） ========== -->
+<!-- [需求二·老用户] 绑定手机号提示弹窗：无 × 按钮，每次进入主界面且未绑定时弹出；
+     仅填手机号、无需短信验证；可点「暂不绑定」跳过（不记忆，下次打开仍提示） -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="bindPhoneModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>📱 绑定手机号</h3></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin:0 0 14px">填写手机号即可完成绑定，无需短信验证，绑定后可用于手机号登录。</p>
+      <div class="form-group" style="margin:0">
+        <label>手机号</label>
+        <input type="tel" id="bindPhoneInput" inputmode="numeric" maxlength="11" placeholder="请输入11位手机号" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)">
+      </div>
+    </div>
+    <div class="modal-foot" style="display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:1;justify-content:center" onclick="skipBindPhone()">暂不绑定</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmBindPhone()">确认绑定</button>
+    </div>
+  </div>
+</div>
+
+<!-- [需求二·手机注册新用户] 绑定邮箱提示弹窗：仅填邮箱、无需验证；结构与手机号弹窗一致 -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="bindEmailModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>📧 绑定邮箱</h3></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin:0 0 14px">填写邮箱即可完成绑定，无需验证，绑定后可用于邮箱登录。</p>
+      <div class="form-group" style="margin:0">
+        <label>邮箱</label>
+        <div style="display:flex;gap:8px">
+          <input type="email" id="bindEmailInput" placeholder="邮箱账号名" style="flex:1">
+          <select id="bindEmailDomain" style="width:auto;min-width:118px" title="选择邮箱后缀，免输入@域名">
+            <option value="@qq.com" selected>@qq.com</option>
+            <option value="@163.com">@163.com</option>
+            <option value="@126.com">@126.com</option>
+            <option value="@foxmail.com">@foxmail.com</option>
+            <option value="@gmail.com">@gmail.com</option>
+            <option value="@outlook.com">@outlook.com</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:1;justify-content:center" onclick="skipBindEmail()">暂不绑定</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmBindEmail()">确认绑定</button>
+    </div>
+  </div>
+</div>
+
+<!-- [需求四] 修改手机号弹窗（可正常关闭） -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="changePhoneModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>📱 修改手机号</h3><button class="modal-close" onclick="closeModal('changePhoneModal')">×</button></div>
+    <div class="modal-body">
+      <!-- [身份验证] 修改前须先输入当前完整手机号（类似改密码先输旧密码）；首次绑定隐藏 -->
+      <div class="form-group" id="chgOldPhoneGroup">
+        <label>当前手机号</label>
+        <input type="tel" id="chgOldPhoneInput" inputmode="numeric" maxlength="11" placeholder="请输入当前使用的11位手机号" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)">
+      </div>
+      <div class="form-group">
+        <label>新手机号</label>
+        <input type="tel" id="chgPhoneInput" inputmode="numeric" maxlength="11" placeholder="请输入11位新手机号" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)">
+      </div>
+      <!-- [免验证改造] 移除发送验证码与 6 格验证码：验证当前手机号 + 输入新手机号后确认即修改（经 bind-contact） -->
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="confirmChangePhone()">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- [需求四] 修改邮箱弹窗（域名下拉框复用登录页模式） -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="changeEmailModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>📧 修改邮箱</h3><button class="modal-close" onclick="closeModal('changeEmailModal')">×</button></div>
+    <div class="modal-body">
+      <!-- [身份验证] 修改前须先输入当前完整邮箱（类似改密码先输旧密码）；首次绑定隐藏 -->
+      <div class="form-group" id="chgOldEmailGroup">
+        <label>当前邮箱</label>
+        <input type="email" id="chgOldEmailInput" placeholder="请输入当前使用的完整邮箱" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>新邮箱</label>
+        <div style="display:flex;gap:8px">
+          <input type="email" id="chgEmailInput" placeholder="邮箱账号名" style="flex:1">
+          <select id="chgEmailDomain" onchange="applyChgEmailDomain()" style="width:auto;min-width:118px" title="选择邮箱后缀，免输入@域名">
+            <option value="@qq.com" selected>@qq.com</option>
+            <option value="@163.com">@163.com</option>
+            <option value="@126.com">@126.com</option>
+            <option value="@foxmail.com">@foxmail.com</option>
+            <option value="@gmail.com">@gmail.com</option>
+            <option value="@outlook.com">@outlook.com</option>
+          </select>
+        </div>
+      </div>
+      <!-- [免验证改造] 移除发送验证码与 6 格验证码：验证当前邮箱 + 输入新邮箱后确认即修改（经 bind-contact） -->
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="confirmChangeEmail()">确认修改</button>
+    </div>
+  </div>
+</div>
+
 <!-- 确认操作弹窗（二次确认） -->
 <div role="dialog" aria-modal="true" class="modal-mask" id="confirmModal">
   <div class="modal" style="max-width:380px">
@@ -2161,6 +2367,481 @@ function isAgreed(){
   const cb = document.getElementById('agreeCheck');
   return !!(cb && cb.checked);
 }
+
+/* ===================== [需求一~四] 手机号登录 / 强制绑定 / 设置页 ===================== */
+
+/* ---------- 通用：手机号与验证码小工具（新增标识，不改原有函数） ---------- */
+// [需求一] 提取纯数字并截断 11 位
+function normalizePhone(v){ return (v || '').replace(/\D/g, '').slice(0, 11); }
+// [需求一] 转 Supabase E.164（统一 +86 前缀）
+function phoneE164(v){ return '+86' + normalizePhone(v); }
+// [需求一] 校验大陆手机号
+function isValidPhone(v){ return /^1[3-9]\d{9}$/.test(normalizePhone(v)); }
+// [需求四] 手机号脱敏：+8613812345678 → 138****5678
+// [修复] 必须先剥离国家码 86（E.164 共 13 位数字），不能先 slice(0,11)，
+// 否则截成「86 + 手机号前 9 位」（如 86199241990）
+function maskPhone(v){
+  let p = (v || '').replace(/\D/g, '');
+  if (p.length === 13 && p.indexOf('86') === 0) p = p.slice(2);  // 去掉国家码，得到 11 位本机号
+  return /^1\d{10}$/.test(p) ? p.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2') : (p || '—');
+}
+// [隐私脱敏] 邮箱脱敏：junxi0986@gmail.com → ju****0986@gmail.com；12345678@qq.com → 12****5678@qq.com
+function maskEmail(v){
+  const s = (v || '').trim();
+  const at = s.lastIndexOf('@');
+  if (at <= 0) return s || '—';
+  let local = s.slice(0, at);
+  const domain = s.slice(at);
+  if (local.length <= 2) local = local.charAt(0) + '****';
+  else if (local.length <= 6) local = local.slice(0, 1) + '****' + local.slice(-1);
+  else local = local.slice(0, 2) + '****' + local.slice(-4);
+  return local + domain;
+}
+
+/* ---------- 通用：容器内 6 格验证码（解决多组 .otp-box 与全局 getOtpCode/Enter 的冲突） ---------- */
+// [需求一] 读取某个容器内的验证码（不影响全局 getOtpCode）
+function otpRead(container){
+  if (!container) return '';
+  return [...container.querySelectorAll('.otp-box')].map(b => b.value.trim()).join('');
+}
+// [需求一] 为容器内 .otp-box 接线：自动跳格/退格/粘贴分发（与原邮箱登录 IIFE 同逻辑），
+// Enter 时 stopPropagation 防止全局回车误触 supabaseSignIn，并执行 onEnter
+function otpWire(container, onEnter){
+  if (!container) return;
+  const boxes = [...container.querySelectorAll('.otp-box')];
+  if (!boxes.length || container.__otpWired) return;
+  container.__otpWired = true;
+  const focusAt = i => { const b = boxes[Math.max(0, Math.min(boxes.length - 1, i))]; if (b) { b.focus(); b.select(); } };
+  const fillAll = digits => {
+    boxes.forEach((b, j) => { b.value = digits[j] || ''; });
+    focusAt(Math.min(digits.length, boxes.length - 1));
+  };
+  boxes.forEach((box, i) => {
+    box.addEventListener('input', () => {
+      const v = box.value.replace(/\D/g, '');
+      if (v.length > 1) { fillAll(v.slice(0, boxes.length)); return; }
+      box.value = v;
+      if (v && i < boxes.length - 1) focusAt(i + 1);
+    });
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
+      else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); focusAt(i - 1); }
+      else if (e.key === 'ArrowRight' && i < boxes.length - 1) { e.preventDefault(); focusAt(i + 1); }
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (onEnter) onEnter(); }
+    });
+    box.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      const digits = text.replace(/\D/g, '').slice(0, boxes.length);
+      if (digits) fillAll(digits);
+    });
+    box.addEventListener('focus', () => box.select());
+  });
+}
+// [需求一] 发送按钮倒计时（60 秒，结束后恢复文案；不影响邮箱登录原有倒计时）
+function otpCountdown(btn, sec, defaultText){
+  if (!btn) return null;
+  let s = sec;
+  btn.disabled = true;
+  btn.textContent = s + ' 秒后重发';
+  const timer = setInterval(() => {
+    s--;
+    if (s <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = defaultText; }
+    else btn.textContent = s + ' 秒后重发';
+  }, 1000);
+  return timer;
+}
+
+/* ---------- [需求一] 登录页：邮箱 / 手机号模式切换 ---------- */
+function switchLoginMode(mode){
+  const emailOn = mode === 'email';
+  document.getElementById('emailLoginPane').style.display = emailOn ? '' : 'none';
+  document.getElementById('phoneLoginPane').style.display = emailOn ? 'none' : '';
+  // 复位被切走的面板：清空验证码框并隐藏验证码区、恢复发送按钮，
+  // 保证全局 getOtpCode()（邮箱登录用）不会读到另一面板残留的数字
+  if (emailOn) {
+    const pBoxes = document.getElementById('phoneOtpBoxes');
+    if (pBoxes) pBoxes.querySelectorAll('.otp-box').forEach(b => { b.value = ''; });
+    document.getElementById('phoneOtpGroup').style.display = 'none';
+    const pBtn = document.getElementById('sendPhoneCodeBtn');
+    if (pBtn) { pBtn.disabled = false; pBtn.textContent = '发送验证码'; }
+  } else {
+    document.querySelectorAll('#otpBoxes .otp-box').forEach(b => { b.value = ''; });
+    document.getElementById('otpGroup').style.display = 'none';
+    const eBtn = document.getElementById('sendCodeBtn');
+    if (eBtn) { eBtn.disabled = false; eBtn.textContent = '发送验证码'; }
+  }
+}
+
+/* ---------- [需求一] 手机号登录：发送短信验证码（先过滑动拼图） ---------- */
+function sendPhoneLoginCode(){
+  const input = document.getElementById('loginPhone');
+  const phone = normalizePhone(input.value);
+  input.value = phone;
+  if (!isValidPhone(phone)) return toast('请输入正确的11位手机号', 'warn');
+  if (!isAgreed()) return toast('请先阅读并勾选同意《用户协议》和《隐私政策》', 'warn');
+  cap_open(doSendPhoneLoginCode);  // 复用滑动拼图人机验证
+}
+async function doSendPhoneLoginCode(){
+  const phone = phoneE164(document.getElementById('loginPhone').value);
+  const btn = document.getElementById('sendPhoneCodeBtn');
+  btn.disabled = true;
+  btn.textContent = '发送中…';
+  const { error } = await sb.auth.signInWithOtp({ phone });
+  if (error) { btn.disabled = false; btn.textContent = '发送验证码'; return toast('发送失败：' + authError(error.message), 'error'); }
+  toast('验证码已发送，请注意查收短信', 'success');
+  const otpGroup = document.getElementById('phoneOtpGroup');
+  if (otpGroup) {
+    otpGroup.style.display = 'block';
+    const first = document.querySelector('#phoneOtpBoxes .otp-box');
+    if (first) first.focus();
+  }
+  otpCountdown(btn, 60, '发送验证码');
+}
+// [需求一] 手机号验证码校验登录
+async function phoneSignIn(){
+  const phoneInput = document.getElementById('loginPhone');
+  const phone = phoneE164(phoneInput.value);
+  const token = otpRead(document.getElementById('phoneOtpBoxes'));
+  if (!isValidPhone(phoneInput.value)) return toast('请输入正确的11位手机号', 'warn');
+  if (!token) return toast('请输入手机收到的6位数字验证码', 'warn');
+  if (!/^\d{6}$/.test(token)) return toast('请输入完整的6位数字验证码', 'warn');
+  if (!isAgreed()) return toast('请先阅读并勾选同意《用户协议》和《隐私政策》', 'warn');
+  const { data, error } = await sb.auth.verifyOtp({ phone, token, type: 'sms' });
+  if (error) return toast('登录失败：' + authError(error.message), 'error');
+  await afterLogin(data.user);
+  await ensurePhoneBound(data.user);  // 手机登录必有手机号，直接放行
+  showMainApp();
+  toast('登录成功', 'success');
+}
+
+/* ---------- [需求二] 登录后联系方式补全（免验证码；老用户补手机 / 手机注册用户补邮箱） ---------- */
+let bindPhoneResolve = null;  // 补全完成回调（ensurePhoneBound 的 Promise resolve）
+let bindPromptUid = '';       // 当前待补全用户 id（用于 7 天免提示标记隔离）
+
+/* [7天免提示] 点「暂不绑定」后记录到期时间，7 天内不再弹手机/邮箱提示；按用户 id 隔离 */
+function bindPromptKey(){ return 'jy_bind_prompt_skip_until_' + (bindPromptUid || 'anon'); }
+function isBindPromptSkipped(){
+  try {
+    const until = parseInt(localStorage.getItem(bindPromptKey()) || '0', 10);
+    if (until > Date.now()) return true;      // 仍在 7 天内
+    if (until) localStorage.removeItem(bindPromptKey());  // 已过期，清掉
+  } catch (e) {}
+  return false;
+}
+function markBindPromptSkipped(){
+  try { localStorage.setItem(bindPromptKey(), String(Date.now() + 7 * 864e5)); } catch (e) {}  // 7 天
+}
+function clearBindPromptSkip(){
+  try { localStorage.removeItem(bindPromptKey()); } catch (e) {}
+}
+
+// 通用：关闭弹窗并放行进入主界面
+function closeBindAndResolve(modalId){
+  savingModals.delete(modalId);
+  closeModal(modalId);
+  const r = bindPhoneResolve;
+  bindPhoneResolve = null;
+  if (r) r(true);
+}
+// 复位手机/邮箱弹窗表单
+function resetBindForm(){
+  const p = document.getElementById('bindPhoneInput');
+  if (p) p.value = '';
+  const e = document.getElementById('bindEmailInput');
+  if (e) e.value = '';
+}
+// 打开绑定手机号提示弹窗
+function openBindPhone(){
+  resetBindForm();
+  openModal('bindPhoneModal');
+  // 复用 savingModals：遮罩点击/Esc/浏览器返回不直接关闭弹窗（避免 Promise 永久挂起），
+  // 统一走「确认绑定 / 暂不绑定」两个按钮出口；此处不锁定按钮
+  savingModals.add('bindPhoneModal');
+}
+// 打开绑定邮箱提示弹窗
+function openBindEmail(){
+  resetBindForm();
+  openModal('bindEmailModal');
+  savingModals.add('bindEmailModal');
+}
+// [需求二] 暂不绑定（手机/邮箱各自入口）：记录 7 天免提示后放行
+function skipBindPhone(){ markBindPromptSkipped(); closeBindAndResolve('bindPhoneModal'); }
+function skipBindEmail(){ markBindPromptSkipped(); closeBindAndResolve('bindEmailModal'); }
+
+// 通用提交：调用 Edge Function bind-contact，由其以 Admin API 直写 auth.users（免验证）
+// kind: 'phone' → value 为 E.164（+86...）；kind: 'email' → value 为完整邮箱
+// current（可选）：修改场景的当前值，服务端比对验证身份；首次绑定不传
+async function submitBindContact(kind, value, current){
+  let resp;
+  try {
+    const body = { kind, value };
+    if (current) body.current = current;
+    resp = await sb.functions.invoke('bind-contact', { body });
+  } catch (e) {
+    toast('绑定失败：网络异常，请稍后重试', 'error');
+    return false;
+  }
+  // supabase-js 三类错误统一汉化：
+  // · FunctionsFetchError：请求未到达函数（断网 / 预检失败 / 函数未部署 404），无 context
+  // · FunctionsRelayError：网关中继错误
+  // · FunctionsHttpError：函数已响应但非 2xx，可读 context 响应体中的中文 error
+  if (resp.error) {
+    const name = resp.error.name || '';
+    if (name === 'FunctionsHttpError') {
+      let detail = '';
+      try {
+        const ctx = resp.error.context;
+        if (ctx && typeof ctx.json === 'function') { const j = await ctx.json(); detail = j.error || ''; }
+      } catch (_) {}
+      toast('绑定失败：' + (detail || '服务暂时不可用，请稍后重试'), 'error');
+    } else if (name === 'FunctionsRelayError') {
+      toast('绑定失败：网络繁忙，请稍后重试', 'error');
+    } else {
+      // FunctionsFetchError 及未知网络层错误：不再显示英文原文
+      toast('绑定失败：网络异常或绑定服务暂不可用，请稍后重试', 'error');
+    }
+    return false;
+  }
+  // Admin 改库后当前会话 JWT 不会自动更新：刷新会话，拿到含新手机/邮箱的本地用户
+  try { await sb.auth.refreshSession(); } catch (_) {}
+  toast(kind === 'phone' ? '手机号已绑定' : '邮箱已绑定', 'success');
+  return true;
+}
+// 确认绑定手机号（仅校验格式，无短信验证）
+async function confirmBindPhone(){
+  const input = document.getElementById('bindPhoneInput');
+  if (!isValidPhone(input.value)) return toast('请输入正确的11位手机号', 'warn');
+  const unlock = lockModalButtons('bindPhoneModal', '绑定中…');
+  const ok = await submitBindContact('phone', phoneE164(input.value));
+  unlock();
+  if (ok) { clearBindPromptSkip(); closeBindAndResolve('bindPhoneModal'); }
+}
+// 确认绑定邮箱（拼装前缀 + 域名后缀，无邮件验证）
+async function confirmBindEmail(){
+  const input = document.getElementById('bindEmailInput');
+  const domain = document.getElementById('bindEmailDomain');
+  const name = (input.value || '').trim();
+  if (!name) return toast('请输入邮箱账号名', 'warn');
+  const email = name + (domain.value || '@qq.com');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('邮箱格式不正确', 'warn');
+  const unlock = lockModalButtons('bindEmailModal', '绑定中…');
+  const ok = await submitBindContact('email', email);
+  unlock();
+  if (ok) { clearBindPromptSkip(); closeBindAndResolve('bindEmailModal'); }
+}
+// [需求二] 登录后联系方式补全提示（不拦截流程，弹窗在主界面之上）：
+// · 无手机号（邮箱注册老用户）→ 弹绑定手机号
+// · 有手机号但无邮箱（手机注册新用户）→ 弹绑定邮箱
+// 「确认绑定」或「暂不绑定」后 Promise 均 resolve(true)，调用方继续正常流程；
+// [7天免提示] 点过「暂不绑定」7 天内直接放行不弹窗；标记按用户 id 隔离，过期自动恢复提示
+async function ensurePhoneBound(user){
+  if (user && user.phone && user.email) return true;
+  bindPromptUid = (user && user.id) || '';
+  if (isBindPromptSkipped()) return true;   // 7 天内已选择暂不绑定，不再打扰
+  document.getElementById('bootLoading').style.display = 'none';
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  if (!user.phone) openBindPhone();
+  else openBindEmail();
+  return await new Promise(res => { bindPhoneResolve = res; });
+}
+
+/* ---------- [需求三] 设置页：打开 / 关闭（参照平台管理页） ---------- */
+let onSettingsPage = false;
+function openSettingsPage(){
+  if (currentProjectId || onBillPage) showPage('list');
+  const cp0 = document.getElementById('chatPage');
+  if (cp0 && cp0.style.display !== 'none') chat_close();
+  onSettingsPage = true;
+  ['public','mine','notice','market','me'].forEach(t => {
+    const s = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Section');
+    if (s) s.style.display = 'none';
+  });
+  const homeTop = document.querySelector('#pageProjectList .home-top');
+  if (homeTop) homeTop.style.display = 'none';
+  document.getElementById('tabSettingsSection').style.display = '';
+  refreshSettings();  // 进入时刷新数据
+  window.scrollTo(0, 0);
+  histPush('settings');
+}
+// 退出设置页（纯界面切换，回到「我的」页）
+function exitSettingsPage(){
+  onSettingsPage = false;
+  document.getElementById('tabSettingsSection').style.display = 'none';
+  const homeTop = document.querySelector('#pageProjectList .home-top');
+  if (homeTop) homeTop.style.display = '';
+  listTab = 'me';
+  updateListTabUI(false);
+  renderHomeTop();
+  window.scrollTo(0, 0);
+}
+// 「← 返回」按钮：退出并消费已入栈历史
+function closeSettingsPage(){
+  exitSettingsPage();
+  histConsume();
+}
+// [30天限制] 刷新设置页数据：用户名回显、通知开关状态、手机号/邮箱
+// 手机号/邮箱冷却规则与 bind-contact Edge Function 完全一致，metadata key 也一致
+async function refreshSettings(){
+  const nameEl = document.getElementById('myNameInput');
+  if (nameEl) nameEl.value = chat_displayName();
+  notif_updateUI();
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) {
+      document.getElementById('settingsPhoneDisplay').textContent = user.phone ? maskPhone(user.phone) : '未绑定';
+      document.getElementById('settingsEmailDisplay').textContent = user.email ? maskEmail(user.email) : '未绑定';
+      // [30天限制] 根据 user_metadata 中的上次修改时间，标红提示/置灰按钮
+      const md = user.user_metadata || {};
+      updateContactLimitUI('phone', md.jy_last_phone_change);
+      updateContactLimitUI('email', md.jy_last_email_change);
+    }
+  } catch (e) {}
+}
+
+/* ---------- [30天限制] 手机号/邮箱修改冷却（前端展示层；真正强制在 bind-contact 函数端） ---------- */
+const CONTACT_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000;
+// 返回冷却提示文案；不在冷却期返回 null
+function contactLimitText(kind, lastIso){
+  if (!lastIso) return null;
+  const last = Date.parse(lastIso);
+  if (isNaN(last)) return null;
+  const elapsed = Date.now() - last;
+  if (elapsed >= CONTACT_CHANGE_COOLDOWN) return null;
+  const days = Math.ceil((CONTACT_CHANGE_COOLDOWN - elapsed) / 86400000);
+  const d = new Date(last + CONTACT_CHANGE_COOLDOWN);
+  const md = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  const label = kind === 'phone' ? '手机号' : '邮箱';
+  return label + '每30天只能修改一次，还剩' + days + '天（' + md + '可再次修改）';
+}
+// 刷新设置页区块：冷却中 → 红字提示 + 按钮置灰；否则恢复可点
+function updateContactLimitUI(kind, lastIso){
+  const tip = contactLimitText(kind, lastIso);
+  const limitEl = document.getElementById(kind === 'phone' ? 'settingsPhoneLimit' : 'settingsEmailLimit');
+  const btn = document.getElementById(kind === 'phone' ? 'changePhoneBtn' : 'changeEmailBtn');
+  if (!limitEl || !btn) return;
+  if (tip) {
+    limitEl.textContent = '⚠️ ' + tip;
+    limitEl.style.display = '';
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+    btn.style.cursor = 'not-allowed';
+  } else {
+    limitEl.textContent = '';
+    limitEl.style.display = 'none';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  }
+}
+
+/* ---------- [需求四·区块1] 修改手机号（[免验证改造] 输入完整手机号确认即改，复用 bind-contact） ---------- */
+async function openChangePhoneModal(){
+  // [30天限制] 冷却期按钮已置灰，双保险拦截
+  const btn = document.getElementById('changePhoneBtn');
+  if (btn && btn.disabled) return;
+  const input = document.getElementById('chgPhoneInput');
+  if (input) input.value = '';
+  const oldInput = document.getElementById('chgOldPhoneInput');
+  if (oldInput) oldInput.value = '';
+  // [身份验证] 已绑定才显示「当前手机号」；未绑定属首次绑定
+  const { data: { user } } = await sb.auth.getUser();
+  const bound = !!(user && user.phone);
+  document.getElementById('chgOldPhoneGroup').style.display = bound ? '' : 'none';
+  openModal('changePhoneModal');
+}
+async function confirmChangePhone(){
+  const input = document.getElementById('chgPhoneInput');
+  const oldInput = document.getElementById('chgOldPhoneInput');
+  const { data: { user } } = await sb.auth.getUser();
+  // user.phone 是 +86 E.164（13 位），须先剥 86，不能直接 normalizePhone（会误截）
+  const curPhone = String((user && user.phone) || '').replace(/^\+?86/, '').replace(/\D/g, '');
+
+  // [身份验证] 仅「修改」（已有手机号）须验证当前手机号；首次绑定跳过
+  let oldPhone = '';
+  if (curPhone) {
+    oldPhone = normalizePhone(oldInput.value);
+    oldInput.value = oldPhone;
+    if (!isValidPhone(oldPhone)) return toast('请先输入正确的当前手机号', 'warn');
+    if (oldPhone !== curPhone) return toast('当前手机号输入不正确', 'warn');
+  }
+
+  const phone = normalizePhone(input.value);
+  input.value = phone;
+  if (!isValidPhone(phone)) return toast('请输入正确的11位新手机号', 'warn');
+  if (curPhone && phone === oldPhone) return toast('新手机号不能与当前手机号相同', 'warn');
+  const unlock = lockModalButtons('changePhoneModal', '修改中…');
+  // [身份验证] current 仅修改场景传递，服务端再次比对
+  const ok = await submitBindContact('phone', phoneE164(phone), curPhone ? phoneE164(oldPhone) : null);
+  unlock();
+  if (!ok) return;  // 错误提示已由 submitBindContact 统一处理
+  closeModal('changePhoneModal');
+  toast(curPhone ? '手机号已更新' : '手机号绑定成功', 'success');
+  // [30天限制] 修改场景立即本地进入冷却；首次绑定不计时
+  if (curPhone) updateContactLimitUI('phone', new Date().toISOString());
+  refreshSettings();
+}
+
+/* ---------- [需求四·区块2] 修改邮箱（域名下拉框复用登录页模式；[免验证改造] 输入完整邮箱确认即改） ---------- */
+// 读取完整新邮箱（手动输入含 @ 时原样使用）
+function getChgEmail(){
+  const val = document.getElementById('chgEmailInput').value.trim();
+  const domain = document.getElementById('chgEmailDomain').value || '@qq.com';
+  return val.includes('@') ? val : val + domain;
+}
+// 切换后缀：输入框含 @ 时剥离，与登录页 applyEmailDomain 同逻辑
+function applyChgEmailDomain(){
+  const input = document.getElementById('chgEmailInput');
+  const val = input.value.trim();
+  const at = val.indexOf('@');
+  if (at >= 0) { input.value = val.slice(0, at); input.setSelectionRange(at, at); }
+  input.focus();
+}
+async function openChangeEmailModal(){
+  // [30天限制] 冷却期按钮已置灰，双保险拦截
+  const btn = document.getElementById('changeEmailBtn');
+  if (btn && btn.disabled) return;
+  const input = document.getElementById('chgEmailInput');
+  if (input) input.value = '';
+  const oldInput = document.getElementById('chgOldEmailInput');
+  if (oldInput) oldInput.value = '';
+  // [身份验证] 已绑定才显示「当前邮箱」；未绑定属首次绑定
+  const { data: { user } } = await sb.auth.getUser();
+  const bound = !!(user && user.email);
+  document.getElementById('chgOldEmailGroup').style.display = bound ? '' : 'none';
+  openModal('changeEmailModal');
+}
+async function confirmChangeEmail(){
+  const { data: { user } } = await sb.auth.getUser();
+  const curEmail = ((user && user.email) || '').trim().toLowerCase();
+
+  // [身份验证] 仅「修改」（已有邮箱）须验证当前邮箱；首次绑定跳过
+  let oldEmail = '';
+  if (curEmail) {
+    oldEmail = (document.getElementById('chgOldEmailInput').value || '').trim().toLowerCase();
+    document.getElementById('chgOldEmailInput').value = oldEmail;
+    if (!oldEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(oldEmail)) return toast('请先输入正确的当前邮箱', 'warn');
+    if (oldEmail !== curEmail) return toast('当前邮箱输入不正确', 'warn');
+  }
+
+  const email = getChgEmail().trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('请输入有效的新邮箱地址', 'warn');
+  if (curEmail && email === oldEmail) return toast('新邮箱不能与当前邮箱相同', 'warn');
+  const unlock = lockModalButtons('changeEmailModal', '修改中…');
+  // [身份验证] current 仅修改场景传递，服务端再次比对
+  const ok = await submitBindContact('email', email, curEmail ? oldEmail : null);
+  unlock();
+  if (!ok) return;
+  closeModal('changeEmailModal');
+  toast(curEmail ? '邮箱已更新' : '邮箱绑定成功', 'success');
+  // [30天限制] 修改场景立即本地进入冷却；首次绑定不计时
+  if (curEmail) updateContactLimitUI('email', new Date().toISOString());
+  refreshSettings();
+}
+
+/* ---------- [需求一] 验证码框接线（登录手机面板；绑定/修改弹窗均已免验证，无需接线） ---------- */
+otpWire(document.getElementById('phoneOtpBoxes'), phoneSignIn);
 
 /* ---------- 用户协议 / 隐私政策全文 ---------- */
 const AGREEMENT_HTML = `
@@ -2375,6 +3056,7 @@ async function supabaseSignIn(){
   const {data,error} = await sb.auth.verifyOtp({ email, token, type: 'email' });
   if(error) return toast("登录失败："+authError(error.message),"error");
   await afterLogin(data.user);
+  await ensurePhoneBound(data.user);  // [需求二] 无手机号弹提示，绑定或暂不后继续
   showMainApp();
   toast("登录成功","success");
 }
@@ -2415,6 +3097,7 @@ sb.auth.onAuthStateChange((event, session) => {
     setTimeout(async () => {
       try {
         await afterLogin(session.user);
+        await ensurePhoneBound(session.user);  // [需求二] 会话恢复用户同样提示，绑定或暂不后继续
         showMainApp();
       } catch (e) { toast('登录初始化失败，请重试', 'error'); }
     }, 0);
@@ -2495,6 +3178,7 @@ async function checkAuth(){
           const { data: { user } } = await withTimeout(sb.auth.getUser());
           if (user) {
             await afterLogin(user);          // 后台拉取最新云端数据
+            await ensurePhoneBound(user);    // [需求二] 未绑定弹提示，绑定或暂不后继续后台刷新
             saveProjectsCache();             // 拉取成功后更新本地缓存
             renderProjectGrid();             // 用最新数据覆盖渲染（不播动画）
             // [修复] 公告/市场价是在 afterLogin 中才加载的，缓存秒开时 showMainApp 已按空数据渲染过：
@@ -2524,7 +3208,8 @@ async function checkAuth(){
           const { data: { user } } = await withTimeout(sb.auth.getUser());
           if (user) {
             await afterLogin(user);          // 加载云端数据
-            showMainApp();                   // 数据就绪后一次性渲染
+            await ensurePhoneBound(user);    // [需求二] 未绑定弹提示，绑定或暂不后渲染主界面
+            showMainApp();
           } else {
             // 令牌已失效：回退到登录页
             try { localStorage.removeItem('jy_last_email'); } catch (e) {}
@@ -2546,6 +3231,7 @@ async function checkAuth(){
         const { data: { user } } = await withTimeout(sb.auth.getUser());
         if (user) {
           await afterLogin(user);
+          await ensurePhoneBound(user);  // [需求二] 首次安装用户同样提示，绑定或暂不后进入
           showMainApp();
         } else {
           showLoginPage();
@@ -2565,7 +3251,7 @@ function showMainApp(){
   document.getElementById('bootLoading').style.display = 'none';  // [任务二] 进入主界面即关过渡遮罩
   document.getElementById("loginWrap").style.display = "none";
   document.getElementById("mainApp").style.display = "block";
-  document.getElementById("welcomeEmail").textContent = `欢迎 ${currentUserEmail}`;  // 顶栏欢迎邮箱
+  document.getElementById("welcomeEmail").textContent = currentUserEmail ? `欢迎 ${maskEmail(currentUserEmail)}` : '欢迎 ';  // 顶栏欢迎邮箱（脱敏）
   applyThemeUI();        // 同步深色模式按钮文案
   if (!userPickedTab) listTab = 'mine';  // [修复] 用户加载期间已手动切页签则不覆盖，未切过才用默认「我的项目」
   renderHomeTop();       // 市场价 + 公告横幅
@@ -3079,12 +3765,17 @@ function histConsume() {  // 程序内正常返回路径：消费掉已入栈的
 window.addEventListener('popstate', () => {
   // [M] 弹窗保存进行中：拦截浏览器返回，不做任何视图切换，避免中途退出导致状态错乱
   if (typeof savingModals !== 'undefined' && savingModals.size > 0) {
-    toast('正在保存，请稍候', 'warn');
+    // [需求二] 绑定提示弹窗期间：引导点按钮（可暂不），返回不直接关闭
+    const bindTip = savingModals.has('bindPhoneModal') ? '请点击「暂不绑定」或完成手机号绑定'
+                 : savingModals.has('bindEmailModal') ? '请点击「暂不绑定」或完成邮箱绑定'
+                 : '正在保存，请稍候';
+    toast(bindTip, 'warn');
     return;
   }
   if (histGuard) { histGuard = false; return; }
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') { chat_close(); return; }  // 群聊页：返回=关闭群聊
+  if (onSettingsPage) { exitSettingsPage(); return; }              // [需求三] 设置页：返回=回「我的」
   if (onAdminPage) { exitAdminPage(); return; }                    // 平台管理页：返回=回「我的」
   if (onBillPage) { showPage('list'); return; }                     // 账单页：返回=回项目列表
   if (currentProjectId) showPage('list');                           // 详情页：返回=回项目列表
@@ -3102,6 +3793,14 @@ function switchListTab(tab) {
     document.getElementById('tabAdminSection').style.display = 'none';
     const homeTopAdm = document.querySelector('#pageProjectList .home-top');
     if (homeTopAdm) homeTopAdm.style.display = '';
+    histConsume();
+  }
+  // [需求三] 若在设置页：先退出设置页（隐藏设置区、恢复横幅、消费入栈历史），再正常切页签
+  if (onSettingsPage) {
+    onSettingsPage = false;
+    document.getElementById('tabSettingsSection').style.display = 'none';
+    const homeTopSet = document.querySelector('#pageProjectList .home-top');
+    if (homeTopSet) homeTopSet.style.display = '';
     histConsume();
   }
   // 若正处于项目详情页/生成账单页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
