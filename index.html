@@ -2497,6 +2497,14 @@ async function checkAuth(){
             await afterLogin(user);          // 后台拉取最新云端数据
             saveProjectsCache();             // 拉取成功后更新本地缓存
             renderProjectGrid();             // 用最新数据覆盖渲染（不播动画）
+            // [修复] 公告/市场价是在 afterLogin 中才加载的，缓存秒开时 showMainApp 已按空数据渲染过：
+            // 数据到齐后补渲染公告横幅、公告页、我的页管理区（含公告管理）；
+            // 若用户秒开后已切到市场价页，也补渲染，避免初始转圈/空态一直停留
+            renderHomeTop();
+            renderNoticeTab();
+            renderMeAdmin();
+            chat_renderAnnBanner();  // 群聊页公告横幅（函数内自带 null 防御）
+            if (listTab === 'market') renderMarketPage();
           } else {
             // 令牌真正失效（非超时）：回退登录页
             try { localStorage.removeItem('jy_last_email'); } catch (e) {}
