@@ -467,6 +467,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 
 /* 用户操作按钮组 */
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+/* [需求] 电脑端操作列改为下拉框（手机端卡片视图仍显示按钮，见 600px 媒体查询） */
+.actions-select { padding: 6px 28px 6px 10px; font-size: 12px; border-radius: var(--radius-sm, 10px); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); max-width: 150px; cursor: pointer; }
+.actions-select .opt-danger { color: #e53935; font-weight: 600; }
+.actions-btns { display: none; }
 
 /* 账户列表搜索框 */
 .search-input {
@@ -742,6 +746,9 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   th, td { padding: 8px 10px; font-size: 12px; }
   .row-actions { flex-wrap: wrap; gap: 4px; }
   .row-actions .btn { padding: 5px 8px; font-size: 12px; }
+  /* [需求] 手机端卡片视图：隐藏下拉框，恢复四个操作按钮 */
+  .actions-select { display: none; }
+  .actions-btns { display: flex; }
 
   /* 表格保持可读宽度，在手机上横向滑动查看 */
   .table-wrap { -webkit-overflow-scrolling: touch; }
@@ -1507,7 +1514,7 @@ html.in-app #loginWrap {
               <th>剩余未回本（元）</th>
               <th style="min-width:160px">回本进度</th>
               <th>状态</th>
-              <th style="min-width:230px">操作</th>
+              <th style="min-width:130px">操作</th>
             </tr>
           </thead>
           <tbody id="userTableBody"></tbody>
@@ -3508,6 +3515,17 @@ function nowLocal() {
 function fmtDateTime(s) { return s ? s.replace('T', ' ') : '—'; }
 // 金额格式化：最多 3 位小数（市场价支持 0.123，数量 × 单价计算结果保留 3 位精度）
 const fmtMoney = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+// [需求] 上车日期后追加「已上车N天」：上车当天算第 1 天，按自然日差 +1；无效/未来日期不加
+function fmtStartDate(s){
+  if (!s) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return s;
+  const start = new Date(+m[1], +m[2] - 1, +m[3]);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today - start) / 86400000) + 1;
+  return days >= 1 ? `${s}（已上车${days}天）` : s;
+}
 // 金额计算统一取整到 3 位小数，避免浮点误差（如 10 × 0.123 = 1.2300000000000002）
 const round3 = n => Math.round(Number(n) * 1000) / 1000;
 // 解析市场价单位中的对应数量："2100个" → 2100（表示 2100 个 = 单价金额）；"1个"/"个"/空 → 1
@@ -4363,7 +4381,7 @@ function renderDetail() {
           ${u.remark ? `<div class="cell-sub" title="${escapeHtml(u.remark)}">📝 ${escapeHtml(u.remark)}</div>` : ''}
         </td>
         <td data-label="投入本金">${fmtMoney(u.principal)}</td>
-        <td data-label="上车日期">${u.startDate || '—'}</td>
+        <td data-label="上车日期">${fmtStartDate(u.startDate)}</td>
         <td data-label="累计已收回" class="money gain">${fmtMoney(earned)}</td>
         <td data-label="剩余未回本" class="money ${isDone ? 'gain' : 'lose'}">${isDone ? `已润 ${fmtMoney(earned - Number(u.principal))}` : fmtMoney(remain)}</td>
         <td data-label="回本进度" class="td-progress">
@@ -4374,7 +4392,15 @@ function renderDetail() {
         </td>
         <td data-label="状态">${isDone ? '<span class="badge badge-done">✔ 已回本</span>' : '<span class="badge badge-blue">未回本</span>'}</td>
         <td data-label="操作" class="td-actions">
-          <div class="row-actions">
+          <!-- [需求] 电脑端下拉框选择操作，手机端（≤600px）自动切换为下方四个按钮 -->
+          <select class="actions-select" onchange="handleRowAction(${uidx}, this)" aria-label="账户操作">
+            <option value="" selected>操作 ▾</option>
+            <option value="price">添加回本金额</option>
+            <option value="ledger">查看台账</option>
+            <option value="edit">编辑</option>
+            <option value="delete" class="opt-danger">删除</option>
+          </select>
+          <div class="row-actions actions-btns">
             <button class="btn btn-sm btn-outline" onclick="openPriceModal(${uidx})">添加回本金额</button>
             <button class="btn btn-sm btn-outline" onclick="openLedger(${uidx})">查看台账</button>
             <button class="btn btn-sm btn-outline" onclick="openUserModal(${uidx})">编辑</button>
@@ -4386,6 +4412,16 @@ function renderDetail() {
     // [Q] 剩余行入口：点击后行数翻倍重渲；勾选状态由 selectedUserIdx 保持
     ? `<tr><td colspan="11" style="text-align:center;padding:12px"><button class="btn btn-outline" onclick="detailShowMore()">显示更多（剩余 ${list.length - shown.length} 人）</button></td></tr>`
     : '');
+}
+
+// [需求] 电脑端操作下拉框分发；选择后立即复位到占位项，便于再次操作同一账户
+function handleRowAction(uidx, sel){
+  const action = sel.value;
+  sel.value = '';
+  if (action === 'price') openPriceModal(uidx);
+  else if (action === 'ledger') openLedger(uidx);
+  else if (action === 'edit') openUserModal(uidx);
+  else if (action === 'delete') deleteUser(uidx);
 }
 
 /* ---------- 新增 / 编辑项目 ---------- */
