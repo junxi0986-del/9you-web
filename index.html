@@ -20,7 +20,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.07');</script>  <!-- [V] 版本号格式统一 -->
+<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.15');</script>  <!-- [V] 版本号格式统一；[统计页] 新增独立统计页 --> 
 <!-- [W] Content-Security-Policy：仅允许本站资源、jsdelivr CDN 与 Supabase。
      刻意保持适度宽松（见各指令注释），避免误伤导致页面/PWA 挂掉：
      - script-src 保留 'unsafe-inline'：主题预加载、全部内联脚本依赖它；
@@ -643,6 +643,15 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   39%, 61% { transform: translateY(-1.5em); }
   78%, 100% { transform: translateY(-3em); }
 }
+/* [需求] 首页「总累计收益」卡片标题纵向轮播：总累计收益 ↔ 点击查看详细（第三帧复制首帧无缝循环） */
+.sc-label { display: inline-block; height: 1.5em; line-height: 1.5em; overflow: hidden; vertical-align: middle; }
+.sc-label .sc-roll { display: block; animation: scLabelRoll 4s cubic-bezier(.65,0,.35,1) infinite; will-change: transform; }
+.sc-label .sc-roll > span { display: block; height: 1.5em; line-height: 1.5em; white-space: nowrap; }
+@keyframes scLabelRoll {
+  0%, 22% { transform: translateY(0); }
+  39%, 61% { transform: translateY(-1.5em); }
+  78%, 100% { transform: translateY(-3em); }
+}
 /* [R] 用户在系统层开启「减少动态效果」（iOS 辅助功能 / Android 开发者选项）时：
    统一大幅缩短全部动画与过渡。覆盖全部 keyframes：tabSlideOutL/InR/OutR/InL、
    annScroll、pop、capShake、listSpin、chat-spin、chatUnreadPulse、bnavSqueeze、
@@ -654,6 +663,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
    - scroll-behavior 改为 auto，避免长距离平滑滚动造成不适。 */
 @media (prefers-reduced-motion: reduce) {
   .official-btn-txt .roll { animation: none; }
+  .sc-label .sc-roll { animation: none; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
@@ -880,6 +890,93 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .admin-topbar { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; }
 .admin-back { position: absolute; left: 0; }
 #adminToolsWrap { display: flex; flex-direction: column; gap: 12px; }
+
+/* ========== [统计页] 独立统计页：顶部条 / 项目自绘下拉 / 月历 / 当日明细 ========== */
+.stats-topbar { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; margin-bottom: 4px; }
+.stats-back { position: absolute; left: 0; z-index: 2; }
+.stats-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--text); }
+.stats-filters { position: absolute; right: 0; display: flex; align-items: center; gap: 6px; }
+.st-filter { width: auto; min-width: 108px; padding: 7px 28px 7px 10px; font-size: 12px; border-radius: 10px; cursor: pointer; }
+/* 项目自绘下拉（原生 option 无法承载 logo） */
+.st-dd { position: relative; }
+.st-dd-btn {
+  position: relative; width: 100%; min-width: 124px; max-width: 170px; text-align: left;
+  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  border-radius: 10px; font-size: 12px; font-family: inherit; line-height: 1.25;
+  padding: 7px 26px 7px 10px; cursor: pointer; overflow: hidden;
+}
+.st-dd-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-dd-caret { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 10px; }
+.st-dd-menu {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 95;
+  min-width: 190px; max-height: 280px; overflow-y: auto; padding: 4px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--card-shadow); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.st-dd.open .st-dd-menu { display: block; }
+.st-dd-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; }
+.st-dd-item:hover, .st-dd-item.active { background: var(--input-bg); color: var(--primary); }
+.st-dd-item img { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
+.st-dd-item span { overflow: hidden; text-overflow: ellipsis; }
+/* 区块卡片 */
+.st-section { margin-bottom: 12px; }
+.st-section-last { margin-bottom: 0; }
+.st-sec-title { font-size: 15px; font-weight: 600; margin: 0 0 10px; color: var(--text); }
+.st-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.st-sec-hint { font-size: 12px; color: var(--text-secondary); }
+/* 月历：7 列等宽，周日开头 */
+.st-cal-head, .st-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.st-cal-head { margin: 4px 0; }
+.st-cal-head span { text-align: center; font-size: 11px; color: var(--text-secondary); padding: 2px 0; }
+.st-cal-cell {
+  min-height: 54px; border: 1px solid var(--border); background: var(--input-bg); border-radius: 10px;
+  padding: 3px 2px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer;
+}
+.st-cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+.st-cal-cell:not(.empty):active { transform: scale(.96); }
+.st-cal-cell .d { font-size: 12px; line-height: 1.3; color: var(--text); }
+.st-cal-cell .amt { font-size: 10px; line-height: 1.2; font-weight: 600; text-align: center; color: var(--success); word-break: break-all; }
+.st-cal-cell .amt.none { color: var(--text-secondary); opacity: .4; font-weight: 400; }
+.st-cal-cell.today { border: 1.5px solid var(--primary); }
+.st-cal-cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* 当日明细 */
+.st-day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.st-day-total { font-size: 15px; color: var(--success); white-space: nowrap; }
+.st-table .st-money { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; }
+.st-table .st-proj { display: flex; align-items: center; gap: 6px; white-space: normal; }
+.st-table .st-proj img { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
+.st-sub { font-size: 11px; color: var(--text-secondary); margin-top: 1px; white-space: normal; }
+.st-day-foot { text-align: right; padding-top: 10px; font-size: 13px; color: var(--text-secondary); }
+.st-day-foot b { color: var(--success); font-size: 15px; }
+.st-empty { text-align: center; color: var(--text-secondary); padding: 24px 0 !important; }
+@media (max-width: 760px) {
+  /* 顶栏重排（修复返回键与月份选择器重叠）：第一行 [返回] [标题]，第二行两个筛选器各占一半 */
+  .stats-topbar { flex-wrap: wrap; row-gap: 10px; padding-bottom: 2px; }
+  .stats-back { position: static; }
+  .stats-title { flex: 1; text-align: center; padding-right: 60px; }  /* 补偿左侧返回键宽度，标题视觉居中 */
+  .stats-filters { position: static; width: 100%; flex-wrap: wrap; }
+  .st-filter { flex: 1; min-width: 0; }
+  .st-dd { flex: 1; min-width: 0; }
+  .st-dd-btn { max-width: none; min-width: 0; }
+}
+@media (max-width: 600px) {
+  /* 月历紧凑：字号 10~12px、金额 9~10px，保证 7 列不挤 */
+  .st-cal-cell { min-height: 46px; padding: 2px 1px; border-radius: 8px; }
+  .st-cal-cell .d { font-size: 11px; }
+  .st-cal-cell .amt { font-size: 9px; }
+  /* 明细表改卡片式竖排，禁止横向滚动（参照 user-table 移动端） */
+  .st-table thead { display: none; }
+  .st-table, .st-table tbody, .st-table tr, .st-table td { display: block; width: 100%; }
+  .st-table tr { border: 1px solid var(--border); border-radius: 12px; padding: 6px 10px; margin-bottom: 8px; background: var(--input-bg); }
+  .st-table td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px dashed var(--border); padding: 7px 0; white-space: normal; }
+  .st-table td:last-child { border-bottom: none; }
+  .st-table td::before { content: attr(data-label); flex-shrink: 0; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .st-table td.st-money { text-align: right; }
+  .st-table td[colspan] { display: block; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-cal-cell:not(.empty):active { transform: none; }
+}
 .badge-done { background: var(--done-bg-strong); color: var(--success); }
 /* 公共项目置顶（金色）/ 重点（蓝色）高亮：普通模式实色，深色模式半透明 */
 .project-card.pub-pinned { border-color: #f59e0b; background: #fffbeb; }
@@ -988,6 +1085,18 @@ html.dark-mode .ec-tip {
 .ec-tip .ec-tip-row { display: flex; justify-content: space-between; gap: 10px; color: var(--text-secondary); }
 .ec-tip .ec-tip-row b { color: var(--text); font-weight: 700; }
 .ec-empty { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 44px 16px; }
+
+/* ========== 未回本项目分布饼图（圆环） ========== */
+.rp-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; }
+.rp-li { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text); min-width: 42%; flex: 1 1 42%; cursor: default; }
+.rp-li .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.rp-li .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-li .vl { margin-left: auto; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-li.dim, .rp-slice.dim { opacity: .3; }
+@media (max-width: 480px) { .rp-li { min-width: 100%; flex-basis: 100%; } }
+/* 饼图 tooltip 固定顶部居中（触摸/鼠标均可用，不依赖坐标换算） */
+#rpTip { top: 10px; left: 50%; right: auto; bottom: auto; transform: translateX(-50%); }
+#rpTip.show { opacity: 1; }
 /* 置顶/重点高亮改半透明，保留玻璃质感 */
 .project-card.pub-pinned { border-color: rgba(245,158,11,.55); background: rgba(255,251,235,.7); }
 .project-card.pub-starred { border-color: rgba(37,99,235,.5); background: rgba(219,234,254,.55); }
@@ -1567,6 +1676,62 @@ html.in-app #loginWrap {
     </div>
   </section>
 
+  <!-- ==================== 页面四：统计（独立页面，首页总累计收益卡片进入） ==================== -->
+  <section class="page" id="pageStats">
+    <!-- 顶部导航：返回 + 标题 + 月份/项目筛选 -->
+    <div class="stats-topbar">
+      <button type="button" class="btn btn-outline btn-sm stats-back" onclick="closeStatsPage()">← 返回</button>
+      <h2 class="stats-title">📊 统计</h2>
+      <div class="stats-filters">
+        <select id="stMonthSel" class="st-filter" aria-label="选择月份" onchange="stSwitchMonth(this.value)"></select>
+        <!-- 原生 option 无法显示 logo，项目筛选采用自绘下拉（20px 圆角 logo + 项目名） -->
+        <div class="st-dd" id="stProjDD">
+          <button type="button" class="st-dd-btn" onclick="stDDToggle(event)"><span class="st-dd-label" id="stProjLabel">全部项目</span><span class="st-dd-caret">▾</span></button>
+          <div class="st-dd-menu" id="stProjMenu"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 回本曲线（与回本曲线弹窗共用 renderEarnCurve） -->
+    <div class="table-card st-section">
+      <h3 class="st-sec-title">📈 回本曲线</h3>
+      <div id="stCurveHost"></div>
+    </div>
+
+    <!-- 回本日历 -->
+    <div class="table-card st-section">
+      <div class="st-sec-head">
+        <h3 class="st-sec-title">📅 <span id="stMonthTitle">回本日历</span></h3>
+        <span class="st-sec-hint">点击日期查看当日明细</span>
+      </div>
+      <!-- 周日开头：日 一 二 三 四 五 六，与 new Date(y,m-1,1).getDay() 对齐 -->
+      <div class="st-cal-head"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+      <div class="st-cal" id="stCalGrid"></div>
+    </div>
+
+    <!-- 当日明细 -->
+    <div class="table-card st-section st-section-last">
+      <div class="st-day-head">
+        <h3 class="st-sec-title" id="stDayTitle">—</h3>
+        <b class="st-day-total" id="stDayTotal"></b>
+      </div>
+      <table class="st-table">
+        <thead>
+          <tr>
+            <th style="width:64px">时间</th>
+            <th>项目</th>
+            <th>账户ID/姓名</th>
+            <th style="width:80px">数量</th>
+            <th style="width:110px">当日市场价</th>
+            <th style="width:100px;text-align:right">回本金额</th>
+          </tr>
+        </thead>
+        <tbody id="stDayBody"></tbody>
+      </table>
+      <div class="st-day-foot">当日总计：<b id="stDayFoot"></b> 元</div>
+    </div>
+  </section>
+
   <!-- ========== 项目群聊页（站内普通页面，公共项目全员可聊） ========== -->
   <div id="chatPage" class="chat-page" style="display:none">
     <!-- 顶部导航栏：返回 + 群名 + 成员数 -->
@@ -1930,6 +2095,34 @@ html.in-app #loginWrap {
     <div class="modal-body" id="ecBody"></div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="closeModal('earnChartModal')">知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 柱状图弹窗（本金分布 / 未回本分布 双模式，内联SVG） ========== -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="principalChartModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="pcTitle">🏛️ 项目本金分布</h3>
+      <button class="modal-close" onclick="closeModal('principalChartModal')">×</button>
+    </div>
+    <div class="modal-body" id="pcBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closeModal('principalChartModal')">知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 饼图弹窗（本金分布 / 未回本分布 双模式，内联SVG圆环） ========== -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="remainPieModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="rpTitle">🧩 未回本项目分布</h3>
+      <button class="modal-close" onclick="closeModal('remainPieModal')">×</button>
+    </div>
+    <div class="modal-body" id="rpBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closeModal('remainPieModal')">知道了</button>
     </div>
   </div>
 </div>
@@ -3712,27 +3905,38 @@ function showPage(page, opts) {
   // [3] 先存账单页标记：下面会把 onBillPage 置 false，置后再判断会导致从账单页
   // 返回列表时汇总动画被误判为不需要（currentProjectId 在账单页也是 null）
   const wasOnBill = onBillPage;
+  // [统计页] 同样先存标记：从统计页返回列表需恢复滚动位置且不重播 count-up
+  const wasOnStats = onStatsPage;
   // 若群聊页已打开，先正常关闭（退订实时通道、恢复未读订阅与导航高亮）
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') chat_close();
   document.getElementById('pageProjectList').classList.toggle('active', page === 'list');
   document.getElementById('pageProjectDetail').classList.toggle('active', page === 'detail');
   document.getElementById('pageBill').classList.toggle('active', page === 'bill');
+  document.getElementById('pageStats').classList.toggle('active', page === 'stats');
   if (page !== 'bill') onBillPage = false;  // 离开账单页时复位标识
+  if (page !== 'stats') onStatsPage = false;  // [统计页] 离开统计页时复位标识
   if (page === 'list') {
     // [P] 从详情页/账单页返回列表才播放汇总动画；纯页签切换/数据刷新不播
     // [3] 用复位前的 wasOnBill 判断，三种场景：详情返回(currentProjectId)、
     // 账单返回(wasOnBill)、首次进入（showMainApp 里已置 true，本函数随后覆盖）
-    homeSummaryShouldAnimate = !!(currentProjectId || wasOnBill);
+    // [统计页] 从统计页返回不重播动画（wasOnStats 时强制 false）
+    homeSummaryShouldAnimate = !!(currentProjectId || wasOnBill) && !wasOnStats;
     if (!silent) histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
     batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 返回列表时退出批量模式
     if (!silent) renderProjectGrid();  // [12] silent 时跳过整表渲染（紧接着列表会被隐藏）
-  } else if (page !== 'bill') {
+  } else if (page !== 'bill' && page !== 'stats') {
     if (!silent) renderDetail();
   }
   if (page === 'list') requestAnimationFrame(() => bnavMoveHighlight(false));  // 返回列表页时高亮块无动画就位（导航随页面重新显示）
-  window.scrollTo(0, 0);
+  // [统计页] 返回列表恢复原滚动位置；其他切换一律回到顶部
+  if (page === 'list' && wasOnStats) {
+    const y = statsSavedScroll || 0;
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  } else {
+    window.scrollTo(0, 0);
+  }
 }
 
 /* ---------- 平台管理独立页（红线：仅管理员可进入） ---------- */
@@ -3798,6 +4002,7 @@ window.addEventListener('popstate', () => {
   if (onSettingsPage) { exitSettingsPage(); return; }              // [需求三] 设置页：返回=回「我的」
   if (onAdminPage) { exitAdminPage(); return; }                    // 平台管理页：返回=回「我的」
   if (onBillPage) { showPage('list'); return; }                     // 账单页：返回=回项目列表
+  if (onStatsPage) { showPage('list'); return; }                    // [统计页] 返回=回项目列表（恢复滚动位置）
   if (currentProjectId) showPage('list');                           // 详情页：返回=回项目列表
 });
 
@@ -3823,8 +4028,9 @@ function switchListTab(tab) {
     if (homeTopSet) homeTopSet.style.display = '';
     histConsume();
   }
-  // 若正处于项目详情页/生成账单页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
-  if (currentProjectId || onBillPage) showPage('list');
+  // 若正处于项目详情页/生成账单页/统计页（底部导航 fixed 常显），先退回列表页再切页签，否则点击导航无响应
+  // showPage('list') 内部会 histConsume 消费入栈历史，保证后续侧返行为正常
+  if (currentProjectId || onBillPage || onStatsPage) showPage('list');
   // 若群聊页已打开，先正常关闭再切换页签
   const cp = document.getElementById('chatPage');
   if (cp && cp.style.display !== 'none') chat_close();
@@ -3935,10 +4141,11 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
   let sx = 0, sy = 0, tracking = false, locked = false, touchId = null, animating = false;
   let pending = null;  // [13] 动画中到达的下一次切换目标，只排队一次
   const touchable = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
-  // 仅在项目列表主页可滑动：详情页/账单页/群聊页/弹窗打开时不触发
+  // 仅在项目列表主页可滑动：详情页/账单页/群聊页/统计页/弹窗打开时不触发
+  // [统计页] 统计页显式禁用：用户在回本曲线图上横向触摸探索数据时，不应被误判为切页签而退出
   const canSwipe = () => {
     if (!touchable()) return false;
-    if (currentProjectId || onBillPage) return false;
+    if (currentProjectId || onBillPage || onStatsPage) return false;
     const cp = document.getElementById('chatPage');
     if (cp && cp.style.display !== 'none') return false;
     if (document.querySelector('.modal-mask.show')) return false;
@@ -4038,7 +4245,8 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
 
   const canBack = () => {
     if (document.querySelector('.modal-mask.show')) return false;
-    if (currentProjectId || onBillPage) return true;
+    // [统计页] 仅左边缘 28px 起手的右滑返回（曲线区中部触摸不会触发，见首页切页签 canSwipe 排除）
+    if (currentProjectId || onBillPage || onStatsPage) return true;
     const cp = document.getElementById('chatPage');
     if (cp && cp.style.display !== 'none') return true;
     return false;
@@ -4145,11 +4353,11 @@ function renderProjectGrid() {
   });
   document.getElementById('homeSummary').innerHTML = `
     <div class="summary-card"><div class="label">账户总人数</div><div class="value"><span class="count-up" data-target="${gUserCount}" data-decimals="0">0</span><small>人</small></div></div>
-    <div class="summary-card"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
-    <div class="summary-card accent"><div class="label">总累计收益</div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card" onclick="openRemainPie('principal')" style="cursor:pointer" title="点击查看项目本金分布"><div class="label">总投入本金</div><div class="value"><span class="count-up" data-target="${gPrincipal}" data-decimals="2">0</span><small>元</small></div></div>
+    <div class="summary-card accent" onclick="openStatsPage()" style="cursor:pointer" title="点击查看统计详情"><div class="label sc-label"><span class="sc-roll"><span>总累计收益</span><span>点击查看详细</span><span>总累计收益</span></span></div><div class="value"><span class="count-up" data-target="${gEarned}" data-decimals="2">0</span><small>元</small></div></div>
     <div class="summary-card" onclick="openTodayList()" style="cursor:pointer" title="点击查看今日回本明细"><div class="label">今日回本金额 👁</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gTodayEarned}" data-decimals="2">0</span><small>元</small></div></div>
     ${gRemain > 0
-      ? `<div class="summary-card"><div class="label">未回本项目金额</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
+      ? `<div class="summary-card" onclick="openPrincipalChart('remain')" style="cursor:pointer" title="点击查看未回本项目分布"><div class="label">未回本项目金额</div><div class="value"><span class="count-up" style="color:var(--danger)" data-target="${gRemain}" data-decimals="2">0</span><small>元</small></div></div>`
       : `<div class="summary-card"><div class="label">利润</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gProfit}" data-decimals="2">0</span><small>元</small></div></div>`}
     ${gUserCount > 0 && gRemain === 0
       ? // 全部账户已回本：卡片不再隐藏，显示恭喜文案，点击仍可查看回本曲线
@@ -5843,13 +6051,16 @@ async function saveQuickAmount() {
 let qaSaving = false;  // 快捷录入保存进行中锁
 
 /* ---------- 回本曲线：汇总全部项目台账，按日累计，内联SVG折线图（本金参考线 + 触摸/悬停提示） ---------- */
-let ecData = null;
+// [统计页] 各曲线实例（弹窗 'ec' / 统计页 'st'）的几何命中数据，按前缀隔离，DOM id 不冲突
+const ecCtxMap = {};
 
 // 聚合全部台账：按日求和，按日期排序后累计
-function buildEarnCurveData() {
+// [统计页] scope 可选：传入项目子集则仅统计这些项目（项目筛选），默认全部
+function buildEarnCurveData(scope) {
+  const list = scope && scope.length ? scope : projects;
   const dayMap = new Map();
   let principal = 0, recordCount = 0;
-  projects.forEach(p => (p.users || []).forEach(u => {
+  list.forEach(p => (p.users || []).forEach(u => {
     principal += Number(u.principal) || 0;
     (u.prices || []).forEach(r => {
       const d = String(r.date || '').slice(0, 10);
@@ -5932,58 +6143,78 @@ function ecSwitchMonth(value) {
   ecRenderBody();
 }
 
-// 按 ecSelectedMonth 重绘弹窗主体（工具条 + 统计卡 + 曲线）
-function ecRenderBody() {
-  const { points, principal } = buildEarnCurveData();
-  const body = document.getElementById('ecBody');
+// [统计页] 可复用曲线主体：统计小卡 + SVG，弹窗(prefix='ec')与统计页('st')共用同一套 DOM 生成代码
+// containerEl：宿主元素；month：''=月总览，'YYYY-MM'=当月逐日；projectFilter：项目子集或 null=全部
+function renderEarnCurve(containerEl, month, projectFilter, prefix) {
+  prefix = prefix || 'ec';
+  const scope = projectFilter && projectFilter.length ? projectFilter : null;
+  const { points, principal } = buildEarnCurveData(scope);
   if (!points.length) {
-    ecData = null;
-    body.innerHTML = '<div class="ec-empty">📭 暂无台账数据<br>添加回本金额后，这里会生成你的回本曲线</div>';
+    ecCtxMap[prefix] = null;
+    containerEl.innerHTML = '<div class="ec-empty">📭 暂无台账数据<br>添加回本金额后，这里会生成你的回本曲线</div>';
+    return;
+  }
+  // 依据模式取点：月总览=月点；下钻=该月逐日点，并记录月初累计基线
+  let shown, mode, baseCum = 0;
+  if (!month) {
+    shown = buildEarnCurveMonthly(points);
+    mode = 'month';
+  } else {
+    shown = points.filter(p => p.date.slice(0, 7) === month);
+    mode = 'day';
+    if (shown.length) baseCum = shown[0].cum - shown[0].day;
+    // 当月无记录时：月初前累计 = 月初之前所有日合计，进度卡仍反映历史回本
+    else baseCum = points.filter(p => p.date < month + '-01').reduce((s, p) => s + p.day, 0);
+  }
+  const lastCum = shown.length ? shown[shown.length - 1].cum : baseCum;
+  const monthSum = mode === 'day' ? (shown.length ? Math.max(0, lastCum - baseCum) : 0) : lastCum;
+  const allDone = principal > 0 && lastCum >= principal;
+  const progress = principal > 0 ? Math.min(100, lastCum / principal * 100) : 100;
+  containerEl.innerHTML = `
+    <div class="ec-stats">
+      <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(principal)}</div></div>
+      <div class="ec-stat"><div class="k">${mode === 'day' ? '当月回本' : '累计回本'}</div><div class="v" style="color:var(--primary)">${fmtMoney(mode === 'day' ? monthSum : lastCum)}</div></div>
+      <div class="ec-stat"><div class="k">回本进度</div><div class="v" style="color:${allDone ? 'var(--success)' : '#d97706'}">${progress.toFixed(1)}%</div></div>
+    </div>
+    <div class="ec-chart-wrap" id="${prefix}Wrap">
+      ${shown.length
+        ? ecRenderSvg(shown, principal, { mode, baseCum, prefix })
+        : '<div class="ec-empty" style="padding:28px 16px">该月暂无回本记录</div>'}
+      <div class="ec-tip" id="${prefix}Tip"></div>
+    </div>`;
+}
+
+// 按 ecSelectedMonth 重绘弹窗主体（工具条 + 共用曲线主体）
+function ecRenderBody() {
+  const body = document.getElementById('ecBody');
+  const { points } = buildEarnCurveData();
+  if (!points.length) {
+    // 无数据时不渲染工具条，仅显示空态（与原弹窗行为一致）
+    renderEarnCurve(body, '', null, 'ec');
     return;
   }
   // 月份选项从数据本身推导（跨年/缺月都自适应）
   const months = [...new Set(points.map(p => p.date.slice(0, 7)))].sort();
-  const toolbar = `
+  body.innerHTML = `
     <div class="ec-toolbar">
       <span>📅 查看</span>
       <select id="ecMonthSel" onchange="ecSwitchMonth(this.value)">
         <option value="">全部月份（按月总览）</option>
         ${months.map(m => `<option value="${m}"${m === ecSelectedMonth ? ' selected' : ''}>${ecMonthLabel(m)}</option>`).join('')}
       </select>
-    </div>`;
-
-  // 依据模式取点：月总览=月点；下钻=该月逐日点，并记录月初累计基线
-  let shown, mode, baseCum = 0;
-  if (!ecSelectedMonth) {
-    shown = buildEarnCurveMonthly(points);
-    mode = 'month';
-  } else {
-    shown = points.filter(p => p.date.slice(0, 7) === ecSelectedMonth);
-    mode = 'day';
-    baseCum = shown.length ? shown[0].cum - shown[0].day : 0;
-  }
-  const lastCum = shown.length ? shown[shown.length - 1].cum : 0;
-  const monthSum = mode === 'day' ? Math.max(0, lastCum - baseCum) : lastCum;
-  const allDone = principal > 0 && lastCum >= principal;
-  const progress = principal > 0 ? Math.min(100, lastCum / principal * 100) : 100;
-  body.innerHTML = toolbar + `
-    <div class="ec-stats">
-      <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(principal)}</div></div>
-      <div class="ec-stat"><div class="k">${mode === 'day' ? '当月回本' : '累计回本'}</div><div class="v" style="color:var(--primary)">${fmtMoney(mode === 'day' ? monthSum : lastCum)}</div></div>
-      <div class="ec-stat"><div class="k">回本进度</div><div class="v" style="color:${allDone ? 'var(--success)' : '#d97706'}">${progress.toFixed(1)}%</div></div>
     </div>
-    <div class="ec-chart-wrap" id="ecWrap">
-      ${ecRenderSvg(shown, principal, { mode, baseCum })}
-      <div class="ec-tip" id="ecTip"></div>
-    </div>`;
+    <div id="ecCurveHost"></div>`;
+  renderEarnCurve(document.getElementById('ecCurveHost'), ecSelectedMonth, null, 'ec');
 }
 
-// 生成SVG（viewBox固定，宽度自适应；几何数据写入 ecData 供命中检测）
+// 生成SVG（viewBox固定，宽度自适应；几何数据写入 ecCtxMap[prefix] 供命中检测）
 // opts.mode：'month'=月总览（Y轴从0起，路径自轴底升起）；'day'=月内逐日（Y轴围绕
 // [baseCum,lastCum] 取整齐区间，路径自月初基线升起，让当月起伏清晰可见）
+// [统计页] opts.prefix：DOM id 前缀（弹窗 'ec' / 统计页 'st'），多实例共存不冲突
 function ecRenderSvg(points, principal, opts = {}) {
   const mode = opts.mode || 'month';
   const baseCum = Number(opts.baseCum) || 0;
+  const prefix = opts.prefix || 'ec';
   const W = 640, H = 360;
   const padL = 52, padR = 16, padT = 18, padB = 36;
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -6006,7 +6237,7 @@ function ecRenderSvg(points, principal, opts = {}) {
     return padT + plotH - (cv - yMin) / span * plotH;
   };
   const baseY = yOf(yMin);
-  ecData = { points, n, principal, mode, baseCum, W, H, padL, padR, padT, padB, plotW, plotH, yMin, yMax };
+  ecCtxMap[prefix] = { points, n, principal, mode, baseCum, W, H, padL, padR, padT, padB, plotW, plotH, yMin, yMax };
 
   // 水平网格 + Y 刻度（区间内 4 等分；月总览即 0/25/50/75/100%）
   let grid = '';
@@ -6048,55 +6279,60 @@ function ecRenderSvg(points, principal, opts = {}) {
   return `
   <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="ecAreaGrad" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="${prefix}AreaGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#3b82f6" stop-opacity=".3"/>
         <stop offset="100%" stop-color="#3b82f6" stop-opacity=".02"/>
       </linearGradient>
     </defs>
     ${grid}
     ${refLine}
-    <path d="${areaD}" fill="url(#ecAreaGrad)"/>
+    <path d="${areaD}" fill="url(#${prefix}AreaGrad)"/>
     <path d="${lineD}" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}
-    <g id="ecHover" style="display:none">
-      <line id="ecHL" y1="${padT}" y2="${padT + plotH}" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>
-      <circle id="ecHC" r="5" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
+    <g id="${prefix}Hover" style="display:none">
+      <line id="${prefix}HL" y1="${padT}" y2="${padT + plotH}" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>
+      <circle id="${prefix}HC" r="5" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
     </g>
     <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="transparent" pointer-events="all"
-      onpointerdown="ecMove(event)" onpointermove="ecMove(event)" onpointerleave="ecLeave()"/>
+      onpointerdown="ecMove(event,'${prefix}')" onpointermove="ecMove(event,'${prefix}')" onpointerleave="ecLeave('${prefix}')"/>
   </svg>`;
 }
 
 // 指针（鼠标/触摸）移动：换算为SVG坐标，找最近一天
-function ecMove(ev) {
-  if (!ecData) return;
-  const svg = document.querySelector('#ecWrap svg');
+// [统计页] prefix 区分弹窗('ec')/统计页('st')实例
+function ecMove(ev, prefix) {
+  prefix = prefix || 'ec';
+  const d = ecCtxMap[prefix];
+  if (!d) return;
+  const wrap = document.getElementById(prefix + 'Wrap');
+  const svg = wrap && wrap.querySelector('svg');
   if (!svg) return;
   const r = svg.getBoundingClientRect();
-  const vx = (ev.clientX - r.left) / r.width * ecData.W;
-  const { padL, plotW, n } = ecData;
+  const vx = (ev.clientX - r.left) / r.width * d.W;
+  const { padL, plotW, n } = d;
   let idx = Math.round((vx - padL) / plotW * (n - 1));
   idx = Math.max(0, Math.min(n - 1, idx));
-  ecShow(idx);
+  ecShow(prefix, idx);
 }
 
 // 在指定位置（日点或月点）显示高亮点与磨砂tooltip
-function ecShow(idx) {
-  const d = ecData;
+function ecShow(prefix, idx) {
+  const d = ecCtxMap[prefix];
+  if (!d) return;
   const p = d.points[idx];
   const x = d.padL + (d.n === 1 ? d.plotW / 2 : idx / (d.n - 1) * d.plotW);
   const span = d.yMax - d.yMin;
   // 与 ecRenderSvg 中 yOf 保持一致：夹取到区间内，高亮点不飞出画布
   const cv = Math.max(d.yMin, Math.min(d.yMax, p.cum));
   const y = d.padT + d.plotH - (cv - d.yMin) / span * d.plotH;
-  document.getElementById('ecHover').style.display = '';
-  const hl = document.getElementById('ecHL');
+  document.getElementById(prefix + 'Hover').style.display = '';
+  const hl = document.getElementById(prefix + 'HL');
   hl.setAttribute('x1', x); hl.setAttribute('x2', x);
-  const hc = document.getElementById('ecHC');
+  const hc = document.getElementById(prefix + 'HC');
   hc.setAttribute('cx', x); hc.setAttribute('cy', y);
 
   const prog = d.principal > 0 ? (p.cum / d.principal * 100).toFixed(1) : '—';
-  const tip = document.getElementById('ecTip');
+  const tip = document.getElementById(prefix + 'Tip');
   if (d.mode === 'month') {
     // 月点：标题为「2026年10月」，展示当月合计与月末累计（累计线进度口径不变）
     tip.innerHTML = `
@@ -6125,10 +6361,450 @@ function ecShow(idx) {
 }
 
 // 指针离开：隐藏高亮与提示
-function ecLeave() {
-  if (!ecData) return;
-  document.getElementById('ecHover').style.display = 'none';
-  document.getElementById('ecTip').classList.remove('show');
+function ecLeave(prefix) {
+  prefix = prefix || 'ec';
+  if (!ecCtxMap[prefix]) return;
+  const hover = document.getElementById(prefix + 'Hover');
+  const tip = document.getElementById(prefix + 'Tip');
+  if (hover) hover.style.display = 'none';
+  if (tip) tip.classList.remove('show');
+}
+
+/* ---------- [统计页] 独立统计页：月份/项目筛选 + 回本曲线 + 月历 + 当日明细 ---------- */
+let onStatsPage = false;       // 当前是否处于统计页（showPage/popstate 联动）
+let statsSavedScroll = 0;      // 进入前首页滚动位置（返回时恢复，避免首页重排后位置跳动）
+let stMonth = '';              // 选中月份 YYYY-MM（默认当前月）
+let stProjectId = '';          // 选中项目 id，''=全部项目
+let stSelectedDay = '';        // 月历选中日期 YYYY-MM-DD
+let stLastRows = [];           // 当前筛选下的明细行缓存（点击日格免重算）
+
+// 从首页「总累计收益」卡片进入
+function openStatsPage() {
+  if (!projects.length) { toast('暂无项目数据', 'warn'); return; }
+  statsSavedScroll = window.scrollY || window.pageYOffset || 0;
+  // 月份选项：台账中出现过的全部月份 + 当前月（当月暂无记录也可查看空月历）
+  const { points } = buildEarnCurveData();
+  const months = [...new Set(points.map(p => p.date.slice(0, 7)))].sort();
+  const cur = nowLocal().slice(0, 7);
+  if (!months.includes(cur)) months.push(cur);
+  months.sort();
+  stMonth = months.includes(cur) ? cur : months[months.length - 1];
+  stProjectId = '';
+  stSelectedDay = '';
+  document.getElementById('stMonthSel').innerHTML = months
+    .map(m => `<option value="${m}"${m === stMonth ? ' selected' : ''}>${ecMonthLabel(m)}</option>`).join('');
+  stRenderProjMenu();
+  document.getElementById('stProjLabel').textContent = '全部项目';
+  stDDClose();
+  onStatsPage = true;
+  showPage('stats');   // 切到独立统计页（隐藏列表页）
+  stRenderAll();
+  histPush('stats');   // 历史入栈：浏览器返回键/侧滑可退回列表
+}
+// 「← 返回」：showPage('list') 内部会消费历史、恢复滚动、跳过 count-up
+function closeStatsPage() { showPage('list'); }
+function stSwitchMonth(v) { if (!v) return; stMonth = v; stSelectedDay = ''; stRenderAll(); }
+function stSwitchProject(id) {
+  stProjectId = id || '';
+  const p = stProjectId ? getProject(stProjectId) : null;
+  document.getElementById('stProjLabel').textContent = p ? p.name : '全部项目';
+  stSelectedDay = '';
+  stDDClose();
+  stRenderAll();
+}
+function stScope() {
+  if (stProjectId) { const p = getProject(stProjectId); if (p) return [p]; }
+  return projects;
+}
+
+// ===== 项目自绘下拉（原生 option 无法显示 logo） =====
+function stRenderProjMenu() {
+  const item = (id, label, logo) =>
+    `<div class="st-dd-item${id === stProjectId ? ' active' : ''}" onclick="stSwitchProject('${id}')">`
+    + (logo
+      ? `<img src="${logo}" alt="">`
+      : '<span style="width:20px;height:20px;flex-shrink:0"></span>')
+    + `<span>${escapeHtml(label)}</span></div>`;
+  document.getElementById('stProjMenu').innerHTML =
+    item('', '全部项目', '') + projects.map(p => item(p.id, p.name, p.logo || '')).join('');
+}
+function stDDToggle(ev) { ev.stopPropagation(); document.getElementById('stProjDD').classList.toggle('open'); }
+function stDDClose() { const dd = document.getElementById('stProjDD'); if (dd) dd.classList.remove('open'); }
+// 点击下拉外部自动收起（点击内部选项不触发，由 stSwitchProject 显式关闭）
+document.addEventListener('click', ev => { if (!ev.target.closest('#stProjDD')) stDDClose(); });
+
+// 收集当前筛选范围的台账明细行（字段口径与 bill_collectToday 一致）
+function stCollect(scope) {
+  const rows = [];
+  scope.forEach(p => (p.users || []).forEach(u => (u.prices || []).forEach(r => {
+    const d = String(r.date || '').slice(0, 10);
+    if (!d) return;
+    const hasQty = r.qty !== undefined && r.qty !== null && Number(r.qty) > 0;
+    rows.push({
+      date: d,
+      time: String(r.date || '').slice(11, 16) || '',   // datetime-local 的 HH:mm，纯日期记录为空
+      p, u,
+      userId: u.id || '—',
+      userName: u.name || '—',
+      mpName: r.mpName || '',
+      qty: hasQty ? Number(r.qty) : null,
+      rate: hasQty ? (Number(r.rate) || 0) : null,
+      refQty: hasQty ? (Number(r.refQty) || 1) : null,
+      price: Number(r.price) || 0
+    });
+  })));
+  return rows;
+}
+// 默认选中日：本月优先今天（即使无数据也显示空态）；浏览其他月份取本月第一条有记录的日期；都无则 1 号
+function stPickDefaultDay(dayMap) {
+  const today = nowLocal().slice(0, 10);
+  const inMonth = d => d.slice(0, 7) === stMonth;
+  if (inMonth(today)) {
+    if (dayMap.has(today)) return today;
+    const first = [...dayMap.keys()].filter(inMonth).sort()[0];
+    return first || today;
+  }
+  const first = [...dayMap.keys()].filter(inMonth).sort()[0];
+  return first || stMonth + '-01';
+}
+// 月历金额紧凑显示：过万 x.x万，否则四舍五入取整（格内空间有限；格 title 保留精确金额）
+function stCompactMoney(n) {
+  if (n >= 10000) return (n / 10000).toFixed(n % 10000 === 0 ? 0 : 1) + '万';
+  return Math.round(n).toLocaleString('zh-CN');
+}
+
+// 曲线 / 月历 / 明细三处联动重绘
+function stRenderAll() {
+  const scope = stScope();
+  renderEarnCurve(document.getElementById('stCurveHost'), stMonth, scope, 'st');
+  stLastRows = stCollect(scope);
+  const dayMap = new Map();
+  stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
+  if (!stSelectedDay) stSelectedDay = stPickDefaultDay(dayMap);
+  stRenderCalendar(dayMap);
+  stRenderDay(stLastRows.filter(r => r.date === stSelectedDay));
+}
+
+// 渲染所选月份完整月历（周日开头，与 getDay() 直接对齐）
+function stRenderCalendar(dayMap) {
+  const y = +stMonth.slice(0, 4), m = +stMonth.slice(5, 7);
+  const firstWd = new Date(y, m - 1, 1).getDay();  // 0=周日 → 前置空列数
+  const dim = new Date(y, m, 0).getDate();         // 当月天数
+  const today = nowLocal().slice(0, 10);
+  document.getElementById('stMonthTitle').textContent = ecMonthLabel(stMonth);
+  let html = '';
+  for (let i = 0; i < firstWd; i++) html += '<div class="st-cal-cell empty"></div>';
+  for (let d = 1; d <= dim; d++) {
+    const ds = stMonth + '-' + String(d).padStart(2, '0');
+    const amt = dayMap.get(ds) || 0;
+    const cls = ['st-cal-cell'];
+    if (ds === today) cls.push('today');
+    if (ds === stSelectedDay) cls.push('selected');
+    html += `<div class="${cls.join(' ')}" onclick="stPickDay('${ds}')" title="${ds}${amt ? ' ¥' + fmtMoney(amt) : ' 无记录'}">`
+      + `<span class="d">${d}</span>`
+      + (amt ? `<span class="amt">${stCompactMoney(amt)}</span>` : '<span class="amt none">—</span>')
+      + '</div>';
+  }
+  document.getElementById('stCalGrid').innerHTML = html;
+}
+// 点击某日：高亮该格 + 明细切换到当日
+function stPickDay(ds) {
+  stSelectedDay = ds;
+  const dayMap = new Map();
+  stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
+  stRenderCalendar(dayMap);
+  stRenderDay(stLastRows.filter(r => r.date === ds));
+}
+
+// 渲染当日明细（桌面表格 / ≤600px 自动卡片式竖排）
+function stRenderDay(rows) {
+  rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const total = rows.reduce((s, r) => s + r.price, 0);
+  const M = +stSelectedDay.slice(5, 7), D = +stSelectedDay.slice(8, 10);
+  document.getElementById('stDayTitle').textContent = `${M}月${D}日 回本明细`;
+  document.getElementById('stDayTotal').textContent = '¥' + fmtMoney(total);
+  document.getElementById('stDayFoot').textContent = fmtMoney(total);
+  const body = document.getElementById('stDayBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="st-empty">该日暂无回本记录</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const logo = r.p.logo ? `<img src="${r.p.logo}" alt="">` : '';
+    return `<tr>
+      <td data-label="时间">${r.time ? escapeHtml(r.time) : '—'}</td>
+      <td data-label="项目"><span class="st-proj">${logo}<span>${escapeHtml(r.p.name || '—')}</span></span></td>
+      <td data-label="账户">${escapeHtml(r.userId)}<div class="st-sub">${escapeHtml(r.userName)}</div></td>
+      <td data-label="数量">${r.qty === null ? '—' : r.qty}</td>
+      <td data-label="市场价">${r.rate === null ? '—' : '¥' + fmtMoney(r.rate) + (Number(r.refQty) > 1 ? '/' + fmtMoney(r.refQty) : '')}</td>
+      <td data-label="回本金额" class="st-money">¥${fmtMoney(r.price)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------- 项目本金柱状图：按项目聚合本金，内联SVG；颜色走 CSS 变量，深色模式自动适配 ---------- */
+function buildPrincipalData() {
+  return projects.map(p => {
+    let principal = 0, earned = 0;
+    const users = p.users || [];
+    users.forEach(u => {
+      principal += Number(u.principal) || 0;
+      (u.prices || []).forEach(r => { earned += Number(r.price) || 0; });
+    });
+    return { id: p.id, name: p.name || '未命名', principal, earned, userCount: users.length };
+  }).filter(d => d.principal > 0 || d.earned > 0)
+    .sort((a, b) => b.principal - a.principal);
+}
+
+// [图表互换] mode：'principal'=项目本金柱（默认，已回本绿）；'remain'=未回本金额柱（红）
+function openPrincipalChart(mode) {
+  const isR = mode === 'remain';
+  const body = document.getElementById('pcBody');
+  const data = isR ? buildRemainData() : buildPrincipalData();
+  document.getElementById('pcTitle').textContent = isR ? '🧩 未回本项目分布' : '🏛️ 项目本金分布';
+  if (!data.length) {
+    body.innerHTML = isR
+      ? '<div class="ec-empty">🎉 所有项目均已回本<br>没有未回本金额，无需展示分布</div>'
+      : '<div class="ec-empty">📭 暂无项目本金数据<br>添加项目与账户本金后，这里会展示各项目本金分布</div>';
+    openModal('principalChartModal');
+    return;
+  }
+  const val = d => isR ? d.remain : d.principal;
+  const totalP = data.reduce((s, d) => s + d.principal, 0);
+  const totalE = data.reduce((s, d) => s + (d.earned || 0), 0);
+  const totalR = data.reduce((s, d) => s + d.remain, 0);
+  const W = 640, H = 360;
+  const padL = 52, padR = 16, padT = 30, padB = 58;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = data.length;
+  const yMax = ecNiceMax(Math.max(...data.map(val), 1) * 1.15);
+  const yOf = v => padT + plotH - Math.max(0, Math.min(yMax, v)) / yMax * plotH;
+  const baseY = yOf(0);
+  const band = plotW / n;
+  const barW = Math.max(2, band * 0.6);
+
+  let grid = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = yMax * k / 4, y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(148,163,184,.22)" stroke-width="1"/>`;
+    grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text-secondary)">${ecShort(v)}</text>`;
+  }
+  grid += `<line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="rgba(148,163,184,.4)" stroke-width="1"/>`;
+
+  let bars = '', labels = '';
+  data.forEach((d, i) => {
+    const cx = padL + band * i + band / 2;
+    const x = cx - barW / 2;
+    const v = val(d);
+    const y = yOf(v);
+    const h = Math.max(0, baseY - y);
+    // 未回本柱统一红色；本金柱按是否已回本绿/蓝
+    const done = !isR && d.principal > 0 && d.earned >= d.principal;
+    const fill = isR ? 'var(--danger)' : (done ? 'var(--success)' : 'var(--primary)');
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${fill}" opacity=".92"
+      onpointerenter="pcTip(${i})" onpointermove="pcMove(event)" onpointerdown="pcTip(${i});pcMove(event)" onpointerleave="pcLeave()" style="cursor:pointer"/>`;
+    if (h > 16) {
+      bars += `<text x="${cx}" y="${y - 5}" text-anchor="middle" font-size="10" fill="var(--text-secondary)" pointer-events="none">${ecShort(v)}</text>`;
+    }
+    const shortName = d.name.length > 6 ? d.name.slice(0, 5) + '…' : d.name;
+    const rotate = n > 8 ? -28 : 0;
+    labels += `<text x="${cx}" y="${baseY + 16}" text-anchor="middle" font-size="10" fill="var(--text-secondary)" pointer-events="none"
+      transform="rotate(${rotate} ${cx} ${baseY + 16})">${escapeHtml(shortName)}</text>`;
+  });
+
+  const stats = isR
+    ? `<div class="ec-stat"><div class="k">未回本项目</div><div class="v">${data.length} 个</div></div>
+       <div class="ec-stat"><div class="k">未回本总额</div><div class="v" style="color:var(--danger)">${fmtMoney(totalR)}</div></div>`
+    : `<div class="ec-stat"><div class="k">项目数</div><div class="v">${data.length}</div></div>
+       <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(totalP)}</div></div>
+       <div class="ec-stat"><div class="k">累计回本</div><div class="v" style="color:var(--success)">${fmtMoney(totalE)}</div></div>`;
+  // 蓝/绿图例仅本金模式展示；未回本模式只有红色一种柱
+  const legend = isR ? '' : `
+    <div style="font-size:11px;color:var(--text-secondary);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--primary);vertical-align:-1px"></span> 未回本项目</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--success);vertical-align:-1px"></span> 已回本项目</span>
+    </div>`;
+
+  body.innerHTML = `
+    <div class="ec-stats">${stats}</div>
+    <div class="ec-chart-wrap">
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${grid}${bars}${labels}</svg>
+      <div class="ec-tip" id="pcTip"></div>
+    </div>${legend}`;
+  window.__pcData = data;
+  window.__pcMode = isR ? 'remain' : 'principal';
+  openModal('principalChartModal');
+}
+
+function pcTip(i) {
+  const d = window.__pcData && window.__pcData[i];
+  if (!d) return;
+  const tip = document.getElementById('pcTip');
+  if (!tip) return;
+  // [图表互换] 未回本柱模式：只显示未回本/本金/账户数（无百分比）
+  if (window.__pcMode === 'remain') {
+    tip.innerHTML = `
+      <div class="ec-tip-date">${escapeHtml(d.name)}</div>
+      <div class="ec-tip-row"><span>账户数</span><b>${d.userCount} 人</b></div>
+      <div class="ec-tip-row"><span>项目本金</span><b>¥${fmtMoney(d.principal)}</b></div>
+      <div class="ec-tip-row"><span>未回本</span><b style="color:var(--danger)">¥${fmtMoney(d.remain)}</b></div>`;
+    tip.classList.add('show');
+    return;
+  }
+  const prog = d.principal > 0 ? (d.earned / d.principal * 100).toFixed(1) : '—';
+  tip.innerHTML = `
+    <div class="ec-tip-date">${escapeHtml(d.name)}</div>
+    <div class="ec-tip-row"><span>账户数</span><b>${d.userCount} 人</b></div>
+    <div class="ec-tip-row"><span>本金</span><b>¥${fmtMoney(d.principal)}</b></div>
+    <div class="ec-tip-row"><span>已回本</span><b style="color:var(--success)">¥${fmtMoney(d.earned)}</b></div>
+    <div class="ec-tip-row"><span>回本进度</span><b>${prog}%</b></div>`;
+  tip.classList.add('show');
+}
+
+// [修复] tooltip 跟随鼠标/触摸点：相对图表容器定位，左右边缘内收，顶部空间不足翻到指针下方
+function pcMove(ev) {
+  const tip = document.getElementById('pcTip');
+  if (!tip || !tip.classList.contains('show')) return;
+  const wrap = document.querySelector('#pcBody .ec-chart-wrap');
+  if (!wrap) return;
+  const r = wrap.getBoundingClientRect();
+  const tw = tip.offsetWidth || 150, th = tip.offsetHeight || 90;
+  let x = ev.clientX - r.left, y = ev.clientY - r.top;
+  // 水平居中于指针，夹到容器内
+  let left = x - tw / 2;
+  left = Math.max(4, Math.min(left, r.width - tw - 4));
+  // 默认浮于指针上方 12px；空间不足则放下方
+  const top = y - th - 12 >= 0 ? y - th - 12 : y + 16;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+  tip.style.transform = 'none';
+}
+
+function pcLeave() {
+  const tip = document.getElementById('pcTip');
+  if (tip) tip.classList.remove('show');
+}
+
+/* ---------- 未回本项目分布饼图（首页「未回本项目金额」卡片进入，内联 SVG 圆环） ---------- */
+// 分类色板（图表分类色，与柱状图/曲线中固定色一致；循环取用，足够覆盖常见项目数）
+const RP_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899',
+  '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#06b6d4', '#a855f7'];
+// 按项目聚合「未回本金额」：口径与首页 gRemain 一致——逐账户 max(0, 本金-累计回本)
+function buildRemainData() {
+  return projects.map(p => {
+    let principal = 0, remain = 0;
+    const users = p.users || [];
+    users.forEach(u => {
+      const pr = Number(u.principal) || 0;
+      let earned = 0;
+      (u.prices || []).forEach(r => { earned += Number(r.price) || 0; });
+      principal += pr;
+      remain += Math.max(0, pr - earned);
+    });
+    return { id: p.id, name: p.name || '未命名', principal, remain, userCount: users.length };
+  }).filter(d => d.remain > 0).sort((a, b) => b.remain - a.remain);
+}
+// 圆环扇区路径（外弧顺时针 → 连内弧逆时针闭合）；起止重合时调用方需拆成两个半圆
+function rpArc(cx, cy, rOut, rIn, a0, a1) {
+  const large = (a1 - a0) > Math.PI ? 1 : 0;
+  const pt = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const [x0, y0] = pt(rOut, a0), [x1, y1] = pt(rOut, a1);
+  const [x2, y2] = pt(rIn, a1), [x3, y3] = pt(rIn, a0);
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${rOut} ${rOut} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} `
+       + `L ${x2.toFixed(2)} ${y2.toFixed(2)} A ${rIn} ${rIn} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
+}
+// [图表互换] mode：'remain'=未回本金额饼（默认，红色中心）；'principal'=项目本金饼
+function openRemainPie(mode) {
+  const isP = mode === 'principal';
+  const body = document.getElementById('rpBody');
+  document.getElementById('rpTitle').textContent = isP ? '🏛️ 项目本金分布' : '🧩 未回本项目分布';
+  const src = isP ? buildPrincipalData() : buildRemainData();
+  // 统一行结构：value 为扇区度量（本金或未回本），附带 tooltip 所需字段
+  const data = src.map(d => ({
+    name: d.name, userCount: d.userCount, principal: d.principal,
+    earned: d.earned || 0, remain: d.remain || 0,
+    value: isP ? d.principal : d.remain
+  })).filter(d => d.value > 0);
+  if (!data.length) {
+    body.innerHTML = isP
+      ? '<div class="ec-empty">📭 暂无项目本金数据<br>添加项目与账户本金后，这里会展示各项目本金分布</div>'
+      : '<div class="ec-empty">🎉 所有项目均已回本<br>没有未回本金额，无需展示分布</div>';
+    openModal('remainPieModal');
+    return;
+  }
+  const totalVal = data.reduce((s, d) => s + d.value, 0);
+
+  const W = 640, H = 340, cx = W / 2, cy = 158, rOut = 128, rIn = 80;
+  const START = -Math.PI / 2;
+  let acc = 0, slices = '';
+  data.forEach((d, i) => {
+    const frac = d.value / totalVal;
+    const a0 = START + acc * 2 * Math.PI;
+    const a1 = START + (acc + frac) * 2 * Math.PI;
+    acc += frac;
+    const color = RP_COLORS[i % RP_COLORS.length];
+    // 单项目占满整圆（a0/a1 重合画不出弧）：拆成两个 180° 半圆（data-i 同为 0，悬停联动一致）
+    if (data.length === 1) {
+      slices += `<path class="rp-slice" data-i="0" d="${rpArc(cx, cy, rOut, rIn, START, START + Math.PI)}" fill="${color}"
+        onpointerenter="rpHover(0)" onpointerdown="rpHover(0)" onpointerleave="rpLeave()"/>`;
+      slices += `<path class="rp-slice" data-i="0" d="${rpArc(cx, cy, rOut, rIn, START + Math.PI, START + 2 * Math.PI)}" fill="${color}"
+        onpointerenter="rpHover(0)" onpointerdown="rpHover(0)" onpointerleave="rpLeave()"/>`;
+    } else {
+      slices += `<path class="rp-slice" data-i="${i}" d="${rpArc(cx, cy, rOut, rIn, a0, a1)}" fill="${color}"
+        onpointerenter="rpHover(${i})" onpointerdown="rpHover(${i})" onpointerleave="rpLeave()" style="cursor:pointer"/>`;
+    }
+  });
+
+  const legend = data.map((d, i) =>
+    `<div class="rp-li" data-i="${i}" onpointerenter="rpHover(${i})" onpointerleave="rpLeave()">
+      <span class="dot" style="background:${RP_COLORS[i % RP_COLORS.length]}"></span>
+      <span class="nm">${escapeHtml(d.name)}</span>
+      <span class="vl">¥${fmtMoney(d.value)}</span>
+    </div>`).join('');
+
+  body.innerHTML = `
+    <div class="ec-stats">
+      <div class="ec-stat"><div class="k">${isP ? '项目数' : '未回本项目'}</div><div class="v">${data.length} 个</div></div>
+      <div class="ec-stat"><div class="k">${isP ? '本金总额' : '未回本总额'}</div><div class="v" style="color:${isP ? 'var(--text)' : 'var(--danger)'}">${fmtMoney(totalVal)}</div></div>
+    </div>
+    <div class="ec-chart-wrap">
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        ${slices}
+        <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="12" fill="var(--text-secondary)" pointer-events="none">${isP ? '本金总额（元）' : '未回本总额（元）'}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="20" font-weight="700" fill="${isP ? 'var(--primary)' : 'var(--danger)'}" pointer-events="none">${ecShort(totalVal)}</text>
+      </svg>
+      <div class="ec-tip" id="rpTip"></div>
+    </div>
+    <div class="rp-legend">${legend}</div>`;
+  window.__rpData = data;
+  window.__rpMode = isP ? 'principal' : 'remain';
+  openModal('remainPieModal');
+}
+// 扇区/图例悬停联动：其他扇区与图例淡化，顶部居中显示明细
+function rpHover(i) {
+  const d = window.__rpData && window.__rpData[i];
+  if (!d) return;
+  document.querySelectorAll('#rpBody .rp-slice').forEach(el =>
+    el.classList.toggle('dim', Number(el.dataset.i) !== i));
+  document.querySelectorAll('.rp-li').forEach(el => el.classList.toggle('dim', Number(el.dataset.i) !== i));
+  const tip = document.getElementById('rpTip');
+  // [图表互换] 本金饼：本金/已回本/账户数；未回本饼：未回本/本金/账户数（均无百分比）
+  const rows = window.__rpMode === 'principal'
+    ? `<div class="ec-tip-row"><span>账户数</span><b>${d.userCount} 人</b></div>
+       <div class="ec-tip-row"><span>本金</span><b>¥${fmtMoney(d.principal)}</b></div>
+       <div class="ec-tip-row"><span>已回本</span><b style="color:var(--success)">¥${fmtMoney(d.earned)}</b></div>`
+    : `<div class="ec-tip-row"><span>账户数</span><b>${d.userCount} 人</b></div>
+       <div class="ec-tip-row"><span>项目本金</span><b>¥${fmtMoney(d.principal)}</b></div>
+       <div class="ec-tip-row"><span>未回本</span><b style="color:var(--danger)">¥${fmtMoney(d.remain)}</b></div>`;
+  tip.innerHTML = `<div class="ec-tip-date">${escapeHtml(d.name)}</div>${rows}`;
+  tip.classList.add('show');
+}
+// 扇区元素可能因整圆拆分为两个半圆，统一按 class 清除淡化
+function rpLeave() {
+  document.querySelectorAll('#rpBody .rp-slice').forEach(el => el.classList.remove('dim'));
+  document.querySelectorAll('#rpBody .rp-li').forEach(el => el.classList.remove('dim'));
+  const tip = document.getElementById('rpTip');
+  if (tip) tip.classList.remove('show');
 }
 
 /* ---------- 台账 ---------- */
