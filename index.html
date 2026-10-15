@@ -994,9 +994,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
   /* [需求五] 新增绑定/修改手机号、修改邮箱弹窗同样居中小卡片 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal { padding: 16px; align-items: center; }
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #principalChartModal, #remainPieModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #principalChartModal .modal, #remainPieModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -1004,6 +1004,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   #quickAmountModal .modal { max-width: 420px; width: 100%; height: auto; }
   #marketModal .modal { max-width: 440px; width: 100%; height: auto; }
   #earnChartModal .modal { max-width: 460px; width: 100%; height: auto; }
+  /* [修复] 今日回本明细/本金图/未回本图 手机端与回本曲线一致：居中小卡片，不全屏（内容超长内部滚动） */
+  #todayListModal .modal, #principalChartModal .modal, #remainPieModal .modal { max-width: 460px; width: 100%; height: auto; }
+  #todayListModal .modal-body, #principalChartModal .modal-body, #remainPieModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #sellPickLayer .modal { max-width: 520px; width: 100%; height: auto; }
   #projectModal .modal { max-width: 460px; width: 100%; height: auto; }
   #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
