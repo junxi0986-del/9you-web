@@ -20,7 +20,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.15');</script>  <!-- [V] 版本号格式统一；[统计页] 新增独立统计页 --> 
+<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.17');</script>  <!-- [V] 版本号格式统一；[统计页] 新增独立统计页 + 全部统计（项目回本饼图/月度柱图） --> 
 <!-- [W] Content-Security-Policy：仅允许本站资源、jsdelivr CDN 与 Supabase。
      刻意保持适度宽松（见各指令注释），避免误伤导致页面/PWA 挂掉：
      - script-src 保留 'unsafe-inline'：主题预加载、全部内联脚本依赖它；
@@ -952,8 +952,22 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .st-cal-cell .amt.none { color: var(--text-secondary); opacity: .4; font-weight: 400; }
 .st-cal-cell.today { border: 1.5px solid var(--primary); background: rgba(37,99,235,.10); background: color-mix(in srgb, var(--primary) 12%, var(--input-bg)); }
 .st-cal-cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* [全部统计] 饼图/月柱动画由 JS requestAnimationFrame 驱动（时钟式扫光/逐根升起）；图例常显，仅中心文字淡入 */
+.st-pie-slice { transition: opacity .2s ease; }
+.st-pie-slice.dim { opacity: .25; }
+.st-pie-center { opacity: 0; transition: opacity .45s ease; }
+.st-pie-fade .st-pie-center { opacity: 1; }
+.st-mbar-amt { opacity: 0; transition: opacity .3s ease; }
+#stPieTip, #stBarTipEl { top: 10px; left: 50%; right: auto; bottom: auto; transform: translateX(-50%); }
+@media (prefers-reduced-motion: reduce) {
+  .st-pie-center, .st-mbar-amt { opacity: 1 !important; transition: none !important; }
+}
 /* 当日明细 */
-.st-day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.st-day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.st-day-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* 明细栏紧凑项目筛选下拉（右对齐浮层，避免窄屏溢出） */
+.st-dd-sm .st-dd-btn { height: 30px; padding: 0 26px 0 10px; font-size: 12px; max-width: 150px; min-width: 96px; border-radius: 8px; }
+.st-dd-sm .st-dd-menu { right: 0; left: auto; top: calc(100% + 4px); min-width: 180px; max-width: 72vw; max-height: 260px; overflow-y: auto; z-index: 30; }
 .st-day-total { font-size: 15px; color: var(--success); white-space: nowrap; }
 .st-table .st-money { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; }
 .st-table .st-proj { display: flex; align-items: center; gap: 6px; white-space: normal; }
@@ -1709,20 +1723,20 @@ html.in-app #loginWrap {
       </div>
     </div>
 
-    <!-- 回本曲线（与回本曲线弹窗共用 renderEarnCurve） -->
+    <!-- 回本曲线（与回本曲线弹窗共用 renderEarnCurve）；「全部统计」时此处渲染项目回本饼图 -->
     <div class="table-card st-section">
-      <h3 class="st-sec-title">📈 回本曲线</h3>
+      <h3 class="st-sec-title" id="stCurveTitle">📈 回本曲线</h3>
       <div id="stCurveHost"></div>
     </div>
 
-    <!-- 回本日历 -->
+    <!-- 回本日历（按月时）/ 月度回本柱状图（全部统计时，点柱查看当月明细） -->
     <div class="table-card st-section">
       <div class="st-sec-head">
         <h3 class="st-sec-title">📅 <span id="stMonthTitle">回本日历</span></h3>
-        <span class="st-sec-hint">点击日期查看当日明细</span>
+        <span class="st-sec-hint" id="stCalHint">点击日期查看当日明细</span>
       </div>
       <!-- 周日开头：日 一 二 三 四 五 六，与 new Date(y,m-1,1).getDay() 对齐 -->
-      <div class="st-cal-nav">
+      <div class="st-cal-nav" id="stCalNav">
         <button type="button" class="st-cal-arrow" id="stPrevMonth" onclick="stStepMonth(-1)" aria-label="上一月" title="上一月">‹</button>
         <div class="st-cal-main">
           <div class="st-cal-head"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
@@ -1730,18 +1744,29 @@ html.in-app #loginWrap {
         </div>
         <button type="button" class="st-cal-arrow" id="stNextMonth" onclick="stStepMonth(1)" aria-label="下一月" title="下一月">›</button>
       </div>
+      <!-- [全部统计] 月度回本柱状图容器 -->
+      <div id="stBarHost" style="display:none"></div>
     </div>
 
     <!-- 当日明细 -->
     <div class="table-card st-section st-section-last">
       <div class="st-day-head">
         <h3 class="st-sec-title" id="stDayTitle">—</h3>
-        <b class="st-day-total" id="stDayTotal"></b>
+        <div class="st-day-tools">
+          <!-- [需求] 明细按项目筛选：仅作用于下方明细列表，不影响上方曲线/日历/柱图 -->
+          <div class="st-dd st-dd-sm" id="stDetailDD">
+            <button type="button" class="st-dd-btn" onclick="stDetailDDToggle(event)">
+              <span class="st-dd-label" id="stDetailLabel">全部项目</span><span class="st-dd-caret">▾</span>
+            </button>
+            <div class="st-dd-menu" id="stDetailMenu"></div>
+          </div>
+          <b class="st-day-total" id="stDayTotal"></b>
+        </div>
       </div>
       <table class="st-table">
         <thead>
           <tr>
-            <th style="width:64px">时间</th>
+            <th style="width:64px" id="stThTime">时间</th>
             <th>项目</th>
             <th>账户ID/姓名</th>
             <th style="width:80px">数量</th>
@@ -3940,6 +3965,11 @@ function showPage(page, opts) {
   document.getElementById('pageStats').classList.toggle('active', page === 'stats');
   if (page !== 'bill') onBillPage = false;  // 离开账单页时复位标识
   if (page !== 'stats') onStatsPage = false;  // [统计页] 离开统计页时复位标识
+  if (wasOnStats && page !== 'stats') {       // [统计页] 离开时停掉未播放的滚动动画监听与帧循环
+    if (typeof stRevealClear === 'function') stRevealClear();
+    if (stPieRAF) { cancelAnimationFrame(stPieRAF); stPieRAF = 0; }
+    if (stBarRAF) { cancelAnimationFrame(stBarRAF); stBarRAF = 0; }
+  }
   if (page === 'list') {
     // [P] 从详情页/账单页返回列表才播放汇总动画；纯页签切换/数据刷新不播
     // [3] 用复位前的 wasOnBill 判断，三种场景：详情返回(currentProjectId)、
@@ -6416,10 +6446,39 @@ function ecLeave(prefix) {
 /* ---------- [统计页] 独立统计页：月份/项目筛选 + 回本曲线 + 月历 + 当日明细 ---------- */
 let onStatsPage = false;       // 当前是否处于统计页（showPage/popstate 联动）
 let statsSavedScroll = 0;      // 进入前首页滚动位置（返回时恢复，避免首页重排后位置跳动）
-let stMonth = '';              // 选中月份 YYYY-MM（默认当前月）
+let stMonth = '';              // 选中月份 YYYY-MM（默认当前月）；'all'=全部统计
 let stProjectId = '';          // 选中项目 id，''=全部项目
 let stSelectedDay = '';        // 月历选中日期 YYYY-MM-DD
+let stSelectedMonthAll = '';   // [全部统计] 月度柱状图选中的月份 YYYY-MM
+let stDetailProjectId = '';    // [需求] 明细栏独立的项目筛选（''=全部项目），只影响明细列表
 let stLastRows = [];           // 当前筛选下的明细行缓存（点击日格免重算）
+let stPieRAF = 0, stBarRAF = 0; // rAF 句柄（重渲染/离开时取消，避免多动画并行）
+let stRevealFns = new Set();   // 滚动可见检测的注销句柄（重渲染时全部撤销，避免重复触发）
+const ST_ALL = 'all';          // 「全部统计」下拉值哨兵
+
+// [动画] 显式滚动检测：元素真正滚入视口（露出 ≥15% 且顶部进入屏幕 92% 线以内）才触发一次。
+// 不依赖 IntersectionObserver（嵌套/切换页面时 IO 可能提前误判）；scroll 用捕获监听，兼容任意滚动容器。
+function stWhenVisible(el, play, fracNeed) {
+  fracNeed = fracNeed || 0.15;
+  function check() {
+    if (!el.isConnected) { cleanup(); return; }
+    const r = el.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight;
+    const visH = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+    const frac = visH / Math.max(1, Math.min(r.height, vh));
+    if (frac >= fracNeed && r.top < vh * 0.92 && r.bottom > vh * 0.08) { cleanup(); play(); }
+  }
+  function cleanup() {
+    window.removeEventListener('scroll', check, true);
+    window.removeEventListener('resize', check);
+    stRevealFns.delete(cleanup);
+  }
+  window.addEventListener('scroll', check, { passive: true, capture: true });
+  window.addEventListener('resize', check);
+  stRevealFns.add(cleanup);
+  check();  // 挂载时若已在视口内立即播放
+  return cleanup;
+}
+function stRevealClear() { stRevealFns.forEach(fn => fn()); stRevealFns.clear(); }
 
 // 从首页「总累计收益」卡片进入
 function openStatsPage() {
@@ -6434,7 +6493,11 @@ function openStatsPage() {
   stMonth = months.includes(cur) ? cur : months[months.length - 1];
   stProjectId = '';
   stSelectedDay = '';
-  document.getElementById('stMonthSel').innerHTML = months
+  stSelectedMonthAll = '';
+  stDetailProjectId = '';   // 每次进入统计页，明细项目筛选恢复「全部项目」
+  // 首项固定为「全部统计」，其后按时间升序列出有数据/当前月
+  document.getElementById('stMonthSel').innerHTML =
+    `<option value="${ST_ALL}">全部统计</option>` + months
     .map(m => `<option value="${m}"${m === stMonth ? ' selected' : ''}>${ecMonthLabel(m)}</option>`).join('');
   stRenderProjMenu();
   document.getElementById('stProjLabel').textContent = '全部项目';
@@ -6447,14 +6510,21 @@ function openStatsPage() {
 }
 // 「← 返回」：showPage('list') 内部会消费历史、恢复滚动、跳过 count-up
 function closeStatsPage() { showPage('list'); }
-function stSwitchMonth(v) { if (!v) return; stMonth = v; stSelectedDay = ''; stRenderAll(); }
+function stSwitchMonth(v) {
+  if (!v) return;
+  stMonth = v;
+  stSelectedDay = '';
+  stSelectedMonthAll = '';
+  stRenderAll();
+}
 // [需求] 日历左右箭头：仅在月份下拉所列（有数据或当前月）的月份间顺序切换，到边界置灰
+// 下拉第 0 项为「全部统计」（箭头在该模式下隐藏），真实月份从索引 1 开始
 function stStepMonth(dir) {
   const sel = document.getElementById('stMonthSel');
   const list = [...sel.options].map(o => o.value);
   const i = list.indexOf(stMonth);
   const n = i + dir;
-  if (i < 0 || n < 0 || n >= list.length) return;
+  if (i < 1 || n < 1 || n >= list.length) return;
   sel.value = list[n];      // 同步顶部月份下拉
   stSwitchMonth(list[n]);
 }
@@ -6463,14 +6533,15 @@ function stUpdateMonthArrows() {
   const i = list.indexOf(stMonth);
   const prev = document.getElementById('stPrevMonth');
   const next = document.getElementById('stNextMonth');
-  if (prev) prev.disabled = i <= 0;
-  if (next) next.disabled = i < 0 || i >= list.length - 1;
+  if (prev) prev.disabled = i <= 1;
+  if (next) next.disabled = i < 1 || i >= list.length - 1;
 }
 function stSwitchProject(id) {
   stProjectId = id || '';
   const p = stProjectId ? getProject(stProjectId) : null;
   document.getElementById('stProjLabel').textContent = p ? p.name : '全部项目';
   stSelectedDay = '';
+  stSelectedMonthAll = '';
   stDDClose();
   stRenderAll();
 }
@@ -6491,9 +6562,52 @@ function stRenderProjMenu() {
     item('', '全部项目', '') + projects.map(p => item(p.id, p.name, p.logo || '')).join('');
 }
 function stDDToggle(ev) { ev.stopPropagation(); document.getElementById('stProjDD').classList.toggle('open'); }
-function stDDClose() { const dd = document.getElementById('stProjDD'); if (dd) dd.classList.remove('open'); }
-// 点击下拉外部自动收起（点击内部选项不触发，由 stSwitchProject 显式关闭）
-document.addEventListener('click', ev => { if (!ev.target.closest('#stProjDD')) stDDClose(); });
+function stDDClose() {
+  const dd = document.getElementById('stProjDD'); if (dd) dd.classList.remove('open');
+  const dd2 = document.getElementById('stDetailDD'); if (dd2) dd2.classList.remove('open');
+}
+// 点击下拉外部自动收起（点击内部选项不触发，由切换函数显式关闭）
+document.addEventListener('click', ev => {
+  if (!ev.target.closest('#stProjDD') && !ev.target.closest('#stDetailDD')) stDDClose();
+});
+
+// ===== 明细栏项目筛选（独立于顶部项目下拉；项目列表跟随顶部范围，顶部为全部时即所有项目） =====
+function stRenderDetailMenu() {
+  const scope = stScope();
+  const item = (id, label, logo) =>
+    `<div class="st-dd-item${id === stDetailProjectId ? ' active' : ''}" onclick="stSwitchDetailProject('${id}')">`
+    + (logo
+      ? `<img src="${logo}" alt="">`
+      : '<span style="width:20px;height:20px;flex-shrink:0"></span>')
+    + `<span>${escapeHtml(label)}</span></div>`;
+  document.getElementById('stDetailMenu').innerHTML =
+    item('', '全部项目', '') + scope.map(p => item(p.id, p.name, p.logo || '')).join('');
+  const cur = stDetailProjectId ? scope.find(p => p.id === stDetailProjectId) : null;
+  document.getElementById('stDetailLabel').textContent = cur ? cur.name : '全部项目';
+  if (!cur) stDetailProjectId = '';   // 顶部项目切换后原选择不在范围内则回全部
+}
+function stDetailDDToggle(ev) {
+  ev.stopPropagation();
+  document.getElementById('stDetailDD').classList.toggle('open');
+}
+function stSwitchDetailProject(id) {
+  stDetailProjectId = id || '';
+  const scope = stScope();
+  const p = stDetailProjectId ? scope.find(x => x.id === stDetailProjectId) : null;
+  document.getElementById('stDetailLabel').textContent = p ? p.name : '全部项目';
+  stRenderDetailMenu();
+  stDDClose();
+  stRenderCurrentDetail();
+}
+// 按当前模式（当日 / 全部统计的选月）+ 明细项目筛选计算并渲染列表
+function stRenderCurrentDetail() {
+  const allMode = stMonth === ST_ALL;
+  let rows = allMode
+    ? stLastRows.filter(r => r.date.slice(0, 7) === stSelectedMonthAll)
+    : stLastRows.filter(r => r.date === stSelectedDay);
+  if (stDetailProjectId) rows = rows.filter(r => r.p.id === stDetailProjectId);
+  stRenderDay(rows, allMode);
+}
 
 // 收集当前筛选范围的台账明细行（字段口径与 bill_collectToday 一致）
 function stCollect(scope) {
@@ -6535,17 +6649,318 @@ function stCompactMoney(n) {
   return Math.round(n).toLocaleString('zh-CN');
 }
 
-// 曲线 / 月历 / 明细三处联动重绘
+// 曲线 / 月历（或全部模式的饼图/月柱）/ 明细三处联动重绘
 function stRenderAll() {
+  stRevealClear();  // 撤销上一批「滚入视口」监听，防止旧元素提前触发
+  if (stPieRAF) { cancelAnimationFrame(stPieRAF); stPieRAF = 0; }
+  if (stBarRAF) { cancelAnimationFrame(stBarRAF); stBarRAF = 0; }
   const scope = stScope();
-  renderEarnCurve(document.getElementById('stCurveHost'), stMonth, scope, 'st');
   stLastRows = stCollect(scope);
+  const allMode = stMonth === ST_ALL;
+  // 全部模式：日历导航隐藏、月度柱状图容器显示；按月模式反之
+  document.getElementById('stCalNav').style.display = allMode ? 'none' : '';
+  document.getElementById('stBarHost').style.display = allMode ? '' : 'none';
+  if (allMode) { stRenderAllView(); return; }
+  document.getElementById('stCurveTitle').textContent = '📈 回本曲线';
+  renderEarnCurve(document.getElementById('stCurveHost'), stMonth, scope, 'st');
   const dayMap = new Map();
   stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
   if (!stSelectedDay) stSelectedDay = stPickDefaultDay(dayMap);
   stRenderCalendar(dayMap);
   stUpdateMonthArrows();
-  stRenderDay(stLastRows.filter(r => r.date === stSelectedDay));
+  stRenderDetailMenu();
+  stRenderCurrentDetail();
+}
+
+/* ===== [全部统计] 项目回本饼图 + 月度回本柱状图 + 当月明细 ===== */
+function stRenderAllView() {
+  document.getElementById('stCurveTitle').textContent = '🥧 各项目累计回本占比';
+  stRenderPie(stLastRows);
+  // 按月聚合（仅含有记录的月份）
+  const monthMap = new Map();
+  stLastRows.forEach(r => {
+    const m = r.date.slice(0, 7);
+    monthMap.set(m, (monthMap.get(m) || 0) + r.price);
+  });
+  document.getElementById('stMonthTitle').textContent = '月度回本（全部月份）';
+  document.getElementById('stCalHint').textContent = '点击柱子查看当月全部明细';
+  stRenderMonthBars(monthMap);
+  stUpdateMonthArrows();
+  stRenderDetailMenu();
+  stRenderCurrentDetail();
+}
+
+// 各项目累计回本饼图（环形、stroke-dash 从 12 点顺时针扫光；滚动到可视区才播放）
+function stRenderPie(rows) {
+  const host = document.getElementById('stCurveHost');
+  const agg = new Map();   // pid -> {name, value, principal, userCount}
+  rows.forEach(r => {
+    const p = r.p;
+    if (!agg.has(p.id)) agg.set(p.id, { name: p.name || '未命名', value: 0, principal: 0, userCount: (p.users || []).length });
+    agg.get(p.id).value += r.price;
+  });
+  stScope().forEach(p => {
+    if (!agg.has(p.id)) agg.set(p.id, { name: p.name || '未命名', value: 0, principal: 0, userCount: (p.users || []).length });
+    const a = agg.get(p.id);
+    (p.users || []).forEach(u => { a.principal += Number(u.principal) || 0; });
+  });
+  const data = [...agg.values()].filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  if (!data.length) {
+    host.innerHTML = '<div class="ec-empty">📭 暂无回本记录<br>添加回本金额后，这里会展示各项目累计回本占比</div>';
+    return;
+  }
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const totalP = data.reduce((s, d) => s + d.principal, 0);
+
+  const W = 640, H = 340, cx = W / 2, cy = 150, r = 92, sw = 38;
+  const C = 2 * Math.PI * r;
+  let acc = 0, slices = '', segs = [];
+  data.forEach((d, i) => {
+    const len = d.value / total * C;
+    const color = RP_COLORS[i % RP_COLORS.length];
+    // 初始 dasharray=0（不可见），由 stPlayPie 的 rAF 像时钟一样从 12 点顺时针连续扫出
+    slices += `<circle class="st-pie-slice" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}"
+      transform="rotate(-90 ${cx} ${cy})"
+      stroke-dasharray="0 ${C}" stroke-dashoffset="${-acc}"
+      data-i="${i}" onpointerenter="stPieHover(${i})" onpointerdown="stPieHover(${i})" onpointerleave="stPieLeave()"/>`;
+    segs.push({ sf: acc / C, ef: (acc + len) / C });
+    acc += len;
+  });
+  const legend = data.map((d, i) =>
+    `<div class="rp-li" data-i="${i}" onpointerenter="stPieHover(${i})" onpointerleave="stPieLeave()">
+      <span class="dot" style="background:${RP_COLORS[i % RP_COLORS.length]}"></span>
+      <span class="nm">${escapeHtml(d.name)}</span>
+      <span class="vl">¥${fmtMoney(d.value)}</span>
+    </div>`).join('');
+
+  host.innerHTML = `
+    <div class="ec-stats">
+      <div class="ec-stat"><div class="k">回本项目</div><div class="v">${data.length} 个</div></div>
+      <div class="ec-stat"><div class="k">累计回本</div><div class="v" style="color:var(--success)">${fmtMoney(total)}</div></div>
+      <div class="ec-stat"><div class="k">总本金</div><div class="v">${fmtMoney(totalP)}</div></div>
+    </div>
+    <div class="ec-chart-wrap" id="stPieWrap">
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${sw}" opacity=".55"/>
+        <g class="st-pie-slices">${slices}</g>
+        <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="12" fill="var(--text-secondary)" class="st-pie-center" pointer-events="none">累计回本（元）</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--success)" class="st-pie-center" pointer-events="none">${ecShort(total)}</text>
+      </svg>
+      <div class="ec-tip" id="stPieTip"></div>
+    </div>
+    <div class="rp-legend">${legend}</div>`;
+  window.__stPieData = data;
+
+  // 动画：单条时间轴 p(0→1) 沿圆周顺时针推进，扫过哪个扇区哪个扇区就长到对应位置（时钟式连续扫光）
+  const wrapEl = document.getElementById('stPieWrap');
+  const els = [...wrapEl.querySelectorAll('.st-pie-slice')];
+  const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+  function stPieFinal() {
+    els.forEach((el, i) => {
+      const full = (segs[i].ef - segs[i].sf) * C;
+      el.setAttribute('stroke-dasharray', `${full} ${C - full}`);
+    });
+    host.classList.add('st-pie-fade');
+  }
+  function stPlayPie() {
+    if (stPieRAF) cancelAnimationFrame(stPieRAF);
+    const DUR = 1200, t0 = performance.now();
+    (function tick(now) {
+      const p = Math.min(1, (now - t0) / DUR), e = easeOutCubic(p);
+      els.forEach((el, i) => {
+        const vis = Math.max(0, Math.min(e, segs[i].ef) - segs[i].sf) * C;  // 扫过的弧长
+        el.setAttribute('stroke-dasharray', `${vis} ${C - vis}`);
+      });
+      if (e > 0.82) host.classList.add('st-pie-fade');
+      if (p < 1) { stPieRAF = requestAnimationFrame(tick); } else { stPieRAF = 0; stPieFinal(); }
+    })(t0);
+  }
+  // 滚动到当前位置（进入视口）才播放；不支持环境 / 减弱动效时直接呈现最终态
+  if (stPieRAF) { cancelAnimationFrame(stPieRAF); stPieRAF = 0; }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { stPieFinal(); return; }
+  stWhenVisible(wrapEl, stPlayPie, 0.2);
+}
+function stPieHover(i) {
+  const d = window.__stPieData && window.__stPieData[i];
+  if (!d) return;
+  document.querySelectorAll('#stCurveHost .st-pie-slice').forEach(el =>
+    el.classList.toggle('dim', Number(el.dataset.i) !== i));
+  document.querySelectorAll('#stCurveHost .rp-li').forEach(el =>
+    el.classList.toggle('dim', Number(el.dataset.i) !== i));
+  const tip = document.getElementById('stPieTip');
+  tip.innerHTML = `<div class="ec-tip-date">${escapeHtml(d.name)}</div>
+    <div class="ec-tip-row"><span>账户数</span><b>${d.userCount} 人</b></div>
+    <div class="ec-tip-row"><span>项目本金</span><b>¥${fmtMoney(d.principal)}</b></div>
+    <div class="ec-tip-row"><span>累计回本</span><b style="color:var(--success)">¥${fmtMoney(d.value)}</b></div>`;
+  tip.classList.add('show');
+}
+function stPieLeave() {
+  document.querySelectorAll('#stCurveHost .st-pie-slice').forEach(el => el.classList.remove('dim'));
+  document.querySelectorAll('#stCurveHost .rp-li').forEach(el => el.classList.remove('dim'));
+  const tip = document.getElementById('stPieTip');
+  if (tip) tip.classList.remove('show');
+}
+
+// 月度回本柱状图：每根柱=一个月，点击选中后下方明细切到该月
+function stRenderMonthBars(monthMap) {
+  const host = document.getElementById('stBarHost');
+  const months = [...monthMap.keys()].sort();
+  if (!months.length) {
+    host.innerHTML = '<div class="ec-empty">📭 暂无回本记录<br>添加回本金额后，这里会按月展示回本柱状图</div>';
+    return;
+  }
+  // 默认选中：当前月（有记录时）否则最近一个月
+  const cur = nowLocal().slice(0, 7);
+  if (!stSelectedMonthAll || !monthMap.has(stSelectedMonthAll)) {
+    stSelectedMonthAll = monthMap.has(cur) ? cur : months[months.length - 1];
+  }
+  const data = months.map(m => ({ m, v: monthMap.get(m) }));
+  const W = 640, H = 340, padL = 52, padR = 16, padT = 28, padB = 52;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = data.length;
+  const yMax = ecNiceMax(Math.max(...data.map(d => d.v), 1) * 1.15);
+  const yOf = v => padT + plotH - Math.max(0, Math.min(yMax, v)) / yMax * plotH;
+  const baseY = yOf(0);
+  const band = plotW / n, barW = Math.max(3, Math.min(34, band * 0.62));
+  let grid = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = yMax * k / 4, y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="rgba(148,163,184,.22)" stroke-width="1"/>`;
+    grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text-secondary)">${ecShort(v)}</text>`;
+  }
+  grid += `<line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="rgba(148,163,184,.4)" stroke-width="1"/>`;
+  // X 标签最多 8 个等距抽取；每根柱均可点。初始全部压在基线（height=0），由 rAF 逐根升起
+  const labEvery = Math.max(1, Math.ceil(n / 8));
+  let bars = '', labels = '', animBars = [];
+  data.forEach((d, i) => {
+    const cx = padL + band * i + band / 2;
+    const x = cx - barW / 2, yFull = yOf(d.v), hFull = Math.max(0, baseY - yFull);
+    const sel = d.m === stSelectedMonthAll;
+    bars += `<rect class="st-mbar${sel ? ' selected' : ''}" data-m="${d.m}" data-i="${i}" x="${x}" y="${baseY}" width="${barW}" height="0" rx="3"
+      fill="var(--primary)" opacity="${sel ? 1 : .45}" style="cursor:pointer"
+      onpointerenter="stBarTip(${i})" onpointermove="stBarMove(event)" onpointerdown="stBarTip(${i});stBarMove(event)" onpointerleave="stBarLeave()"
+      onclick="stPickMonth('${d.m}')"/>`;
+    if (hFull > 15) bars += `<text class="st-mbar-amt" data-amt-i="${i}" x="${cx}" y="${yFull - 5}" text-anchor="middle" font-size="10" fill="var(--text-secondary)" pointer-events="none">${ecShort(d.v)}</text>`;
+    animBars.push({ x, yFull, hFull });
+    if (i % labEvery === 0 || i === n - 1) {
+      labels += `<text x="${cx}" y="${H - padB + 20}" text-anchor="middle" font-size="10.5" fill="${sel ? 'var(--primary)' : 'var(--text-secondary)'}" font-weight="${sel ? 700 : 400}" pointer-events="none">${Number(d.m.slice(5, 7))}月</text>`;
+    }
+  });
+  host.innerHTML = `
+    <div class="ec-chart-wrap" id="stBarWrap">
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${grid}${bars}${labels}</svg>
+      <div class="ec-tip" id="stBarTipEl"></div>
+    </div>`;
+  window.__stBarData = data;
+
+  // 动画：rAF 逐根从基线升起（直接改 y/height 属性，不依赖 transform-box，旧 WebView 也丝滑）
+  const wrapEl = document.getElementById('stBarWrap');
+  const rects = [...wrapEl.querySelectorAll('.st-mbar')];
+  const amts = [...wrapEl.querySelectorAll('.st-mbar-amt')];
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+  function stBarFinal() {
+    rects.forEach((el, i) => { el.setAttribute('y', animBars[i].yFull); el.setAttribute('height', animBars[i].hFull); });
+    amts.forEach(t => { t.style.opacity = '1'; });
+  }
+  function stPlayBars() {
+    if (stBarRAF) cancelAnimationFrame(stBarRAF);
+    const RISE = 560, GAP = Math.min(45, 900 / Math.max(n, 1));
+    const t0 = performance.now();
+    (function tick(now) {
+      const elapsed = now - t0;
+      let done = true;
+      rects.forEach((el, i) => {
+        const lp = Math.max(0, Math.min(1, (elapsed - i * GAP) / RISE));
+        if (lp < 1) done = false;
+        const e = easeOut(lp), h = animBars[i].hFull * e;
+        el.setAttribute('y', baseY - h);
+        el.setAttribute('height', h);
+      });
+      amts.forEach((t, i) => {
+        const lp = Math.max(0, Math.min(1, (elapsed - i * GAP) / RISE));
+        t.style.opacity = lp > 0.55 ? String(Math.min(1, (lp - 0.55) / 0.45)) : '0';
+      });
+      if (!done) { stBarRAF = requestAnimationFrame(tick); } else { stBarRAF = 0; stBarFinal(); }
+    })(t0);
+  }
+  if (stBarRAF) { cancelAnimationFrame(stBarRAF); stBarRAF = 0; }
+  const reduceBar = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceBar) { stBarFinal(); return; }
+  // 真正滚入视口才逐根升起（实测重叠比例，避免还没滚到就播完）
+  stWhenVisible(wrapEl, stPlayBars, 0.18);
+}
+function stBarTip(i) {
+  const d = window.__stBarData && window.__stBarData[i];
+  if (!d) return;
+  const tip = document.getElementById('stBarTipEl');
+  tip.innerHTML = `<div class="ec-tip-date">${ecMonthLabel(d.m)}</div>
+    <div class="ec-tip-row"><span>当月回本</span><b style="color:var(--primary)">¥${fmtMoney(d.v)}</b></div>
+    <div class="ec-tip-row"><span>操作</span><b>点击查看明细</b></div>`;
+  tip.classList.add('show');
+}
+function stBarMove(e) {
+  const tip = document.getElementById('stBarTipEl');
+  const wrap = document.getElementById('stBarWrap');
+  if (!tip || !wrap) return;
+  const r = wrap.getBoundingClientRect();
+  let x = e.clientX - r.left, y = e.clientY - r.top;
+  tip.style.visibility = 'hidden';
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.visibility = '';
+  x = Math.min(Math.max(10, x - tw / 2), r.width - tw - 10);
+  y = y - th - 16 < 0 ? y + 16 : y - th - 16;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+function stBarLeave() {
+  const tip = document.getElementById('stBarTipEl');
+  if (tip) tip.classList.remove('show');
+}
+// 点击柱子：高亮切换 + 明细切换为该月全部记录（不整图重绘，避免生长动画重播）
+function stPickMonth(m) {
+  if (!m) return;
+  stSelectedMonthAll = m;
+  document.querySelectorAll('#stBarWrap .st-mbar').forEach(el => {
+    const sel = el.dataset.m === m;
+    el.classList.toggle('selected', sel);
+    el.setAttribute('opacity', sel ? '1' : '.45');
+  });
+  stRenderCurrentDetail();
+}
+
+// 明细渲染：按月模式（monthMode=true，标题=YYYY年M月、首列显示日期）或当日模式
+function stRenderDay(rows, monthMode) {
+  rows.sort((a, b) =>
+    monthMode
+      ? (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))
+      : (a.time || '').localeCompare(b.time || ''));
+  const total = rows.reduce((s, r) => s + r.price, 0);
+  document.getElementById('stDayTitle').textContent = monthMode
+    ? (stSelectedMonthAll ? ecMonthLabel(stSelectedMonthAll) : '当月') + ' 回本明细'
+    : `${+stSelectedDay.slice(5, 7)}月${+stSelectedDay.slice(8, 10)}日 回本明细`;
+  document.getElementById('stThTime').textContent = monthMode ? '日期' : '时间';
+  document.getElementById('stDayTotal').textContent = '¥' + fmtMoney(total);
+  document.getElementById('stDayFoot').textContent = fmtMoney(total);
+  const body = document.getElementById('stDayBody');
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="6" class="st-empty">${monthMode ? '该月' : '该日'}暂无回本记录</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const logo = r.p.logo ? `<img src="${r.p.logo}" alt="">` : '';
+    const tCell = monthMode
+      ? `${escapeHtml(r.date.slice(5))}${r.time ? `<div class="st-sub">${escapeHtml(r.time)}</div>` : ''}`
+      : (r.time ? escapeHtml(r.time) : '—');
+    return `<tr>
+      <td data-label="${monthMode ? '日期' : '时间'}">${tCell}</td>
+      <td data-label="项目"><span class="st-proj">${logo}<span>${escapeHtml(r.p.name || '—')}</span></span></td>
+      <td data-label="账户">${escapeHtml(r.userId)}<div class="st-sub">${escapeHtml(r.userName)}</div></td>
+      <td data-label="数量">${r.qty === null ? '—' : r.qty}</td>
+      <td data-label="市场价">${r.rate === null ? '—' : '¥' + fmtMoney(r.rate) + (Number(r.refQty) > 1 ? '/' + fmtMoney(r.refQty) : '')}</td>
+      <td data-label="回本金额" class="st-money">¥${fmtMoney(r.price)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // 渲染所选月份完整月历（周日开头，与 getDay() 直接对齐）
@@ -6555,6 +6970,7 @@ function stRenderCalendar(dayMap) {
   const dim = new Date(y, m, 0).getDate();         // 当月天数
   const today = nowLocal().slice(0, 10);
   document.getElementById('stMonthTitle').textContent = ecMonthLabel(stMonth);
+  document.getElementById('stCalHint').textContent = '点击日期查看当日明细';
   let html = '';
   for (let i = 0; i < firstWd; i++) html += '<div class="st-cal-cell empty"></div>';
   for (let d = 1; d <= dim; d++) {
@@ -6570,39 +6986,13 @@ function stRenderCalendar(dayMap) {
   }
   document.getElementById('stCalGrid').innerHTML = html;
 }
-// 点击某日：高亮该格 + 明细切换到当日
+// 点击某日：高亮该格 + 明细切换到当日（应用明细项目筛选）
 function stPickDay(ds) {
   stSelectedDay = ds;
   const dayMap = new Map();
   stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
   stRenderCalendar(dayMap);
-  stRenderDay(stLastRows.filter(r => r.date === ds));
-}
-
-// 渲染当日明细（桌面表格 / ≤600px 自动卡片式竖排）
-function stRenderDay(rows) {
-  rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-  const total = rows.reduce((s, r) => s + r.price, 0);
-  const M = +stSelectedDay.slice(5, 7), D = +stSelectedDay.slice(8, 10);
-  document.getElementById('stDayTitle').textContent = `${M}月${D}日 回本明细`;
-  document.getElementById('stDayTotal').textContent = '¥' + fmtMoney(total);
-  document.getElementById('stDayFoot').textContent = fmtMoney(total);
-  const body = document.getElementById('stDayBody');
-  if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" class="st-empty">该日暂无回本记录</td></tr>';
-    return;
-  }
-  body.innerHTML = rows.map(r => {
-    const logo = r.p.logo ? `<img src="${r.p.logo}" alt="">` : '';
-    return `<tr>
-      <td data-label="时间">${r.time ? escapeHtml(r.time) : '—'}</td>
-      <td data-label="项目"><span class="st-proj">${logo}<span>${escapeHtml(r.p.name || '—')}</span></span></td>
-      <td data-label="账户">${escapeHtml(r.userId)}<div class="st-sub">${escapeHtml(r.userName)}</div></td>
-      <td data-label="数量">${r.qty === null ? '—' : r.qty}</td>
-      <td data-label="市场价">${r.rate === null ? '—' : '¥' + fmtMoney(r.rate) + (Number(r.refQty) > 1 ? '/' + fmtMoney(r.refQty) : '')}</td>
-      <td data-label="回本金额" class="st-money">¥${fmtMoney(r.price)}</td>
-    </tr>`;
-  }).join('');
+  stRenderCurrentDetail();
 }
 
 /* ---------- 项目本金柱状图：按项目聚合本金，内联SVG；颜色走 CSS 变量，深色模式自动适配 ---------- */
