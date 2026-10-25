@@ -3877,9 +3877,14 @@ function lockModalButtons(modalId, loadingText) {
   };
 }
 
-// 点击遮罩关闭弹窗（保存进行中的弹窗除外，避免中途关闭造成困惑）
+// 点击遮罩关闭弹窗（正在保存的弹窗除外；含表单的弹窗也禁止蒙层关闭，避免手滑丢数据）
 document.querySelectorAll('.modal-mask').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m && !savingModals.has(m.id)) m.classList.remove('show'); });
+  m.addEventListener('click', e => {
+    if (e.target !== m) return;
+    if (savingModals.has(m.id)) return;
+    if (m.querySelector('input:not([type=hidden]), textarea, select')) return;
+    m.classList.remove('show');
+  });
 });
 
 // 回车快捷确认：弹窗打开时按回车等同于点击"保存/确认"按钮，无需鼠标操作
