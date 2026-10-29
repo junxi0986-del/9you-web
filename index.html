@@ -637,6 +637,17 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .list-loading { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 16px; color: var(--text-secondary); font-size: 13px; }
 .list-loading .spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: listSpin .8s linear infinite; }
 @keyframes listSpin { to { transform: rotate(360deg); } }
+/* 按钮内小转圈：保存/添加/删除等异步操作进行时 */
+.btn-spinner {
+  display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4);
+  border-top-color: currentColor; border-radius: 50%; animation: listSpin .7s linear infinite;
+  margin-right: 6px; vertical-align: -2px; opacity: 0; transition: opacity .15s;
+}
+.btn.is-loading .btn-spinner { opacity: 1; }
+.btn.is-loading { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner { animation: none; opacity: .6; }
+}
 
 /* 九游撸盘社按钮：文字下→上推入轮播（按钮尺寸固定，仅文字滚动） */
 .official-btn-txt { display: inline-block; position: relative; width: 5.6em; height: 1.5em; line-height: 1.5em; overflow: hidden; vertical-align: middle; text-align: center; }
@@ -3894,6 +3905,35 @@ document.addEventListener('keydown', e => {
 
 /* ---------- 弱网防重复提交：保存期间锁定弹窗按钮 + 禁止遮罩关闭，返回解锁函数 ---------- */
 const savingModals = new Set();
+const loadingButtons = new Map();  // button -> { unlock() }  （引用计数支持并发）
+
+// 通用：锁定任意按钮（禁用 + 加 spinner + 换文案），支持并发
+function lockButton(btn, loadingText = '处理中…') {
+  if (!btn) return () => {};
+  if (loadingButtons.has(btn)) return loadingButtons.get(btn).unlock;  // 已在 loading，直接返回现有 unlock
+  const oldText = btn.textContent;
+  const originalHtml = btn.innerHTML;  // 保存原始内容，恢复时用
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.innerHTML = `<span class="btn-spinner"></span>${loadingText}`;
+  let cnt = 1;
+  const unlock = () => {
+    cnt--;
+    if (cnt > 0) return;
+    loadingButtons.delete(btn);
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.innerHTML = originalHtml;
+  };
+  loadingButtons.set(btn, {
+    unlock() { cnt++; }  // 引用计数 +1（别人也加了一次锁，不要提前解）
+  });
+  // 覆盖旧值为真实 unlock（上面存的是递增器，这里换回去）
+  loadingButtons.delete(btn);
+  loadingButtons.set(btn, true);  // 标记占用，避免重入
+  return unlock;
+}
+
 function lockModalButtons(modalId, loadingText) {
   savingModals.add(modalId);
   const modal = document.getElementById(modalId);
@@ -3904,12 +3944,19 @@ function lockModalButtons(modalId, loadingText) {
   const lockables = btns.concat(closeBtns);
   const main = btns.find(b => b.classList.contains('btn-primary')) || btns[btns.length - 1];
   lockables.forEach(b => { b.disabled = true; });
-  const oldText = main ? main.textContent : '';
-  if (main) main.textContent = loadingText || '保存中…';
+  let originalHtml = '';
+  if (main) {
+    originalHtml = main.innerHTML;
+    main.classList.add('is-loading');
+    main.innerHTML = `<span class="btn-spinner"></span>${loadingText || '保存中…'}`;
+  }
   return function unlock() {
     savingModals.delete(modalId);
     lockables.forEach(b => { b.disabled = false; });
-    if (main) main.textContent = oldText;
+    if (main) {
+      main.classList.remove('is-loading');
+      main.innerHTML = originalHtml;
+    }
   };
 }
 
@@ -3974,10 +4021,20 @@ let confirmCancelHook = null;
 document.querySelector('#confirmModal .btn-ghost').addEventListener('click', () => {
   if (confirmCancelHook) { const h = confirmCancelHook; confirmCancelHook = null; h(); }
 });
-document.getElementById('confirmOkBtn').onclick = () => {
+document.getElementById('confirmOkBtn').onclick = async () => {
+  const modal = document.getElementById('confirmModal');
+  const btn = document.getElementById('confirmOkBtn');
+  // 先锁 confirmModal 所有按钮（防连点确认）+ 转圈反馈
+  const unlock = lockModalButtons('confirmModal', '处理中…');
+  if (confirmCallback) {
+    try {
+      await confirmCallback();
+    } catch (e) { console.error(e); }
+    confirmCallback = null;
+  }
+  unlock();
   closeModal('confirmModal');
-  confirmCancelHook = null;  // 用户点了确认，取消 hook 作废
-  if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+  confirmCancelHook = null;
 };
 
 // 表单校验辅助：显示/清除某输入框错误
@@ -4810,25 +4867,28 @@ async function saveProject() {
   const suggestPrincipal = (pbMatch && pbMatch.principal !== null && pbMatch.principal !== undefined && pbMatch.principal !== '')
     ? Number(pbMatch.principal) : null;
 
-  if (id) {
-    const p = getProject(id);
-    p.name = name; p.remark = remark; p.logo = pfLogoData;
-    if (suggestPrincipal !== null) p.suggestPrincipal = suggestPrincipal;
-    toast('项目已更新', 'success');
-  } else {
-    const np = { id: uid(), name, remark, logo: pfLogoData, suggestPrincipal, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
-    projects.push(np);
-    toast('项目已新增，可立即添加账户', 'success');
+  const unlock = lockModalButtons('projectModal', '保存中…');
+  try {
+    if (id) {
+      const p = getProject(id);
+      p.name = name; p.remark = remark; p.logo = pfLogoData;
+      if (suggestPrincipal !== null) p.suggestPrincipal = suggestPrincipal;
+      toast('项目已更新', 'success');
+    } else {
+      const np = { id: uid(), name, remark, logo: pfLogoData, suggestPrincipal, createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), users: [] };
+      projects.push(np);
+      toast('项目已新增，可立即添加账户', 'success');
+      await saveCloudData(true);
+      closeModal('projectModal');
+      renderProjectGrid();
+      openUserModal('', np.id);  // 创建后直接衔接「添加账户」，无需再进项目详情
+      return;
+    }
     await saveCloudData(true);
     closeModal('projectModal');
-    renderProjectGrid();
-    openUserModal('', np.id);  // 创建后直接衔接「添加账户」，无需再进项目详情
-    return;
-  }
-  await saveCloudData(true);
-  closeModal('projectModal');
-  // 详情页编辑时同步刷新详情；主页面刷新列表
-  if (currentProjectId) renderDetail(); else renderProjectGrid();
+    // 详情页编辑时同步刷新详情；主页面刷新列表
+    if (currentProjectId) renderDetail(); else renderProjectGrid();
+  } finally { unlock(); }
 }
 
 /* ---------- 分享 / 导入项目（分享码 = 9YOU: + Base64(JSON)，含项目、账户与回本记录） ---------- */
@@ -5222,7 +5282,11 @@ function billConvLiveUpdate(recId) {
 }
 
 // 逐笔确认：把该笔确认/修改后的数量写回原始记录（转为数量模式记录），云端保存并刷新账单
+let billOneConverting = null;  // 防逐笔确认被连点
 async function billApplyConvertOne(recId) {
+  if (billOneConverting === recId) return;  // 同一条正在处理，防连点
+  billOneConverting = recId;
+  try {
   const rid = escapeHtml(recId);
   const sel = document.getElementById(`billcv-mp-${rid}`);
   const opt = sel ? sel.selectedOptions[0] : null;
@@ -5249,10 +5313,17 @@ async function billApplyConvertOne(recId) {
   await saveCloudData(true);
   toast(`已确认 1 笔（${opt.value}：${q} × ¥${fmtMoney(rate)}${ref > 1 ? '/' + ref : ''}），账单已重新生成`, 'success');
   renderBill();  // 确认后该笔转为数量模式，自动从确认区移除
+  } finally { billOneConverting = null; }
 }
 
 // 全部确认：每笔按各自匹配的品名/数量分别写回，未选品名或数量非整数的跳过并提示
+let billAllConverting = false;
 async function billApplyConvertAll() {
+  if (billAllConverting) return;
+  billAllConverting = true;
+  const btn = document.querySelector('button[onclick="billApplyConvertAll()"]');
+  const unlock = lockButton(btn, '确认中…');
+  try {
   const directs = bill_collectToday(bill_scopeProjects()).rows.filter(x => x.qty === null && x.rec);
   let n = 0, miss = 0, badInt = 0;
   directs.forEach(x => {
@@ -5282,6 +5353,7 @@ async function billApplyConvertAll() {
   const skip = [miss ? `${miss} 笔未选品名` : '', badInt ? `${badInt} 笔数量非整数` : ''].filter(Boolean).join('，');
   toast(`已确认 ${n} 笔${skip ? `，${skip} 已跳过` : ''}，账单已重新生成`, skip ? 'warn' : 'success');
   renderBill();
+  } finally { unlock(); billAllConverting = false; }
 }
 
 function renderBill() {
@@ -5664,18 +5736,21 @@ async function savePublicProject() {
   // 本金可留空；填写时必须为大于 0 的数字
   if (principalRaw && !(parseFloat(principalRaw) > 0)) { toast('项目本金需为大于 0 的数字，或留空', 'warn'); return; }
 
-  const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData, principalRaw, publisher);
-  if (error) return toast('保存失败：' + error.message, 'error');
+  const unlock = lockModalButtons('publicProjectModal', '保存中…');
+  try {
+    const error = await upsertPublicProject(id || uid(), name, remark, pinned, starred, pubfLogoData, principalRaw, publisher);
+    if (error) { toast('保存失败：' + error.message, 'error'); return; }
 
-  await loadPublicProjects();
-  // 公共项目 Logo 更新后，立即给管理员名下同名且无 Logo 的个人项目自动补齐
-  if (syncProjectLogosFromPublic()) {
-    try { await saveCloudData(true); } catch(e) {}
-    renderProjectGrid();
-  }
-  closeModal('publicProjectModal');
-  renderPublicProjects();
-  toast(id ? '公共项目已更新' : '公共项目已发布', 'success');
+    await loadPublicProjects();
+    // 公共项目 Logo 更新后，立即给管理员名下同名且无 Logo 的个人项目自动补齐
+    if (syncProjectLogosFromPublic()) {
+      try { await saveCloudData(true); } catch(e) {}
+      renderProjectGrid();
+    }
+    closeModal('publicProjectModal');
+    renderPublicProjects();
+    toast(id ? '公共项目已更新' : '公共项目已发布', 'success');
+  } finally { unlock(); }
 }
 
 // 删除公共项目（不影响用户已复制的副本）
@@ -5760,30 +5835,33 @@ async function saveUser(keepOpen) {
   ok = setError('uf-date', !date || date > todayStr()) && ok;
   if (!ok) return;
 
-  if (oldIdxRaw !== '') {
-    // 编辑：按行序号定位；若修改了账户ID，同步更新
-    const u = p.users[oldIdx];
-    if (!u) return;
-    u.id = newId; u.name = name; u.principal = principal; u.startDate = date; u.remark = remark;
-    toast('账户信息已更新', 'success');
-  } else {
-    p.users.push({ id: newId, name, principal, startDate: date, remark, prices: [], topups: [] });
-    toast('账户已添加', 'success');
-  }
-  await saveCloudData(true);
-  if (keepOpen && oldIdxRaw === '') {
-    // 连续添加：清空输入保留所选项目，无需重复打开弹窗；本金重新带入项目建议值
-    document.getElementById('uf-uid').value = '';
-    document.getElementById('uf-name').value = '';
-    document.getElementById('uf-principal').value = projectSuggestPrincipal(p);
-    document.getElementById('uf-date').value = todayStr();
-    document.getElementById('uf-remark').value = '';
-    setError('uf-uid', false); setError('uf-principal', false); setError('uf-date', false);
-    toast(`已添加「${name}」，可继续添加下一个`, 'success');
-  } else {
-    closeModal('userModal');
-  }
-  if (currentProjectId) renderDetail(); else renderProjectGrid();
+  const unlock = lockModalButtons('userModal', '保存中…');
+  try {
+    if (oldIdxRaw !== '') {
+      // 编辑：按行序号定位；若修改了账户ID，同步更新
+      const u = p.users[oldIdx];
+      if (!u) return;
+      u.id = newId; u.name = name; u.principal = principal; u.startDate = date; u.remark = remark;
+      toast('账户信息已更新', 'success');
+    } else {
+      p.users.push({ id: newId, name, principal, startDate: date, remark, prices: [], topups: [] });
+      toast('账户已添加', 'success');
+    }
+    await saveCloudData(true);
+    if (keepOpen && oldIdxRaw === '') {
+      // 连续添加：清空输入保留所选项目，无需重复打开弹窗；本金重新带入项目建议值
+      document.getElementById('uf-uid').value = '';
+      document.getElementById('uf-name').value = '';
+      document.getElementById('uf-principal').value = projectSuggestPrincipal(p);
+      document.getElementById('uf-date').value = todayStr();
+      document.getElementById('uf-remark').value = '';
+      setError('uf-uid', false); setError('uf-principal', false); setError('uf-date', false);
+      toast(`已添加「${name}」，可继续添加下一个`, 'success');
+    } else {
+      closeModal('userModal');
+    }
+    if (currentProjectId) renderDetail(); else renderProjectGrid();
+  } finally { unlock(); }
 }
 
 // 删除账户（连同其所有价格记录）；按行序号定位，删除后序号前移需清空勾选
@@ -7422,19 +7500,22 @@ async function saveTopup() {
   ok = setError('topup-date', !date) && ok;
   ok = setError('topup-amt', !(amt > 0)) && ok;
   if (!ok) return;
-  u.topups = u.topups || [];
-  u.topups.push({
-    id: crypto.randomUUID ? crypto.randomUUID() : ('topup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
-    date,
-    amount: amt
-  });
-  u.principal = round3(Number(u.principal) + amt);
-  await saveCloudData(true);
-  closeModal('topupModal');
-  renderDetail();
-  // 如果台账弹窗正开着，同步刷新
-  if (document.getElementById('ledgerModal')?.classList.contains('show')) renderLedger();
-  toast(`已为 ${u.name} 加仓 ${fmtMoney(amt)} 元，本金更新为 ${fmtMoney(u.principal)}`, 'success');
+  const unlock = lockModalButtons('topupModal', '保存中…');
+  try {
+    u.topups = u.topups || [];
+    u.topups.push({
+      id: crypto.randomUUID ? crypto.randomUUID() : ('topup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
+      date,
+      amount: amt
+    });
+    u.principal = round3(Number(u.principal) + amt);
+    await saveCloudData(true);
+    closeModal('topupModal');
+    renderDetail();
+    // 如果台账弹窗正开着，同步刷新
+    if (document.getElementById('ledgerModal')?.classList.contains('show')) renderLedger();
+    toast(`已为 ${u.name} 加仓 ${fmtMoney(amt)} 元，本金更新为 ${fmtMoney(u.principal)}`, 'success');
+  } finally { unlock(); }
 }
 
 /* ---------- 批量操作 ---------- */
@@ -7764,12 +7845,15 @@ async function saveAnnouncement() {
   const title = document.getElementById('annf-title').value.trim();
   const content = document.getElementById('annf-content').value.trim();
   if (!setError('annf-title', !title)) return;
-  const error = await upsertAnnouncementRow(id || uid(), title, content);
-  if (error) return toast('保存失败：' + error.message, 'error');
-  await loadAnnouncements();
-  closeModal('annModal');
-  renderHomeTop(); renderNoticeTab(); renderAnnMgr();
-  toast(id ? '公告已更新' : '公告已发布', 'success');
+  const unlock = lockModalButtons('annModal', '保存中…');
+  try {
+    const error = await upsertAnnouncementRow(id || uid(), title, content);
+    if (error) { toast('保存失败：' + error.message, 'error'); return; }
+    await loadAnnouncements();
+    closeModal('annModal');
+    renderHomeTop(); renderNoticeTab(); renderAnnMgr();
+    toast(id ? '公告已更新' : '公告已发布', 'success');
+  } finally { unlock(); }
 }
 function deleteAnnouncement(id) {
   if (!isAdmin) return;
@@ -7821,12 +7905,15 @@ async function saveMarketPrice() {
   if (!date) return toast('请选择日期', 'warn');
   if (!name) return toast('请输入品名', 'warn');
   if (!(price > 0)) return toast('请输入大于 0 的单价（最多 3 位小数）', 'warn');
-  const error = await upsertMarketPriceRow({ id: id || uid(), price_date: date, name, price, unit, sell_id: sellId, note });
-  if (error) return toast('保存失败：' + error.message, 'error');
-  await loadMarketPrices();
-  renderHomeTop(); renderMarketMgr();
-  closeModal('marketModal');
-  toast(`${date} 市场价已保存`, 'success');
+  const unlock = lockModalButtons('marketModal', '保存中…');
+  try {
+    const error = await upsertMarketPriceRow({ id: id || uid(), price_date: date, name, price, unit, sell_id: sellId, note });
+    if (error) { toast('保存失败：' + error.message, 'error'); return; }
+    await loadMarketPrices();
+    renderHomeTop(); renderMarketMgr();
+    closeModal('marketModal');
+    toast(`${date} 市场价已保存`, 'success');
+  } finally { unlock(); }
 }
 // 编辑：回填弹窗表单，保存时按同一条 id 覆盖
 function editMarketPrice(id) {
@@ -7898,10 +7985,14 @@ async function saveMyName() {
   const name = (input.value || '').trim();
   if (!name) return toast('请输入用户名', 'warn');
   if (name.length > 20) return toast('用户名最长20个字', 'warn');
-  // [F] 同步逻辑改用共享的 chat_syncNick，与群聊内改名完全一致
-  const ok = await chat_syncNick(name);
-  toast(ok ? '用户名已保存，群聊昵称已同步' : '用户名已保存本机，云端同步失败', ok ? 'success' : 'warn');
-  input.value = name;
+  const btn = document.querySelector('button[onclick="saveMyName()"]');
+  const unlock = lockButton(btn, '保存中…');
+  try {
+    // [F] 同步逻辑改用共享的 chat_syncNick，与群聊内改名完全一致
+    const ok = await chat_syncNick(name);
+    toast(ok ? '用户名已保存，群聊昵称已同步' : '用户名已保存本机，云端同步失败', ok ? 'success' : 'warn');
+    input.value = name;
+  } finally { unlock(); }
 }
 
 /* ---------- 数据备份：清空 ---------- */
@@ -8430,27 +8521,31 @@ async function chat_send() {
   const input = document.getElementById('chatText');
   const text = input.value.trim();
   if (!text || !chatState.projectId) return;
-  input.value = ''; chat_autoGrow(input);
-  const msg = {
-    id: uid(), project_id: chatState.projectId, user_email: currentUserEmail, user_name: chat_displayName(),
-    msg_type: 'text', body: text, image_url: '', created_at: new Date().toISOString(), pending: true
-  };
-  chatState.messages.push(msg);
-  chat_append(msg);
-  chat_scrollBottom(false);
-  const { error } = await sb.from('chat_messages').insert({
-    id: msg.id, project_id: msg.project_id, user_email: msg.user_email, user_name: msg.user_name,
-    msg_type: 'text', body: text, image_url: ''
-  });
-  if (error) {
-    toast('消息发送失败：' + error.message, 'error');
-    const el = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-bubble`);
-    if (el) { el.classList.remove('pending'); el.style.opacity = .4; }
-    const t = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-time`);
-    if (t) t.textContent += ' · 发送失败';
-  } else {
-    chat_markSent(msg);
-  }
+  const btn = document.getElementById('chatSendBtn');
+  const unlock = lockButton(btn, '发送中…');
+  try {
+    input.value = ''; chat_autoGrow(input);
+    const msg = {
+      id: uid(), project_id: chatState.projectId, user_email: currentUserEmail, user_name: chat_displayName(),
+      msg_type: 'text', body: text, image_url: '', created_at: new Date().toISOString(), pending: true
+    };
+    chatState.messages.push(msg);
+    chat_append(msg);
+    chat_scrollBottom(false);
+    const { error } = await sb.from('chat_messages').insert({
+      id: msg.id, project_id: msg.project_id, user_email: msg.user_email, user_name: msg.user_name,
+      msg_type: 'text', body: text, image_url: ''
+    });
+    if (error) {
+      toast('消息发送失败：' + error.message, 'error');
+      const el = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-bubble`);
+      if (el) { el.classList.remove('pending'); el.style.opacity = .4; }
+      const t = document.querySelector(`.chat-row[data-id="${msg.id}"] .chat-time`);
+      if (t) t.textContent += ' · 发送失败';
+    } else {
+      chat_markSent(msg);
+    }
+  } finally { unlock(); }
 }
 
 // 发送成功：移除「发送中」状态（自己的消息 realtime 回传时会被 id 去重跳过，需在此处更新 UI）
