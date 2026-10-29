@@ -136,6 +136,17 @@ html.dark-mode {
   --chat-system-bg: #1e293b;      /* 系统消息背景 */
 }
 
+/* ========== 电脑端滚动条（浅色/深色自适应） ========== */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148,163,184,.45); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.7); border: 2px solid transparent; background-clip: padding-box; }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.45) transparent; }
+html.dark-mode ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.55); border: 2px solid transparent; background-clip: padding-box; }
+html.dark-mode ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.8); border: 2px solid transparent; background-clip: padding-box; }
+html.dark-mode * { scrollbar-color: rgba(100,116,139,.55) transparent; }
+
 /* ========== 项目群聊样式（浅色/深色模式自适应，见 --chat-* 变量） ========== */
 /* 群聊页为站内普通页面（非全屏覆盖）：顶部导航与底部导航保持可见可点 */
 .chat-page { display: none; flex-direction: column; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); height: calc(100vh - 250px); height: calc(100dvh - 250px); min-height: 420px; overflow: hidden; margin-bottom: 20px; }
@@ -476,7 +487,7 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .search-input {
   padding: 7px 12px; font-size: 13px; border: 1px solid var(--border);
   border-radius: 6px; outline: none; width: 220px; transition: border-color .15s;
-  color: var(--text); font-family: inherit;
+  color: var(--text); background: var(--input-bg); font-family: inherit;
 }
 .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 
@@ -1037,9 +1048,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
   /* [需求五] 新增绑定/修改手机号、修改邮箱弹窗同样居中小卡片 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #principalChartModal, #remainPieModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal { padding: 16px; align-items: center; }
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #principalChartModal, #remainPieModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal, #priceModal, #topupModal, #userModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #principalChartModal .modal, #remainPieModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #principalChartModal .modal, #remainPieModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal, #priceModal .modal, #topupModal .modal, #userModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -1055,6 +1066,8 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #priceModal .modal, #topupModal .modal, #userModal .modal { max-width: 460px; width: 100%; height: auto; }
+  #priceModal .modal-body, #topupModal .modal-body, #userModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   /* [需求五] 四个手机/邮箱弹窗宽度（高度自适应内容，超长可滚） */
   #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal { max-width: 400px; width: 100%; height: auto; }
   #bindPhoneModal .modal-body, #bindEmailModal .modal-body, #changePhoneModal .modal-body, #changeEmailModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
