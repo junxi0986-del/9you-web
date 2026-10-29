@@ -974,7 +974,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .st-cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
 .st-cal-cell:not(.empty):active { transform: scale(.96); }
 .st-cal-cell .d { font-size: 12px; line-height: 1.3; color: var(--text); }
-.st-cal-cell .amt { font-size: 10px; line-height: 1.2; font-weight: 600; text-align: center; color: var(--success); word-break: break-all; }
+.st-cal-cell .amt { font-size: 10px; line-height: 1.15; font-weight: 600; text-align: center; word-break: break-all; width: 100%; }
+.st-cal-cell .amt.earn { color: var(--success); }
+.st-cal-cell .amt.topup { color: var(--primary); }
+.st-cal-cell .amt.single { line-height: 1.3; }   /* 单条时居中对齐 */
 .st-cal-cell .amt.none { color: var(--text-secondary); opacity: .4; font-weight: 400; }
 .st-cal-cell.today { border: 1.5px solid var(--primary); background: rgba(37,99,235,.10); background: color-mix(in srgb, var(--primary) 12%, var(--input-bg)); }
 .st-cal-cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
@@ -994,8 +997,11 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 /* 明细栏紧凑项目筛选下拉（右对齐浮层，避免窄屏溢出） */
 .st-dd-sm .st-dd-btn { height: 30px; padding: 0 26px 0 10px; font-size: 12px; max-width: 150px; min-width: 96px; border-radius: 8px; }
 .st-dd-sm .st-dd-menu { right: 0; left: auto; top: calc(100% + 4px); min-width: 180px; max-width: 72vw; max-height: 260px; overflow-y: auto; z-index: 30; }
-.st-day-total { font-size: 15px; color: var(--success); white-space: nowrap; }
+.st-day-total { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.st-filter-sm { min-width: 88px; padding: 6px 26px 6px 8px; font-size: 12px; border-radius: 8px; }
 .st-table .st-money { text-align: right; color: var(--success); font-weight: 600; white-space: nowrap; }
+.st-table .row-topup td { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.st-table .row-topup-amt { color: var(--primary); font-weight: 700; }
 .st-table .st-proj { display: flex; align-items: center; gap: 6px; white-space: normal; }
 .st-table .st-proj img { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
 .st-sub { font-size: 11px; color: var(--text-secondary); margin-top: 1px; white-space: normal; }
@@ -1781,6 +1787,12 @@ html.in-app #loginWrap {
       <div class="st-day-head">
         <h3 class="st-sec-title" id="stDayTitle">—</h3>
         <div class="st-day-tools">
+          <!-- [需求] 明细类型筛选（全部 / 仅回本 / 仅加仓） -->
+          <select class="st-filter st-filter-sm" id="stTypeSel" aria-label="明细类型筛选" onchange="stSwitchDetailType(this.value)">
+            <option value="all">全部类型</option>
+            <option value="earn">仅回本</option>
+            <option value="topup">仅加仓</option>
+          </select>
           <!-- [需求] 明细按项目筛选：仅作用于下方明细列表，不影响上方曲线/日历/柱图 -->
           <div class="st-dd st-dd-sm" id="stDetailDD">
             <button type="button" class="st-dd-btn" onclick="stDetailDDToggle(event)">
@@ -1795,11 +1807,12 @@ html.in-app #loginWrap {
         <thead>
           <tr>
             <th style="width:64px" id="stThTime">时间</th>
+            <th style="width:72px">类型</th>
             <th>项目</th>
             <th>账户ID/姓名</th>
             <th style="width:80px">数量</th>
             <th style="width:110px">当日市场价</th>
-            <th style="width:100px;text-align:right">回本金额</th>
+            <th style="width:100px;text-align:right">金额</th>
           </tr>
         </thead>
         <tbody id="stDayBody"></tbody>
@@ -6585,6 +6598,7 @@ let stProjectId = '';          // 选中项目 id，''=全部项目
 let stSelectedDay = '';        // 月历选中日期 YYYY-MM-DD
 let stSelectedMonthAll = '';   // [全部统计] 月度柱状图选中的月份 YYYY-MM
 let stDetailProjectId = '';    // [需求] 明细栏独立的项目筛选（''=全部项目），只影响明细列表
+let stDetailType = 'all';      // [需求] 明细栏独立的类型筛选：'all' | 'earn' | 'topup'
 let stLastRows = [];           // 当前筛选下的明细行缓存（点击日格免重算）
 let stPieRAF = 0, stBarRAF = 0; // rAF 句柄（重渲染/离开时取消，避免多动画并行）
 let stRevealFns = new Set();   // 滚动可见检测的注销句柄（重渲染时全部撤销，避免重复触发）
@@ -6618,9 +6632,15 @@ function stRevealClear() { stRevealFns.forEach(fn => fn()); stRevealFns.clear();
 function openStatsPage() {
   if (!projects.length) { toast('暂无项目数据', 'warn'); return; }
   statsSavedScroll = window.scrollY || window.pageYOffset || 0;
-  // 月份选项：台账中出现过的全部月份 + 当前月（当月暂无记录也可查看空月历）
+  // 月份选项：台账中出现过的全部月份（含回本+加仓） + 当前月（当月暂无记录也可查看空月历）
   const { points } = buildEarnCurveData();
-  const months = [...new Set(points.map(p => p.date.slice(0, 7)))].sort();
+  const monthsSet = new Set(points.map(p => p.date.slice(0, 7)));
+  // 再扫一遍 topups 收集月份（只有加仓没回本的月份也要进下拉）
+  projects.forEach(p => (p.users || []).forEach(u => (u.topups || []).forEach(t => {
+    const m = String(t.date || '').slice(0, 7);
+    if (m) monthsSet.add(m);
+  })));
+  const months = [...monthsSet].sort();
   const cur = nowLocal().slice(0, 7);
   if (!months.includes(cur)) months.push(cur);
   months.sort();
@@ -6629,6 +6649,9 @@ function openStatsPage() {
   stSelectedDay = '';
   stSelectedMonthAll = '';
   stDetailProjectId = '';   // 每次进入统计页，明细项目筛选恢复「全部项目」
+  stDetailType = 'all';     // 类型筛选也恢复「全部类型」
+  const typeSel = document.getElementById('stTypeSel');
+  if (typeSel) typeSel.value = 'all';  // 同步原生 select DOM 显示
   // 首项固定为「全部统计」，其后按时间升序列出有数据/当前月
   document.getElementById('stMonthSel').innerHTML =
     `<option value="${ST_ALL}">全部统计</option>` + months
@@ -6733,48 +6756,73 @@ function stSwitchDetailProject(id) {
   stDDClose();
   stRenderCurrentDetail();
 }
-// 按当前模式（当日 / 全部统计的选月）+ 明细项目筛选计算并渲染列表
+// 按当前模式（当日 / 全部统计的选月）+ 明细项目筛选 + 类型筛选计算并渲染列表
 function stRenderCurrentDetail() {
   const allMode = stMonth === ST_ALL;
   let rows = allMode
     ? stLastRows.filter(r => r.date.slice(0, 7) === stSelectedMonthAll)
     : stLastRows.filter(r => r.date === stSelectedDay);
   if (stDetailProjectId) rows = rows.filter(r => r.p.id === stDetailProjectId);
+  if (stDetailType !== 'all') rows = rows.filter(r => r.type === stDetailType);
   stRenderDay(rows, allMode);
 }
+// 切换明细类型筛选（全部 / 仅回本 / 仅加仓）；原生 select onchange 直接传 this.value
+function stSwitchDetailType(t) {
+  stDetailType = t || 'all';
+  stRenderCurrentDetail();
+}
 
-// 收集当前筛选范围的台账明细行（字段口径与 bill_collectToday 一致）
+// 收集当前筛选范围的台账明细行（含回本 prices + 加仓 topups；每行带 type: earn|topup）
 function stCollect(scope) {
   const rows = [];
-  scope.forEach(p => (p.users || []).forEach(u => (u.prices || []).forEach(r => {
-    const d = String(r.date || '').slice(0, 10);
-    if (!d) return;
-    const hasQty = r.qty !== undefined && r.qty !== null && Number(r.qty) > 0;
-    rows.push({
-      date: d,
-      time: String(r.date || '').slice(11, 16) || '',   // datetime-local 的 HH:mm，纯日期记录为空
-      p, u,
-      userId: u.id || '—',
-      userName: u.name || '—',
-      mpName: r.mpName || '',
-      qty: hasQty ? Number(r.qty) : null,
-      rate: hasQty ? (Number(r.rate) || 0) : null,
-      refQty: hasQty ? (Number(r.refQty) || 1) : null,
-      price: Number(r.price) || 0
+  scope.forEach(p => (p.users || []).forEach(u => {
+    // 回本流水
+    (u.prices || []).forEach(r => {
+      const d = String(r.date || '').slice(0, 10);
+      if (!d) return;
+      const hasQty = r.qty !== undefined && r.qty !== null && Number(r.qty) > 0;
+      rows.push({
+        type: 'earn', date: d,
+        time: String(r.date || '').slice(11, 16) || '',
+        p, u,
+        userId: u.id || '—', userName: u.name || '—',
+        mpName: r.mpName || '',
+        qty: hasQty ? Number(r.qty) : null,
+        rate: hasQty ? (Number(r.rate) || 0) : null,
+        refQty: hasQty ? (Number(r.refQty) || 1) : null,
+        price: Number(r.price) || 0,
+        topupAmt: null  // 冗余标记，便于统一字段
+      });
     });
-  })));
+    // 加仓流水
+    (u.topups || []).forEach(t => {
+      const d = String(t.date || '').slice(0, 10);
+      if (!d) return;
+      rows.push({
+        type: 'topup', date: d,
+        time: String(t.date || '').slice(11, 16) || '',
+        p, u,
+        userId: u.id || '—', userName: u.name || '—',
+        mpName: '', qty: null, rate: null, refQty: null,
+        price: null,
+        topupAmt: Number(t.amount) || 0
+      });
+    });
+  }));
   return rows;
 }
 // 默认选中日：本月优先今天（即使无数据也显示空态）；浏览其他月份取本月第一条有记录的日期；都无则 1 号
+// dayMap 结构: date -> { earn, topup }
 function stPickDefaultDay(dayMap) {
   const today = nowLocal().slice(0, 10);
   const inMonth = d => d.slice(0, 7) === stMonth;
+  const hasAny = d => { const a = dayMap.get(d); return a && (a.earn > 0 || a.topup > 0); };
   if (inMonth(today)) {
-    if (dayMap.has(today)) return today;
-    const first = [...dayMap.keys()].filter(inMonth).sort()[0];
+    if (hasAny(today)) return today;
+    const first = [...dayMap.keys()].filter(d => inMonth(d) && hasAny(d)).sort()[0];
     return first || today;
   }
-  const first = [...dayMap.keys()].filter(inMonth).sort()[0];
+  const first = [...dayMap.keys()].filter(d => inMonth(d) && hasAny(d)).sort()[0];
   return first || stMonth + '-01';
 }
 // 月历金额紧凑显示：过万 x.x万，否则四舍五入取整（格内空间有限；格 title 保留精确金额）
@@ -6797,8 +6845,14 @@ function stRenderAll() {
   if (allMode) { stRenderAllView(); return; }
   document.getElementById('stCurveTitle').textContent = '📈 回本曲线';
   renderEarnCurve(document.getElementById('stCurveHost'), stMonth, scope, 'st');
-  const dayMap = new Map();
-  stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
+  // 日历 dayMap：同时汇总回本月金额和加仓金额（用于双色格）
+  const dayMap = new Map();   // date -> { earn, topup }
+  stLastRows.forEach(r => {
+    const agg = dayMap.get(r.date) || { earn: 0, topup: 0 };
+    if (r.type === 'earn') agg.earn += r.price || 0;
+    else agg.topup += r.topupAmt || 0;
+    dayMap.set(r.date, agg);
+  });
   if (!stSelectedDay) stSelectedDay = stPickDefaultDay(dayMap);
   stRenderCalendar(dayMap);
   stUpdateMonthArrows();
@@ -6809,10 +6863,12 @@ function stRenderAll() {
 /* ===== [全部统计] 项目回本饼图 + 月度回本柱状图 + 当月明细 ===== */
 function stRenderAllView() {
   document.getElementById('stCurveTitle').textContent = '🥧 各项目累计回本占比';
-  stRenderPie(stLastRows);
+  // 饼图/月柱只统计回本（加仓不属于回本口径）
+  const earnRows = stLastRows.filter(r => r.type === 'earn');
+  stRenderPie(earnRows);
   // 按月聚合（仅含有记录的月份）
   const monthMap = new Map();
-  stLastRows.forEach(r => {
+  earnRows.forEach(r => {
     const m = r.date.slice(0, 7);
     monthMap.set(m, (monthMap.get(m) || 0) + r.price);
   });
@@ -7069,16 +7125,26 @@ function stRenderDay(rows, monthMode) {
     monthMode
       ? (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))
       : (a.time || '').localeCompare(b.time || ''));
-  const total = rows.reduce((s, r) => s + r.price, 0);
+  const earnRows = rows.filter(r => r.type === 'earn');
+  const topupRows = rows.filter(r => r.type === 'topup');
+  const totalEarn = earnRows.reduce((s, r) => s + (r.price || 0), 0);
+  const totalTopup = topupRows.reduce((s, r) => s + (r.topupAmt || 0), 0);
+  const grandTotal = totalEarn + totalTopup;
   document.getElementById('stDayTitle').textContent = monthMode
-    ? (stSelectedMonthAll ? ecMonthLabel(stSelectedMonthAll) : '当月') + ' 回本明细'
-    : `${+stSelectedDay.slice(5, 7)}月${+stSelectedDay.slice(8, 10)}日 回本明细`;
+    ? (stSelectedMonthAll ? ecMonthLabel(stSelectedMonthAll) : '当月') + ' 明细'
+    : `${+stSelectedDay.slice(5, 7)}月${+stSelectedDay.slice(8, 10)}日 明细`;
   document.getElementById('stThTime').textContent = monthMode ? '日期' : '时间';
-  document.getElementById('stDayTotal').textContent = '¥' + fmtMoney(total);
-  document.getElementById('stDayFoot').textContent = fmtMoney(total);
+  // 汇总文案：回本 X 笔 + 加仓 Y 笔 + 合计金额（回本为正、加仓加本金）
+  const parts = [];
+  if (earnRows.length) parts.push(`回本 ${earnRows.length} 笔 ¥${fmtMoney(totalEarn)}`);
+  if (topupRows.length) parts.push(`加仓 ${topupRows.length} 笔 ¥${fmtMoney(totalTopup)}`);
+  const summaryText = parts.length ? parts.join(' / ') : '—';
+  document.getElementById('stDayTotal').textContent = summaryText;
+  document.getElementById('stDayFoot').textContent = fmtMoney(grandTotal);
   const body = document.getElementById('stDayBody');
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6" class="st-empty">${monthMode ? '该月' : '该日'}暂无回本记录</td></tr>`;
+    const filtText = stDetailType === 'earn' ? '回本' : stDetailType === 'topup' ? '加仓' : '';
+    body.innerHTML = `<tr><td colspan="7" class="st-empty">${monthMode ? '该月' : '该日'}暂无${filtText}记录</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(r => {
@@ -7086,18 +7152,33 @@ function stRenderDay(rows, monthMode) {
     const tCell = monthMode
       ? `${escapeHtml(r.date.slice(5))}${r.time ? `<div class="st-sub">${escapeHtml(r.time)}</div>` : ''}`
       : (r.time ? escapeHtml(r.time) : '—');
+    if (r.type === 'topup') {
+      // 加仓行：类型蓝tag，数量/市场价 —，金额用 + 前缀加粗
+      return `<tr class="row-topup">
+        <td data-label="${monthMode ? '日期' : '时间'}">${tCell}</td>
+        <td data-label="类型"><span class="ledger-tag topup">加仓</span></td>
+        <td data-label="项目"><span class="st-proj">${logo}<span>${escapeHtml(r.p.name || '—')}</span></span></td>
+        <td data-label="账户">${escapeHtml(r.userId)}<div class="st-sub">${escapeHtml(r.userName)}</div></td>
+        <td data-label="数量">—</td>
+        <td data-label="市场价">—</td>
+        <td data-label="金额" class="st-money row-topup-amt">+¥${fmtMoney(r.topupAmt)}</td>
+      </tr>`;
+    }
+    // 回本行
     return `<tr>
       <td data-label="${monthMode ? '日期' : '时间'}">${tCell}</td>
+      <td data-label="类型"><span class="ledger-tag earn">回本</span></td>
       <td data-label="项目"><span class="st-proj">${logo}<span>${escapeHtml(r.p.name || '—')}</span></span></td>
       <td data-label="账户">${escapeHtml(r.userId)}<div class="st-sub">${escapeHtml(r.userName)}</div></td>
       <td data-label="数量">${r.qty === null ? '—' : r.qty}</td>
       <td data-label="市场价">${r.rate === null ? '—' : '¥' + fmtMoney(r.rate) + (Number(r.refQty) > 1 ? '/' + fmtMoney(r.refQty) : '')}</td>
-      <td data-label="回本金额" class="st-money">¥${fmtMoney(r.price)}</td>
+      <td data-label="金额" class="st-money">¥${fmtMoney(r.price)}</td>
     </tr>`;
   }).join('');
 }
 
 // 渲染所选月份完整月历（周日开头，与 getDay() 直接对齐）
+// dayMap 结构: date -> { earn, topup }
 function stRenderCalendar(dayMap) {
   const y = +stMonth.slice(0, 4), m = +stMonth.slice(5, 7);
   const firstWd = new Date(y, m - 1, 1).getDay();  // 0=周日 → 前置空列数
@@ -7109,22 +7190,40 @@ function stRenderCalendar(dayMap) {
   for (let i = 0; i < firstWd; i++) html += '<div class="st-cal-cell empty"></div>';
   for (let d = 1; d <= dim; d++) {
     const ds = stMonth + '-' + String(d).padStart(2, '0');
-    const amt = dayMap.get(ds) || 0;
+    const agg = dayMap.get(ds) || { earn: 0, topup: 0 };
+    const hasEarn = agg.earn > 0, hasTopup = agg.topup > 0;
     const cls = ['st-cal-cell'];
     if (ds === today) cls.push('today');
     if (ds === stSelectedDay) cls.push('selected');
-    html += `<div class="${cls.join(' ')}" onclick="stPickDay('${ds}')" title="${ds}${amt ? ' ¥' + fmtMoney(amt) : ' 无记录'}">`
-      + `<span class="d">${d}</span>`
-      + (amt ? `<span class="amt">${stCompactMoney(amt)}</span>` : '<span class="amt none">—</span>')
-      + '</div>';
+    const title = `${ds}`
+      + (hasEarn ? ` 回本 ¥${fmtMoney(agg.earn)}` : '')
+      + (hasTopup ? ` 加仓 ¥${fmtMoney(agg.topup)}` : '')
+      + (!hasEarn && !hasTopup ? ' 无记录' : '');
+    let amtHtml = '';
+    if (hasEarn && hasTopup) {
+      amtHtml = `<span class="amt earn">${stCompactMoney(agg.earn)}</span><span class="amt topup">+${stCompactMoney(agg.topup)}</span>`;
+    } else if (hasEarn) {
+      amtHtml = `<span class="amt earn single">${stCompactMoney(agg.earn)}</span>`;
+    } else if (hasTopup) {
+      amtHtml = `<span class="amt topup single">+${stCompactMoney(agg.topup)}</span>`;
+    } else {
+      amtHtml = `<span class="amt none">—</span>`;
+    }
+    html += `<div class="${cls.join(' ')}" onclick="stPickDay('${ds}')" title="${title}">`
+      + `<span class="d">${d}</span>` + amtHtml + '</div>';
   }
   document.getElementById('stCalGrid').innerHTML = html;
 }
-// 点击某日：高亮该格 + 明细切换到当日（应用明细项目筛选）
+// 点击某日：高亮该格 + 明细切换到当日（应用明细项目筛选 + 类型筛选）
 function stPickDay(ds) {
   stSelectedDay = ds;
   const dayMap = new Map();
-  stLastRows.forEach(r => dayMap.set(r.date, (dayMap.get(r.date) || 0) + r.price));
+  stLastRows.forEach(r => {
+    const agg = dayMap.get(r.date) || { earn: 0, topup: 0 };
+    if (r.type === 'earn') agg.earn += r.price || 0;
+    else agg.topup += r.topupAmt || 0;
+    dayMap.set(r.date, agg);
+  });
   stRenderCalendar(dayMap);
   stRenderCurrentDetail();
 }
