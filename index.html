@@ -3118,6 +3118,7 @@ async function ensurePhoneBound(user){
 /* ---------- [需求三] 设置页：打开 / 关闭（参照平台管理页） ---------- */
 let onSettingsPage = false;
 function openSettingsPage(){
+  if (guestBlocked('进入设置页')) return;
   if (currentProjectId || onBillPage) showPage('list');
   const cp0 = document.getElementById('chatPage');
   if (cp0 && cp0.style.display !== 'none') chat_close();
@@ -3640,13 +3641,17 @@ async function checkAuth(){
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('mainApp').style.display = 'none';
   // ====== 游客模式恢复：之前点过「暂不登录」的用户刷新后保持游客身份 ======
-  const hasToken = tryInstantLogin();
-  if (!hasToken && localStorage.getItem('jy_guest') === '1') {
-    // 直接进游客模式，跳过登录检查
+  // [关键] 必须在 tryInstantLogin() 之前判断！tryInstantLogin 有副作用（会偷偷设回 auth 全局变量），
+  // 如果先跑它再判断 jy_guest，sb-auth-token 残留时 hasToken=true 会导致游客分支被跳过
+  if (localStorage.getItem('jy_guest') === '1') {
+    // 确保 auth 态彻底干净（防 tryInstantLogin 残留）
+    try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
+    currentUserId = null; currentUserEmail = ''; isAdmin = false; projects = [];
     document.getElementById('bootLoading').style.display = 'none';
     enterGuestMode();
     return;
   }
+  const hasToken = tryInstantLogin();
   try {
     const instant = tryInstantLogin();
     if (instant) {
@@ -3802,6 +3807,14 @@ function _guestSampleProjects() {
 
 function enterGuestMode() {
   confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？', async () => {
+    // ===== 关键前置：同步清掉上一个登录用户的所有 auth 痕迹，防止 tryInstantLogin() 抢跑设回身份 =====
+    try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
+    try {
+      // 清掉本地缓存 projects（若 currentUserId 还有值）
+      if (currentUserId) localStorage.removeItem(cacheKeyProjects(currentUserId));
+    } catch (e) {}
+    try { sb.auth.signOut(); } catch (e) {}
+
     guestMode = true;
     currentUserId = null;
     currentUserEmail = '';
@@ -3859,6 +3872,7 @@ function enterGuestMode() {
     renderPublicProjects();  // 公共项目 tab 列表
     renderMarketPage();      // 市场价 tab
     renderBanners();         // 轮播图
+    renderMeAdmin();         // 我的 tab（清空上一个登录用户的邮箱/角色/管理入口）
     // 标记所有示例卡片（右下角加淡灰"示例数据"小标）
     setTimeout(() => {
       document.querySelectorAll('#projectList .card').forEach(c => {
@@ -8722,12 +8736,15 @@ function renderMarketMgr() {
 
 /* ---------- 我的Tab 渲染（账号信息 + 管理员后台可见性） ---------- */
 function renderMeAdmin() {
-  document.getElementById('meEmail').textContent = currentUserEmail || '—';
-  document.getElementById('meRole').innerHTML = isAdmin
-    ? '<span class="badge" style="background:#f59e0b;color:#fff">管理员</span>'
-    : '普通用户';
-  const myName = document.getElementById('myNameInput');
-  if (myName) myName.value = chat_displayName();  // 用户名输入框回显当前群聊昵称
+  if (guestMode) {
+    document.getElementById('meEmail').textContent = '—';
+    document.getElementById('meRole').innerHTML = '<span class="badge" style="background:#6b7280;color:#fff">游客浏览</span>';
+  } else {
+    document.getElementById('meEmail').textContent = currentUserEmail || '—';
+    document.getElementById('meRole').innerHTML = isAdmin
+      ? '<span class="badge" style="background:#f59e0b;color:#fff">管理员</span>'
+      : '普通用户';
+  }
   document.getElementById('meAdminEntry').style.display = isAdmin ? '' : 'none';
   // applyThemeUI() 已在 showMainApp() 调用，此处不再重复
   renderAnnMgr();
