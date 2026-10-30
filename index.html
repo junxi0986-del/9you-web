@@ -31,7 +31,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
      - 未设置 navigate-to，故 http://8.137.100.55、推广站等外部跳转不受限制。 -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob: https://*.supabase.co;
   connect-src 'self' https://*.supabase.co wss://*.supabase.co;
@@ -2754,6 +2754,7 @@ authWarmup();
 
 //全局数据
 let projects = [];
+let guestMode = false;  // 游客模式标志：true = 游客浏览（只读），false = 正常登录用户
 // [任务五] projects 本地缓存：弱网/超时也能用上次数据秒开主界面（按用户 id 隔离）
 const PROJECTS_CACHE_PREFIX = 'jy_projects_cache_';
 const cacheKeyProjects = uid => PROJECTS_CACHE_PREFIX + uid;
@@ -3764,45 +3765,57 @@ function hideMainApp(){
 
 // ======== 游客模式 ========
 // 示例数据：3 个项目，带多账户 + 回本流水 + 加仓，让游客直观看到产品效果
+// 游客示例数据：项目名从 publicProjects 随机取（fetch 后调用），金额随机合规
+// 金额约束：单价 ≤ 5000，单账户本金 ≤ 1000，单加仓 ≤ 1000
 function _guestSampleProjects() {
   const d = new Date();
   const daysAgo = n => { const x = new Date(d); x.setDate(x.getDate() - n); return x.toISOString().slice(0,10); };
-  return [{
-    id: 'demo-p1', name: 'XX分红项目', logo: '', note: '示例项目：早期红利型',
-    principal: 30000, created_at: daysAgo(30),
-    users: [
-      { id: 'u1', name: '张三', principal: 10000, onboard_date: daysAgo(30), note: '',
-        prices: [ { id:'r1', date:daysAgo(20), price:1500 }, { id:'r2', date:daysAgo(10), price:2200 } ],
-        topups: [ { id:'t1', date:daysAgo(5), amount:3000 } ] },
-      { id: 'u2', name: '李四', principal: 10000, onboard_date: daysAgo(28), note: '',
-        prices: [ { id:'r3', date:daysAgo(15), price:1800 } ],
-        topups: [] },
-      { id: 'u3', name: '王五', principal: 10000, onboard_date: daysAgo(25), note: '',
-        prices: [ { id:'r4', date:daysAgo(12), price:2000 }, { id:'r5', date:daysAgo(3), price:1500 } ],
-        topups: [ { id:'t2', date:daysAgo(1), amount:5000 } ] },
-    ]
-  },{
-    id: 'demo-p2', name: 'YY社区项目', logo: '', note: '示例项目：稳定收益型',
-    principal: 15000, created_at: daysAgo(14),
-    users: [
-      { id: 'u4', name: '赵六', principal: 8000, onboard_date: daysAgo(14), note: '',
-        prices: [ { id:'r6', date:daysAgo(7), price:1200 }, { id:'r7', date:daysAgo(1), price:800 } ],
-        topups: [] },
-      { id: 'u5', name: '钱七', principal: 7000, onboard_date: daysAgo(14), note: '',
-        prices: [ { id:'r8', date:daysAgo(5), price:900 } ],
-        topups: [] },
-    ]
-  },{
-    id: 'demo-p3', name: 'ZZ游戏项目', logo: '', note: '示例项目：刚上车，尚未回本',
-    principal: 8000, created_at: daysAgo(7),
-    users: [
-      { id: 'u6', name: '孙八', principal: 5000, onboard_date: daysAgo(7), note: '',
-        prices: [], topups: [] },
-      { id: 'u7', name: '周九', principal: 3000, onboard_date: daysAgo(6), note: '',
-        prices: [ { id:'r9', date:daysAgo(2), price:300 } ],
-        topups: [ { id:'t3', date:daysAgo(3), amount:2000 } ] },
-    ]
-  }];
+  // 预设名池：publicProjects 有数据时优先用，否则从池里随机
+  const namePool = (Array.isArray(publicProjects) && publicProjects.length > 0)
+    ? publicProjects.map(p => p.name).filter(Boolean)
+    : ['XX分红项目', 'YY社区项目', 'ZZ游戏项目', 'AA影视项目', 'BB音乐项目'];
+  const pickName = () => namePool[Math.floor(Math.random() * namePool.length)] || '示例项目';
+  const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const ChineseNames = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二'];
+  const pickCnName = () => ChineseNames[Math.floor(Math.random() * ChineseNames.length)];
+
+  const projectCount = rand(2, 3);
+  const projects = [];
+  for (let p = 0; p < projectCount; p++) {
+    const projUsers = rand(2, 3);
+    const users = [];
+    let projPrincipal = 0;
+    for (let u = 0; u < projUsers; u++) {
+      const principal = rand(200, 1000);         // 单账户本金 ≤ 1000
+      projPrincipal += principal;
+      const priceCount = rand(0, 3);
+      const prices = [];
+      for (let r = 0; r < priceCount; r++) {
+        prices.push({ id: 'r-' + p + '-' + u + '-' + r, date: daysAgo(rand(1, 25)), price: rand(50, 5000) });  // 单价 ≤ 5000
+      }
+      const topupCount = rand(0, 2);
+      const topups = [];
+      for (let t = 0; t < topupCount; t++) {
+        topups.push({ id: 't-' + p + '-' + u + '-' + t, date: daysAgo(rand(1, 15)), amount: rand(200, 1000) });  // 单加仓 ≤ 1000
+      }
+      users.push({
+        id: 'demo-u-' + p + '-' + u,
+        name: pickCnName(),
+        principal, onboard_date: daysAgo(rand(3, 30)), note: '',
+        prices, topups
+      });
+    }
+    projects.push({
+      id: 'demo-p-' + p,
+      name: pickName(),
+      logo: '',
+      note: '游客示例数据',
+      principal: projPrincipal,
+      created_at: daysAgo(rand(5, 30)),
+      users
+    });
+  }
+  return projects;
 }
 
 // 游客模式核心逻辑（无确认弹窗，刷新恢复路径直接调用）
@@ -3824,8 +3837,6 @@ async function _enterGuestModeCore() {
   sessionToken = '';
   // 游客身份持久化（刷新后保持游客模式）
   localStorage.setItem('jy_guest', '1');
-  // 注入示例数据（游客无法写入，完全只读展示）
-  projects = _guestSampleProjects();
   // 进入主界面
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
@@ -3854,7 +3865,7 @@ async function _enterGuestModeCore() {
   // 隐藏管理员入口 / 下载 APP 按钮
   const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = 'none';
   const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = 'none';
-  // ===== 关键：先 fetch 公开数据（这些表全员可读），再 render =====
+  // ===== 关键：先 fetch 公开数据（这些表全员可读），再生成示例数据（项目名可从中随机） =====
   try {
     await Promise.all([
       (async () => { try { await loadBanners(); console.log('[guest] banners loaded', banners.length); } catch(e) { console.warn('[guest] banners fail:', e.message); banners = []; } })(),
@@ -3863,6 +3874,8 @@ async function _enterGuestModeCore() {
       (async () => { try { await loadMarketPrices(); console.log('[guest] market loaded', marketPrices.length); } catch(e) { console.warn('[guest] market fail:', e.message); marketPrices = []; } })(),
     ]);
   } catch(e) { console.warn('[guest] fetch all fail:', e); }
+  // fetch 完 publicProjects 后再生成示例数据（优先从公共项目里随机取名）
+  projects = _guestSampleProjects();
   // 保持默认 tab（mine = 我的项目），和正常用户一样
   listTab = 'mine';
   switchListTab('mine');
@@ -3887,8 +3900,9 @@ async function _enterGuestModeCore() {
   }, 50);
 }
 
-// 登录页按钮入口：带二次确认后进入游客模式
+// 登录页按钮入口：先校验协议，再二次确认后进入游客模式
 function enterGuestMode() {
+  if (!isAgreed()) return toast('请先阅读并勾选同意《用户协议》和《隐私政策》', 'warn');
   confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？',
     async () => { await _enterGuestModeCore(); toast('已进入游客模式，可浏览示例数据体验完整界面', 'info'); },
     '确定浏览', '', false);
