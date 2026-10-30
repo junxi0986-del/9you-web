@@ -3386,6 +3386,26 @@ async function confirmChangeEmail(){
 otpWire(document.getElementById('otpBoxes'), supabaseSignIn);
 otpWire(document.getElementById('phoneOtpBoxes'), phoneSignIn);
 
+// [终极兜底] 全局 event delegation：监听 document 的 input 事件，
+// 检查当前激活的 otp 面板是否已满 6 位，满了就 click 登录按钮。
+// 好处：不依赖 otpWire 初始化时机、不会因 DOM 重建丢失监听器。
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  if (!t || !t.classList || !t.classList.contains('otp-box')) return;
+  // 找到所属面板
+  const box = t;
+  const panel = box.closest('#otpBoxes, #phoneOtpBoxes');
+  if (!panel) return;
+  const code = otpRead(panel);
+  if (code.length !== 6) return;
+  // 6 位齐了 — 找面板所属的 loginPane 并 click 登录按钮
+  let parent = panel.parentElement;
+  while (parent && !/LoginPane/.test(parent.id)) parent = parent.parentElement;
+  if (!parent) return;
+  const btn = parent.querySelector('button[onclick*="supabaseSignIn"], button[onclick*="phoneSignIn"], button.btn-primary');
+  if (btn) { setTimeout(() => btn.click(), 0); }
+});
+
 /* ---------- 用户协议 / 隐私政策全文 ---------- */
 const AGREEMENT_HTML = `
 <p style="text-align:center;font-weight:700;margin:0 0 4px">用户协议</p>
