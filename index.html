@@ -887,6 +887,73 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 /* 群聊内公告横幅：复用首页横幅样式，贴顶栏显示 */
 .chat-ann-banner { margin: 8px 10px 0; flex-shrink: 0; }
 
+/* ========== 首页轮播图 Banner ========== */
+.banner-carousel {
+  position: relative; margin: 0 0 14px; overflow: hidden;
+  border-radius: 12px; box-shadow: var(--shadow);
+  background: var(--card-bg); border: 1px solid var(--border);
+  /* 显隐由 HTML 初始 style="display:none" + JS host.style.display = 'block/none' 控制 */
+}
+.banner-viewport { width: 100%; overflow: hidden; aspect-ratio: 21 / 9; background: var(--card-bg); position: relative; }
+.banner-track {
+  display: flex; height: 100%; transition: transform .45s cubic-bezier(.2,.8,.2,1);
+  will-change: transform;
+}
+.banner-slide {
+  flex: 0 0 100%; height: 100%; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; background: var(--card-bg);
+}
+.banner-slide img {
+  max-width: 100%; max-height: 100%; width: auto; height: 100%;
+  object-fit: contain; display: block; background: var(--card-bg);
+  user-select: none; -webkit-user-drag: none; pointer-events: none;
+}
+.banner-slide.has-link img { pointer-events: auto; cursor: pointer; }
+.banner-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,.45); color: #fff; font-size: 22px; line-height: 1;
+  cursor: pointer; opacity: 0; transition: opacity .2s, background .2s;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2; padding: 0;
+}
+.banner-carousel:hover .banner-arrow { opacity: 1; }
+.banner-arrow:hover { background: rgba(0,0,0,.65); }
+.banner-prev { left: 12px; }
+.banner-next { right: 12px; }
+.banner-dots {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; z-index: 2;
+}
+.banner-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,.45); border: none; padding: 0;
+  cursor: pointer; transition: background .2s, transform .2s;
+}
+.banner-dot.active { background: #fff; transform: scale(1.25); }
+/* 移动端：完全隐藏箭头（手指滑），容器高度由图片自然撑开（无 aspect-ratio），指示器缩小 */
+@media (max-width: 600px) {
+  .banner-arrow { display: none !important; }
+  .banner-viewport { aspect-ratio: unset; }
+  .banner-track { height: auto; }
+  .banner-slide { height: auto; }
+  .banner-slide img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+  .banner-dots { bottom: 6px; gap: 5px; }
+  .banner-dot { width: 6px; height: 6px; }
+  .banner-carousel { border-radius: 10px; }
+}
+/* 电脑端深色模式：指示器反色 */
+html.dark-mode .banner-arrow { background: rgba(255,255,255,.28); color: #fff; }
+html.dark-mode .banner-arrow:hover { background: rgba(255,255,255,.45); }
+html.dark-mode .banner-dot { background: rgba(255,255,255,.3); }
+html.dark-mode .banner-dot.active { background: #fff; }
+
+/* 减少动态效果：禁用 transition/动画 */
+@media (prefers-reduced-motion: reduce) {
+  .banner-track { transition: none; }
+}
+
 /* ========== 公告条目（公告Tab / 弹窗 / 管理列表共用） ========== */
 .ann-item {
   background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
@@ -1054,9 +1121,9 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   .modal { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
   /* 复制出货ID确认等小窗弹窗：保持居中小卡片，不全屏 */
   /* [需求五] 新增绑定/修改手机号、修改邮箱弹窗同样居中小卡片 */
-  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #principalChartModal, #remainPieModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal, #priceModal, #topupModal, #userModal { padding: 16px; align-items: center; }
+  #confirmModal, #todayListModal, #shareProjectModal, #ledgerModal, #quickAmountModal, #agreementModal, #marketModal, #projectModal, #earnChartModal, #principalChartModal, #remainPieModal, #bindPhoneModal, #bindEmailModal, #changePhoneModal, #changeEmailModal, #priceModal, #topupModal, #userModal, #bannerModal { padding: 16px; align-items: center; }
   #sellPickLayer { padding: 16px; }
-  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #principalChartModal .modal, #remainPieModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal, #priceModal .modal, #topupModal .modal, #userModal .modal {
+  #confirmModal .modal, #todayListModal .modal, #shareProjectModal .modal, #ledgerModal .modal, #quickAmountModal .modal, #agreementModal .modal, #marketModal .modal, #sellPickLayer .modal, #projectModal .modal, #earnChartModal .modal, #principalChartModal .modal, #remainPieModal .modal, #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal, #priceModal .modal, #topupModal .modal, #userModal .modal, #bannerModal .modal {
     max-height: 86vh;
     border-radius: 24px;
   }
@@ -1072,7 +1139,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
   #projectModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #agreementModal .modal { max-width: 460px; width: 100%; height: auto; }
   #agreementModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  #priceModal .modal, #topupModal .modal, #userModal .modal { max-width: 460px; width: 100%; height: auto; }
+  #priceModal .modal, #topupModal .modal, #userModal .modal, #bannerModal .modal { max-width: 460px; width: 100%; height: auto; }
   #priceModal .modal-body, #topupModal .modal-body, #userModal .modal-body { max-height: calc(86vh - 130px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   /* [需求五] 四个手机/邮箱弹窗宽度（高度自适应内容，超长可滚） */
   #bindPhoneModal .modal, #bindEmailModal .modal, #changePhoneModal .modal, #changeEmailModal .modal { max-width: 400px; width: 100%; height: auto; }
@@ -1376,6 +1443,16 @@ html.in-app #loginWrap {
 
     <!-- 公共项目页签：全员可见仅浏览；管理员可发布/编辑/删除 -->
     <div id="tabPublicSection" style="display:none">
+      <!-- 轮播图：仅在公共项目页签内，空数据时自动隐藏 -->
+      <div class="banner-carousel" id="bannerCarousel" style="display:none">
+        <div class="banner-viewport">
+          <div class="banner-track" id="bannerTrack"></div>
+          <div class="banner-dots" id="bannerDots"></div>
+        </div>
+        <button class="banner-arrow banner-prev" aria-label="上一张" onclick="bannerGo(-1)">‹</button>
+        <button class="banner-arrow banner-next" aria-label="下一张" onclick="bannerGo(1)">›</button>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
         <h2 style="font-size:16px;font-weight:600">🌐 公共项目</h2>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
@@ -1565,6 +1642,18 @@ html.in-app #loginWrap {
             </div>
             <button class="btn btn-danger" onclick="chat_clearAll()">🗑️ 清空聊天记录</button>
           </div>
+        </div>
+
+        <!-- 轮播图管理：首页顶部轮播，管理员可增删改排序；全员可见 -->
+        <div class="table-card">
+          <div class="me-row" style="margin-bottom:8px">
+            <div style="min-width:0">
+              <h2 style="font-size:16px;font-weight:600">🎠 轮播图管理</h2>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">图片建议 16:9 横向图，每张 ≤ 2MB；链接可空（仅展示）</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openBannerModal()">＋ 新增轮播图</button>
+          </div>
+          <div id="bannerMgrList"></div>
         </div>
       </div>
     </div>
@@ -2539,6 +2628,53 @@ html.in-app #loginWrap {
   </div>
 </div>
 
+<!-- ========== 轮播图弹窗（管理员新增/编辑） ========== -->
+<div role="dialog" aria-modal="true" class="modal-mask" id="bannerModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="bannerModalTitle">新增轮播图</h3>
+      <button class="modal-close" onclick="closeModal('bannerModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="bannerf-id">
+      <input type="hidden" id="bannerf-image-url">   <!-- 压缩后的 base64 -->
+      <input type="hidden" id="bannerf-image-w">     <!-- 图片宽度（校验用） -->
+      <input type="hidden" id="bannerf-image-h">     <!-- 图片高度 -->
+      <div class="form-group">
+        <label>轮播图片<span class="req">*</span></label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">
+            选择图片
+            <input type="file" id="bannerf-file" accept="image/*" style="display:none" onchange="bannerPickFile(this)">
+          </label>
+          <span style="font-size:11px;color:var(--text-secondary)">建议 16:9 横向图，≤ 2MB</span>
+        </div>
+        <div id="bannerf-preview" style="margin-top:8px;display:none;border:1px dashed var(--border);border-radius:8px;padding:6px;text-align:center;background:var(--card-bg)">
+          <img id="bannerf-img" style="max-width:100%;max-height:140px;border-radius:4px;display:block;margin:0 auto">
+          <div id="bannerf-img-info" style="font-size:11px;color:var(--text-secondary);margin-top:4px"></div>
+        </div>
+        <div id="bannerf-img-err" style="display:none;font-size:12px;color:#e53935;margin-top:4px"></div>
+      </div>
+      <div class="form-group">
+        <label>显示名称（可选）</label>
+        <input type="text" id="bannerf-name" placeholder="如「官方公告」「活动预告」，跳转时会作为提示" maxlength="50">
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">设置后，点击跳转时会提示"即将打开 xxx"，未设置则提示通用文案</div>
+      </div>
+      <div class="form-group">
+        <label>跳转链接（可选）</label>
+        <input type="url" id="bannerf-link" placeholder="https://example.com  留空则仅展示图片不跳转" maxlength="500">
+      </div>
+      <div class="form-group">
+        <label style="color:var(--text-secondary)">排序（在管理页长按拖拽调整顺序）</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('bannerModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveBanner()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 批量操作浮动工具条 -->
 <div id="batchBar">
   <span class="cnt">已选 <b id="batchCount">0</b> 人</span>
@@ -2646,6 +2782,7 @@ let publicProjects = [];               // 公共项目列表（云端 public_pro
 let publicProjectsLoading = false;
 let announcements = [];                // 公告列表（云端 announcements 表，按发布时间倒序）
 let marketPrices = [];                 // 市场参考价列表（云端 market_prices 表，按日期倒序）
+let banners = [];                      // 首页轮播图列表（云端 banners 表，按 sort_order 升序）
 
 // 登录/注册错误信息中文化（模糊匹配，确保命中）
 function authError(msg){
@@ -2998,6 +3135,7 @@ function exitSettingsPage(){
   listTab = 'me';
   updateListTabUI(false);
   renderHomeTop();
+  renderBanners();
   window.scrollTo(0, 0);
 }
 // 「← 返回」按钮：退出并消费已入栈历史
@@ -3411,6 +3549,7 @@ function handleSignedOutCleanup() {
   publicProjects = [];
   announcements = [];
   marketPrices = [];
+  banners = [];
   hideMainApp();
 }
 sb.auth.onAuthStateChange((event, session) => {
@@ -3446,7 +3585,8 @@ async function afterLogin(user){
   });
   await Promise.allSettled([
     guardLoad(loadCloudData()), guardLoad(loadPublicProjects()),
-    guardLoad(loadAnnouncements()), guardLoad(loadMarketPrices())
+    guardLoad(loadAnnouncements()), guardLoad(loadMarketPrices()),
+    guardLoad(loadBanners())
   ]);
   // 自动补齐个人项目 Logo：与同名公共项目 Logo 匹配，无需用户手动编辑；有变更静默写回云端
   if (syncProjectLogosFromPublic()) {
@@ -3509,8 +3649,10 @@ async function checkAuth(){
             // 数据到齐后补渲染公告横幅、公告页、我的页管理区（含公告管理）；
             // 若用户秒开后已切到市场价页，也补渲染，避免初始转圈/空态一直停留
             renderHomeTop();
+            renderBanners();
             renderNoticeTab();
             renderMeAdmin();
+            renderBannerMgr();
             chat_renderAnnBanner();  // 群聊页公告横幅（函数内自带 null 防御）
             if (listTab === 'market') renderMarketPage();
           } else {
@@ -3788,6 +3930,37 @@ async function upsertAnnouncementRow(id, title, content){
 }
 async function deleteAnnouncementRow(id){
   const {error} = await sb.from("announcements").delete().eq("id", id);
+  return error;
+}
+
+/* ---------- 首页轮播图云端读写（banners 表，全员可读、仅管理员可写；按 sort_order 升序） ---------- */
+async function loadBanners(){
+  try {
+    const {data,error} = await sb
+      .from("banners")
+      .select("*")
+      .order("sort_order", { ascending: true });
+    if (error) {
+      console.warn('[banner] 加载失败:', error.code, error.message);
+      banners = [];
+      return;
+    }
+    banners = (data || []).sort((a,b) => {
+      const sa = Number(a.sort_order) || 0, sb2 = Number(b.sort_order) || 0;
+      if (sa !== sb2) return sa - sb2;
+      return (a.created_at || '').localeCompare(b.created_at || '');
+    }).map(x => ({ ...x, id: String(x.id || '') }));  // id 强制字符串化，防 uuid 列返回 Object
+  } catch(e) {
+    console.error('[banner] 加载异常:', e);
+    banners = [];
+  }
+}
+async function upsertBannerRow(row){
+  const {error} = await sb.from("banners").upsert(row);
+  return error;
+}
+async function deleteBannerRow(id){
+  const {error} = await sb.from("banners").delete().eq("id", id);
   return error;
 }
 
@@ -4138,6 +4311,7 @@ function openAdminPage() {
   // 进入时刷新管理数据，保证看到最新公告/市场价
   renderAnnMgr();
   renderMarketMgr();
+  renderBannerMgr();
   window.scrollTo(0, 0);
   histPush('admin');
 }
@@ -4215,6 +4389,7 @@ function switchListTab(tab) {
   if (cp && cp.style.display !== 'none') chat_close();
   listTab = tab;
   updateListTabUI();
+  renderBanners();  // banner 仅在公共项目页显示，切页时重判
   if (tab === 'market') loadMarketPrices().then(renderMarketPage);  // 进入市场价页时刷新数据
   // [修复] 进入公共项目页：无数据才显示转圈；已有数据保留并后台静默刷新（完成后覆盖），
   // 不无条件重渲转圈，避免「数据→转圈→数据」的重复转圈；已有加载在飞则不重复发起
@@ -4348,11 +4523,11 @@ window.addEventListener('resize', () => bnavMoveHighlight(false));
     if (document.querySelector('.modal-mask.show')) return false;
     return true;
   };
-  // 手势跟踪排除区（命中则不跟踪、把触摸交给元素自身）：表单控件、弹窗、底部导航、选择浮层、可横向滚动的表格；
+  // 手势跟踪排除区（命中则不跟踪、把触摸交给元素自身）：表单控件、弹窗、底部导航、选择浮层、可横向滚动的表格、轮播图；
   // 按钮/链接/公告卡片/市场价表格上一律允许起手——横向滑动超 36px 浏览器不会再触发点击，纵向滚动也不受影响
   const onBlocker = el => {
     if (!el || !el.closest) return false;
-    if (el.closest('input,textarea,select,label,.modal-mask,.bottom-nav,#sellPickLayer')) return true;
+    if (el.closest('input,textarea,select,label,.modal-mask,.bottom-nav,#sellPickLayer,.banner-carousel')) return true;
     const tw = el.closest('.table-wrap');
     if (tw && tw.scrollWidth > tw.clientWidth + 2) return true;  // 仅拦截真正可横向滚动的表格（市场价页手机端不滚动，自动放行）
     return false;
@@ -7787,6 +7962,308 @@ function renderHomeTop() {
   } else {
     banner.style.display = 'none';
   }
+}
+
+/* ========== 首页轮播图 Banner（banners 表） ========== */
+let bannerCur = 0;           // 当前显示索引
+let bannerTimer = null;      // 自动轮播定时器句柄
+let bannerTouchSx = 0;       // 触摸起点 X
+let bannerTouchSy = 0;       // 触摸起点 Y
+let bannerTouchLocked = false; // 纵向滚动优先锁
+
+// 渲染轮播：空数据隐藏容器（bannerCarousel 已移进 tabPublicSection 内部，切页显隐由 tab 自身控制）
+function renderBanners() {
+  const host = document.getElementById('bannerCarousel');
+  if (!host) return;
+  if (!banners.length) { host.style.display = 'none'; bannerStopAutoplay(); return; }
+  bannerStopAutoplay();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const track = document.getElementById('bannerTrack');
+  const dots = document.getElementById('bannerDots');
+  track.innerHTML = banners.map((b, i) => {
+    const hasLink = !!(b.link_url && b.link_url.trim());
+    const name = b.name || '';
+    const click = hasLink ? `onclick="bannerClick('${escapeHtml(name).replace(/'/g, "&#39;")}','${escapeHtml(b.link_url.trim()).replace(/'/g, "&#39;")}')"` : '';
+    return `<div class="banner-slide ${hasLink ? 'has-link' : ''}" ${click}>
+      <img src="${escapeHtml(b.image_url)}" alt="轮播图${i+1}${name ? ' ' + escapeHtml(name) : ''}" draggable="false">
+    </div>`;
+  }).join('');
+  dots.innerHTML = banners.map((_, i) =>
+    `<button class="banner-dot${i === 0 ? ' active' : ''}" onclick="bannerGoTo(${i})" aria-label="第${i+1}张"></button>`
+  ).join('');
+  bannerCur = 0;
+  track.style.transform = 'translateX(0)';
+  host.style.display = 'block';  // 关键：设 block 而非 ''，避免 CSS 默认 display:none 重新生效
+  if (banners.length >= 2 && !reduced) bannerStartAutoplay();
+}
+function bannerStartAutoplay() {
+  if (bannerTimer) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const host = document.getElementById('bannerCarousel');
+  bannerTimer = setInterval(() => {
+    bannerCur = (bannerCur + 1) % banners.length;
+    bannerApply();
+  }, 3500);
+  // hover 暂停（鼠标 + 触摸都算）
+  host.addEventListener('mouseenter', bannerStopAutoplay, { once: false });
+  host.addEventListener('mouseleave', () => {
+    if (bannerTimer) return;  // 已被外部 stop 过
+    if (banners.length >= 2 && !reduced) bannerTimer = setInterval(() => {
+      bannerCur = (bannerCur + 1) % banners.length; bannerApply();
+    }, 3500);
+  }, { once: false });
+}
+function bannerStopAutoplay() { if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null; } }
+function bannerGoTo(i) {
+  if (!banners.length) return;
+  bannerCur = ((i % banners.length) + banners.length) % banners.length;
+  bannerApply();
+}
+function bannerGo(dir) { bannerGoTo(bannerCur + dir); }
+function bannerApply() {
+  const track = document.getElementById('bannerTrack');
+  if (!track) return;
+  track.style.transform = `translateX(-${bannerCur * 100}%)`;
+  document.querySelectorAll('#bannerDots .banner-dot').forEach((d, i) =>
+    d.classList.toggle('active', i === bannerCur));
+}
+// 点击跳转二次确认（避免误触）—— 统一简洁文案，不暴露链接 URL
+function bannerClick(name, url) {
+  const hasName = !!(name && name.trim());
+  const title = hasName ? `打开「${name.trim()}」` : '离开本平台';
+  const content = hasName ? '即将打开该外部页面，是否继续？' : '即将离开本平台跳转到外部页面，是否继续？';
+  confirmAction(title, content, () => window.open(url, '_blank', 'noopener'), '继续', '', false);
+}
+// 触摸滑动（手机端左右滑切换；纵向滚动优先）
+document.addEventListener('DOMContentLoaded', () => {
+  const host = document.getElementById('bannerCarousel');
+  if (!host) return;
+  host.addEventListener('touchstart', e => {
+    const t = e.touches[0]; bannerTouchSx = t.clientX; bannerTouchSy = t.clientY; bannerTouchLocked = false;
+    bannerStopAutoplay();
+  }, { passive: true });
+  host.addEventListener('touchmove', e => {
+    if (bannerTouchLocked) return;
+    const dx = e.touches[0].clientX - bannerTouchSx;
+    const dy = e.touches[0].clientY - bannerTouchSy;
+    if (Math.abs(dy) > Math.abs(dx)) bannerTouchLocked = true;
+  }, { passive: true });
+  host.addEventListener('touchend', e => {
+    if (bannerTouchLocked) return;
+    const dx = (e.changedTouches[0]?.clientX || bannerTouchSx) - bannerTouchSx;
+    if (Math.abs(dx) > 50) bannerGo(dx < 0 ? 1 : -1);
+    if (banners.length >= 2 && !matchMedia('(prefers-reduced-motion: reduce)').matches) bannerStartAutoplay();
+  }, { passive: true });
+  // 页面/容器不可见时自动停轮播，回来时重启（省 CPU + 避免后台乱转）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { bannerStopAutoplay(); return; }
+    if (host.style.display !== 'none' && banners.length >= 2
+        && !matchMedia('(prefers-reduced-motion: reduce)').matches) bannerStartAutoplay();
+  });
+  // IntersectionObserver：切到详情页/统计页时 banner 容器被隐藏，自动停
+  try {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          if (banners.length >= 2 && !matchMedia('(prefers-reduced-motion: reduce)').matches) bannerStartAutoplay();
+        } else {
+          bannerStopAutoplay();
+        }
+      });
+    }, { threshold: 0.1 });
+    io.observe(host);
+  } catch(e) {}
+});
+
+/* ---------- 轮播图管理员 CRUD ---------- */
+let bannerEditingId = null;
+
+// 选图片：双端校验 + Canvas 压缩（maxW=1200 JPEG 0.85），确保移动端 WebView/浏览器都能显示
+async function bannerPickFile(input) {
+  const f = input.files && input.files[0];
+  const errEl = document.getElementById('bannerf-img-err');
+  const prevEl = document.getElementById('bannerf-preview');
+  errEl.style.display = 'none'; prevEl.style.display = 'none';
+  document.getElementById('bannerf-image-url').value = '';
+  if (!f) return;
+  if (f.size > 5 * 1024 * 1024) {
+    errEl.textContent = '图片超过 5MB，请换小一点的'; errEl.style.display = 'block'; input.value = ''; return;
+  }
+  try {
+    const res = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // 用 Image 对象预加载 —— 能 onload 就表示 Base64/图片格式在当前浏览器可正常显示（跨端一致）
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalWidth < 80 || img.naturalHeight < 40) {
+            reject(new Error(`图片太小（${img.naturalWidth}×${img.naturalHeight}），建议 16:9 横向图`)); return;
+          }
+          // WebWorker 优先 —— 主线程压缩不阻塞 UI
+          try {
+            const scale = Math.min(1, 1200 / img.naturalWidth);
+            const c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            resolve({ data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height, origW: img.naturalWidth, origH: img.naturalHeight });
+          } catch(ee) { reject(new Error('图片压缩失败')); }
+        };
+        img.onerror = () => reject(new Error('图片加载失败，请换一张试试'));
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error('图片读取失败'));
+      reader.readAsDataURL(f);
+    });
+    document.getElementById('bannerf-image-url').value = res.data;
+    document.getElementById('bannerf-img').src = res.data;
+    document.getElementById('bannerf-img-info').textContent =
+      `原始 ${res.origW}×${res.origH} → 压缩 ${res.w}×${res.h}（${(res.data.length * 3 / 4 / 1024).toFixed(0)}KB）`;
+    prevEl.style.display = 'block';
+  } catch(e) {
+    errEl.textContent = e.message || '图片处理失败'; errEl.style.display = 'block'; input.value = '';
+  }
+}
+
+// 打开弹窗：id 空 = 新增；有值 = 编辑
+function openBannerModal(id) {
+  bannerEditingId = id ? String(id) : null;
+  const isEdit = !!bannerEditingId;
+  document.getElementById('bannerModalTitle').textContent = isEdit ? '编辑轮播图' : '新增轮播图';
+  document.getElementById('bannerf-id').value = bannerEditingId || '';
+  document.getElementById('bannerf-name').value = '';
+  document.getElementById('bannerf-link').value = '';
+  document.getElementById('bannerf-image-url').value = '';
+  document.getElementById('bannerf-preview').style.display = 'none';
+  document.getElementById('bannerf-img-err').style.display = 'none';
+  document.getElementById('bannerf-file').value = '';
+  if (isEdit) {
+    const b = banners.find(x => x.id === bannerEditingId);
+    if (b) {
+      document.getElementById('bannerf-name').value = b.name || '';
+      document.getElementById('bannerf-link').value = b.link_url || '';
+      document.getElementById('bannerf-img').src = b.image_url;
+      document.getElementById('bannerf-preview').style.display = 'block';
+      document.getElementById('bannerf-img-info').textContent = '当前图片（替换请重新选择）';
+      document.getElementById('bannerf-image-url').value = b.image_url;
+    }
+  }
+  openModal('bannerModal');
+}
+
+// 保存
+async function saveBanner() {
+  const imageUrl = document.getElementById('bannerf-image-url').value.trim();
+  const name = document.getElementById('bannerf-name').value.trim();
+  const link = document.getElementById('bannerf-link').value.trim();
+  const errEl = document.getElementById('bannerf-img-err');
+  errEl.style.display = 'none';
+  if (!imageUrl) { errEl.textContent = '请选择图片'; errEl.style.display = 'block'; return; }
+  if (link) {
+    try {
+      if (!/^https?:$/.test(new URL(link).protocol)) {
+        errEl.textContent = '链接必须以 http:// 或 https:// 开头'; errEl.style.display = 'block'; return;
+      }
+    } catch { errEl.textContent = '链接格式不正确'; errEl.style.display = 'block'; return; }
+  }
+  // sort_order：新增时排到最后（当前最大 + 10）；编辑时保留原值
+  const sort_order = bannerEditingId
+    ? null  // Supabase upsert 会保留原值（但我们显式传一下以防万一）
+    : ((banners.reduce((m, b) => Math.max(m, Number(b.sort_order) || 0), -1) + 10));
+  const row = {
+    ...(bannerEditingId ? { id: bannerEditingId } : {}),
+    image_url: imageUrl, name: name, link_url: link,
+    ...(bannerEditingId ? {} : { sort_order }),
+    ...(bannerEditingId ? {} : { created_at: new Date().toISOString() })
+  };
+  const unlock = lockModalButtons('bannerModal', '保存中…');
+  try {
+    const error = await upsertBannerRow(row);
+    if (error) throw error;
+    await loadBanners();
+    closeModal('bannerModal');
+    renderBanners();
+    renderBannerMgr();
+    toast(bannerEditingId ? '已更新' : '已添加', 'success');
+  } catch(e) { toast('保存失败：' + (e.message || e), 'error'); }
+  finally { unlock(); }
+}
+
+// 管理列表（管理员卡片区）—— 上下箭头排序
+function renderBannerMgr() {
+  const box = document.getElementById('bannerMgrList');
+  if (!box) return;
+  if (!banners.length) {
+    box.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:16px 0;font-size:13px">暂无轮播图，点右上方按钮添加第一张</div>'; return;
+  }
+  box.innerHTML = banners.map((b, i) => {
+    const bid = String(b.id || '');
+    const nameHtml = b.name
+      ? `<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(b.name)}</div>`
+      : `<div style="font-size:13px;color:var(--text-secondary);font-style:italic">（未设置名称）</div>`;
+    const linkHtml = b.link_url
+      ? `<a href="${escapeHtml(b.link_url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--primary);word-break:break-all">${escapeHtml(b.link_url)}</a>`
+      : `<span style="font-size:11px;color:var(--text-secondary)">未设置链接</span>`;
+    const first = i === 0, last = i === banners.length - 1;
+    const upBtn = first ? `<button class="btn btn-sm" disabled title="已在最前" style="opacity:.3;cursor:not-allowed">↑</button>`
+                        : `<button class="btn btn-outline btn-sm" title="上移" onclick="bannerMove(${i},-1)">↑</button>`;
+    const dnBtn = last ? `<button class="btn btn-sm" disabled title="已在最后" style="opacity:.3;cursor:not-allowed">↓</button>`
+                       : `<button class="btn btn-outline btn-sm" title="下移" onclick="bannerMove(${i},1)">↓</button>`;
+    return `<div class="me-row" style="padding:10px 12px;border-bottom:1px solid var(--border);gap:10px">
+      <img src="${escapeHtml(b.image_url)}" style="width:88px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border);flex-shrink:0;background:#0000000d">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+        ${nameHtml}
+        <div style="font-size:11px;color:var(--text-secondary);flex-wrap:wrap">#${i+1} · ${linkHtml}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">
+        ${upBtn}${dnBtn}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-outline btn-sm" onclick="openBannerModal('${bid}')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBanner('${bid}')">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// 排序：idx 行按 dir（-1上/1下）移动，交换位置后批量 update sort_order（只改这一列！）
+async function bannerMove(idx, dir) {
+  const swap = idx + dir;
+  if (swap < 0 || swap >= banners.length) return;
+  [banners[idx], banners[swap]] = [banners[swap], banners[idx]];
+  banners.forEach((b, i) => { b.sort_order = (i + 1) * 10; });
+  const box = document.getElementById('bannerMgrList');
+  if (box) box.style.pointerEvents = 'none';
+  try {
+    // 只 update sort_order 一列，绝不 upsert 全行（会把 image_url 等 NOT NULL 列设 null）
+    const errors = await Promise.all(banners.map(b => sb.from('banners').update({ sort_order: b.sort_order }).eq('id', b.id).then(({ error }) => error)));
+    const firstErr = errors.find(e => e);
+    if (firstErr) throw firstErr;
+    await loadBanners(); renderBanners(); renderBannerMgr();
+  } catch(e) {
+    toast('排序保存失败：' + (e.message || e), 'error');
+    await loadBanners(); renderBanners(); renderBannerMgr();
+  } finally {
+    if (box) box.style.pointerEvents = '';
+  }
+}
+
+// 删除（二次确认）
+async function deleteBanner(id) {
+  if (!id) return;
+  id = String(id);  // 强制字符串化
+  confirmAction(
+    '删除轮播图',
+    '确定要删除这张轮播图吗？删除后首页将不再显示。',
+    async () => {
+      const error = await deleteBannerRow(id);
+      if (error) { toast('删除失败：' + error.message, 'error'); return; }
+      await loadBanners();
+      renderBanners(); renderBannerMgr();
+      toast('已删除', 'success');
+    },
+    '删除', '', true
+  );
 }
 
 /* ---------- 剪贴板复制（兼容非HTTPS/旧浏览器） ---------- */
