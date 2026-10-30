@@ -2912,8 +2912,8 @@ function otpRead(container){
   if (!container) return '';
   return [...container.querySelectorAll('.otp-box')].map(b => b.value.trim()).join('');
 }
-// 面板映射：type → { panelId, loginFn }
-const OTP_PANELS = {
+// 面板映射：type → { panelId, loginFn } （用 window. 挂到全局，HTML oninput 属性能访问到）
+window.OTP_PANELS = {
   email: { panelId: 'otpBoxes', loginFn: 'supabaseSignIn' },
   phone: { panelId: 'phoneOtpBoxes', loginFn: 'phoneSignIn' }
 };
