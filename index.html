@@ -3583,6 +3583,11 @@ sb.auth.onAuthStateChange((event, session) => {
 
 // 登录后的统一初始化：记录身份与角色、加载私有数据和公共项目
 async function afterLogin(user){
+  // [修复] 正常登录后清掉游客标记（如果用户之前试过游客浏览又登录了），
+  // 防止下次刷新 checkAuth 里 jy_guest='1' 提前命中，把刚存的 sb-auth-token 删掉导致登出
+  try { localStorage.removeItem('jy_guest'); } catch (e) {}
+  // 退出游客态（如果当前就在游客模式里登录的）
+  if (typeof _guestCleanup === 'function') _guestCleanup();
   currentUserId = user.id;
   currentUserEmail = (user.email || '').toLowerCase();
   isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
@@ -3644,13 +3649,30 @@ async function checkAuth(){
   // ====== 游客模式恢复：之前点过「暂不登录」的用户刷新后保持游客身份 ======
   // [关键] 必须在 tryInstantLogin() 之前判断！tryInstantLogin 有副作用（会偷偷设回 auth 全局变量），
   // 如果先跑它再判断 jy_guest，sb-auth-token 残留时 hasToken=true 会导致游客分支被跳过
+  // [修复] 加双条件：只有 jy_guest='1' **且**没有有效 auth token 时才进游客恢复；
+  //         如果两个标记同时存在 → 说明用户后来正常登录过了，清掉 jy_guest 走正常登录流程
+  const hasLiveToken = (() => {
+    try {
+      const raw = localStorage.getItem('sb-auth-token');
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      return !!(s?.access_token || s?.refresh_token || s?.data?.access_token || s?.data?.refresh_token);
+    } catch(e) { return false; }
+  })();
   if (localStorage.getItem('jy_guest') === '1') {
-    // 确保 auth 态彻底干净（防 tryInstantLogin 残留）
-    try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
-    currentUserId = null; currentUserEmail = ''; isAdmin = false; projects = [];
-    document.getElementById('bootLoading').style.display = 'none';
-    _enterGuestModeCore();  // 刷新恢复：直接进入，不再弹确认框
-    return;
+    if (hasLiveToken) {
+      // 双标记共存 → 用户后来正常登录了，清掉游客标记，让下面的正常登录流程接管
+      localStorage.removeItem('jy_guest');
+      console.log('[auth] 检测到 jy_guest 与 auth token 共存，清 jy_guest 走正常登录');
+    } else {
+      // 纯游客恢复路径：只有 jy_guest，没有任何有效 token
+      // 确保 auth 态彻底干净（防 tryInstantLogin 残留）
+      try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
+      currentUserId = null; currentUserEmail = ''; isAdmin = false; projects = [];
+      document.getElementById('bootLoading').style.display = 'none';
+      _enterGuestModeCore();  // 刷新恢复：直接进入，不再弹确认框
+      return;
+    }
   }
   const hasToken = tryInstantLogin();
   try {
