@@ -3639,6 +3639,7 @@ async function afterLogin(user){
   // [修复] 正常登录后清掉游客标记（如果用户之前试过游客浏览又登录了），
   // 防止下次刷新 checkAuth 里 jy_guest='1' 提前命中，把刚存的 sb-auth-token 删掉导致登出
   try { localStorage.removeItem('jy_guest'); } catch (e) {}
+  saveAuthBackup();  // [修复] 登录成功立即写入会话备份，APP 内跳外站返回时可恢复
   // 退出游客态（如果当前就在游客模式里登录的）
   if (typeof _guestCleanup === 'function') _guestCleanup();
   currentUserId = user.id;
