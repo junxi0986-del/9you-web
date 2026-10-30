@@ -3813,7 +3813,8 @@ async function _enterGuestModeCore() {
     // 清掉本地缓存 projects（若 currentUserId 还有值）
     if (currentUserId) localStorage.removeItem(cacheKeyProjects(currentUserId));
   } catch (e) {}
-  try { sb.auth.signOut(); } catch (e) {}
+  // sb.auth.signOut() 不能在 checkAuth 流程外直接调：SDK 可能还在初始化 / 会触发 onAuthStateChange 回调
+  // 触发 Supabase Realtime 订阅断开等副作用，此处只清 localStorage 即可达到隔离效果
 
   guestMode = true;
   currentUserId = null;
