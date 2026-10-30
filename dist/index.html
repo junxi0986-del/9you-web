@@ -906,7 +906,7 @@ body.side-open { overflow: hidden; }
     <div class="hero-content">
       <div class="hero-badge">
         <span class="dot"></span>
-        V3.4 已发布
+        V3.6 已发布
       </div>
       <h1>
         项目收益与回本<br>
@@ -980,6 +980,11 @@ body.side-open { overflow: hidden; }
         <p>邮箱 / 手机号双模式，6 位验证码一键登录，滑动拼图人机验证防刷。会话自动刷新，无感持久化登录。</p>
       </div>
       <div class="feature-card reveal">
+        <div class="feature-icon">👀</div>
+        <h3>游客模式先逛后注册</h3>
+        <p>登录页点「暂不登录」即可只读浏览完整界面，附带示例项目数据。写入操作会被统一拦截并提示先登录，刷新仍保持游客态。</p>
+      </div>
+      <div class="feature-card reveal">
         <div class="feature-icon">📈</div>
         <h3>智能数据统计</h3>
         <p>自动计算本金、累计收益与回本进度。统计卡可点击下钻饼图、柱状图与独立统计页（回本曲线、回本月历、当日明细），状态一目了然。</p>
@@ -993,6 +998,11 @@ body.side-open { overflow: hidden; }
         <div class="feature-icon">🏛️</div>
         <h3>公共项目广场</h3>
         <p>管理员统一发布公共项目，支持置顶、加星标。用户新建项目时可直接选用公共项目作为数据源。</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🖼️</div>
+        <h3>广场轮播图</h3>
+        <p>管理员上传轮播图片并配置名称与跳转链接，支持自动轮播、悬停暂停、触摸滑动切换，深浅主题背景自动跟随。</p>
       </div>
       <div class="feature-card reveal">
         <div class="feature-icon">💬</div>
@@ -1234,9 +1244,37 @@ body.side-open { overflow: hidden; }
     <div class="text-center">
       <div class="section-label">更新日志</div>
       <h2 class="section-title">持续迭代，不断进步</h2>
-      <p class="section-desc mx-auto">从 V1.0 到 V3.4，每一次更新都带来更强大的功能与更稳定的体验。</p>
+      <p class="section-desc mx-auto">从 V1.0 到 V3.6，每一次更新都带来更强大的功能与更稳定的体验。</p>
     </div>
     <div class="timeline">
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.6</span>
+          <span class="date">2026 年 10 月</span>
+        </div>
+        <ul>
+          <li>新增游客模式：登录页底部入口，勾选用户协议与隐私政策并二次确认后，即可只读浏览完整界面</li>
+          <li>示例项目数据自动生成（项目名从公共项目随机取样），卡片右下角标注「示例数据」，新增 / 编辑 / 删除等写入操作统一提示并拦截</li>
+          <li>游客身份本地持久化，刷新后仍是游客态；「我的」页显示灰色「游客浏览」徽章、隐藏平台管理入口，一键返回登录</li>
+          <li>公告为空时首页横幅走兜底文案，保证入口常驻可见、可点进公告页</li>
+          <li>修复刷新白屏根因：Service Worker 缓存版本升级强制清旧缓存，游客进入流程不再被上一登录会话抢占</li>
+          <li>安全策略放行 Cloudflare 统计脚本，消除 Web Analytics 被 CSP 阻断的报错</li>
+        </ul>
+      </div>
+      <div class="timeline-item reveal">
+        <div class="timeline-version">
+          <span class="ver">V3.5</span>
+          <span class="date">2026 年 10 月</span>
+        </div>
+        <ul>
+          <li>公共项目页新增轮播图：管理员上传图片、设置名称与跳转链接，支持自动轮播、悬停暂停、触摸滑动切换，图片完整展示不裁切</li>
+          <li>轮播图管理支持上传、编辑、删除与上下箭头逐条排序，上传前校验格式尺寸并做 Canvas 压缩</li>
+          <li>统计页回本日历与当日明细加入加仓记录：日历按回本（绿）/ 加仓（蓝）分色堆叠，明细新增类型筛选下拉</li>
+          <li>手机端弹窗统一居中小窗（max-width 460px），添加回本、加仓、编辑账户不再全屏铺开</li>
+          <li>深色模式全链路补齐：搜索框背景、电脑端 WebKit 与 Firefox 滚动条随主题自动切换</li>
+          <li>轮播图触摸滑动与底部导航切页手势隔离，滑动图片不会误触切换页签</li>
+        </ul>
+      </div>
       <div class="timeline-item reveal">
         <div class="timeline-version">
           <span class="ver">V3.4</span>
@@ -1361,6 +1399,7 @@ body.side-open { overflow: hidden; }
         <li><b>液态玻璃导航</b>：移动端底部导航采用毛玻璃悬浮样式，跟随页面滚动保持可见。</li>
         <li><b>Android 原生 APP</b>：支持文件上传、长按保存图片、沉浸式状态栏与内置更新检测。</li>
         <li><b>验证码免密登录</b>：邮箱或手机号收取 6 位验证码直接进入，无需记忆密码，换设备登录零成本。</li>
+        <li><b>游客模式</b>：不想注册也能先逛，完整界面只读浏览，写入操作提示登录后再用。</li>
         <li><b>分享码 + JSON 备份</b>：项目数据可整份分享给同伴，也可随时导出留档、一键还原。</li>
         <li><b>深色模式</b>：跟随系统自动切换，也可手动锁定，夜间记录不刺眼。</li>
       </ul>
@@ -1381,7 +1420,7 @@ body.side-open { overflow: hidden; }
   <div class="container">
     <div class="cta-box reveal">
       <h2>立即开始管理你的项目</h2>
-      <p>零部署、零学习成本，浏览器打开即可使用。所有数据云端存储，换设备登录即可恢复。</p>
+      <p>零部署、零学习成本，浏览器打开即可使用，也可先用游客模式免登录逛一遍。所有数据云端存储，换设备登录即可恢复。</p>
       <div class="cta-actions">
         <a href="https://9you.help/" class="btn btn-white btn-large" target="_blank">
           🚀 打开平台
