@@ -20,7 +20,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
 <!-- 偏好读取顺序：localStorage → cookie（存储被浏览器阻止时降级）→ 系统偏好 -->
 <script>try{var t=null;try{t=localStorage.getItem('jy_theme')}catch(e){}if(!t){var m=document.cookie.match(/(?:^|;\s*)jy_theme=(dark|light)/);if(m)t=m[1]}if(t==='dark'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 <!-- 版本标记：用于确认浏览器运行的代码版本 -->
-<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.17');</script>  <!-- [V] 版本号格式统一；[统计页] 新增独立统计页 + 全部统计（项目回本饼图/月度柱图） --> 
+<script>console.log('[项目跟踪管理平台] 代码版本 2026.10.30');</script>  <!-- [V] 版本号格式统一；[游客模式] 登录页新增「暂不登录（游客浏览）」入口，示例数据+只读拦截 --> 
 <!-- [W] Content-Security-Policy：仅允许本站资源、jsdelivr CDN 与 Supabase。
      刻意保持适度宽松（见各指令注释），避免误伤导致页面/PWA 挂掉：
      - script-src 保留 'unsafe-inline'：主题预加载、全部内联脚本依赖它；
