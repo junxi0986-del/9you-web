@@ -2931,16 +2931,13 @@ function otpWire(container, onEnter){
       if (v.length > 1) {
         fillAll(v.slice(0, boxes.length));
         // 粘贴/多字符输入后若填满，自动触发登录（与单格逐位输入保持一致）
-        if (otpRead(container).length === boxes.length) { console.log('[otpWire] auto-trigger (paste/multi)'); if (onEnter) onEnter(); }
+        if (otpRead(container).length === boxes.length && onEnter) onEnter();
         return;
       }
       box.value = v;
       if (v && i < boxes.length - 1) focusAt(i + 1);
       // 最后一格输入了数字 → 6 位已齐，自动触发登录，省去再点一次按钮
-      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length) {
-        console.log('[otpWire] auto-trigger (final digit)', 'i=', i, 'total=', otpRead(container).length);
-        if (onEnter) onEnter();
-      }
+      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length && onEnter) onEnter();
     });
     box.addEventListener('keydown', e => {
       if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
