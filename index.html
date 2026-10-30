@@ -1418,7 +1418,6 @@ html.in-app #loginWrap {
       <div class="tab-switch tab-switch-desktop">
         <button id="tabBtnMine" onclick="switchListTab('mine')">📁 我的项目</button>
         <button id="tabBtnPublic" onclick="switchListTab('public')">🌐 公共项目</button>
-        <button id="tabBtnNotice" onclick="switchListTab('notice')">📢 公告</button>
         <button id="tabBtnMarket" onclick="switchListTab('market')">💰 市场价</button>
         <button id="tabBtnMe" onclick="switchListTab('me')">👤 我的</button>
       </div>
@@ -8113,14 +8112,20 @@ try {
 /* ---------- 首页顶部：公告横幅 ---------- */
 function renderHomeTop() {
   // 公告滚动横幅：最近 3 条，格式「标题：正文」，长度按屏幕宽度自适应；公告页内隐藏（内容重复）
+  // 游客模式：公告表为空也强制显示横幅（兜底文案），保证有入口点击跳公告页
   const banner = document.getElementById('annBanner');
-  if (announcements.length && listTab !== 'notice') {
+  if ((announcements.length > 0 || guestMode) && listTab !== 'notice') {
     banner.style.display = 'flex';
-    // 按屏幕宽度自适应：约16px一个汉字，小屏至少20字，大屏最多60字
     const maxLen = Math.min(60, Math.max(20, Math.floor(window.innerWidth / 16)));
     const clip = s => s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
-    document.getElementById('annTrack').textContent =
-      announcements.slice(0, 3).map(a => `📢 ${clip(a.title + '：' + (a.content || ''))}`).join('　　　　');
+    let text;
+    if (announcements.length > 0) {
+      text = announcements.slice(0, 3).map(a => `📢 ${clip(a.title + '：' + (a.content || ''))}`).join('　　　　');
+    } else {
+      // 兜底文案：空公告表时也让跑马灯有内容滚动，确保横幅常驻可见、点击有入口
+      text = '📢 暂无公告，点击查看全部　　　　📢 欢迎体验项目跟踪管理平台　　　　';
+    }
+    document.getElementById('annTrack').textContent = text;
   } else {
     banner.style.display = 'none';
   }
