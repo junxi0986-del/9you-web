@@ -3801,7 +3801,7 @@ function _guestSampleProjects() {
 }
 
 function enterGuestMode() {
-  confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？', () => {
+  confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？', async () => {
     guestMode = true;
     currentUserId = null;
     currentUserEmail = '';
@@ -3840,14 +3840,25 @@ function enterGuestMode() {
     // 隐藏管理员入口 / 下载 APP 按钮
     const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = 'none';
     const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = 'none';
+    // ===== 关键：先 fetch 公开数据（这些表全员可读），再 render =====
+    try {
+      await Promise.all([
+        (async () => { try { await loadBanners(); console.log('[guest] banners loaded', banners.length); } catch(e) { console.warn('[guest] banners fail:', e.message); banners = []; } })(),
+        (async () => { try { await loadPublicProjects(); console.log('[guest] public loaded', publicProjects.length); } catch(e) { console.warn('[guest] public fail:', e.message); publicProjects = []; } })(),
+        (async () => { try { await loadAnnouncements(); console.log('[guest] ann loaded', announcements.length); } catch(e) { console.warn('[guest] ann fail:', e.message); announcements = []; } })(),
+        (async () => { try { await loadMarketPrices(); console.log('[guest] market loaded', marketPrices.length); } catch(e) { console.warn('[guest] market fail:', e.message); marketPrices = []; } })(),
+      ]);
+    } catch(e) { console.warn('[guest] fetch all fail:', e); }
     // 保持默认 tab（mine = 我的项目），和正常用户一样
     listTab = 'mine';
     switchListTab('mine');
-    // 渲染所有模块（和正常用户一致）
-    renderHomeTop();
-    renderNoticeTab();
-    renderPublicProjects();
-    renderBanners();
+    // 渲染所有模块（switchListTab 不会自动触发 renderProjectGrid / renderNoticeTab）
+    renderProjectGrid();     // 我的项目（示例数据）
+    renderHomeTop();         // 顶部横幅状态（公告 tab 隐藏判定）
+    renderNoticeTab();       // 公告 tab 列表
+    renderPublicProjects();  // 公共项目 tab 列表
+    renderMarketPage();      // 市场价 tab
+    renderBanners();         // 轮播图
     // 标记所有示例卡片（右下角加淡灰"示例数据"小标）
     setTimeout(() => {
       document.querySelectorAll('#projectList .card').forEach(c => {
