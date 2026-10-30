@@ -2928,9 +2928,16 @@ function otpWire(container, onEnter){
   boxes.forEach((box, i) => {
     box.addEventListener('input', () => {
       const v = box.value.replace(/\D/g, '');
-      if (v.length > 1) { fillAll(v.slice(0, boxes.length)); return; }
+      if (v.length > 1) {
+        fillAll(v.slice(0, boxes.length));
+        // 粘贴/多字符输入后若填满，自动触发登录（与单格逐位输入保持一致）
+        if (otpRead(container).length === boxes.length && onEnter) onEnter();
+        return;
+      }
       box.value = v;
       if (v && i < boxes.length - 1) focusAt(i + 1);
+      // 最后一格输入了数字 → 6 位已齐，自动触发登录，省去再点一次按钮
+      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length && onEnter) onEnter();
     });
     box.addEventListener('keydown', e => {
       if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
@@ -3359,7 +3366,9 @@ async function confirmChangeEmail(){
   refreshSettings();
 }
 
-/* ---------- [需求一] 验证码框接线（登录手机面板；绑定/修改弹窗均已免验证，无需接线） ---------- */
+/* ---------- [需求一] 验证码框接线：邮箱登录面板 + 手机登录面板 ---------- */
+// 两个面板互斥显示（display:none），各自独立接线，互不干扰
+otpWire(document.getElementById('otpBoxes'), supabaseSignIn);
 otpWire(document.getElementById('phoneOtpBoxes'), phoneSignIn);
 
 /* ---------- 用户协议 / 隐私政策全文 ---------- */
