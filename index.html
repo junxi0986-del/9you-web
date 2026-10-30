@@ -2936,9 +2936,12 @@ function otpBoxOnInput(box, type){
     boxes.forEach((b, j) => { b.value = raw[j] || ''; });
     const nextIdx = Math.min(raw.length - 1, boxes.length - 1);
     if (boxes[nextIdx]) boxes[nextIdx].focus();
-    // 粘贴满 6 位 → 自动登录
-    if (otpRead(panel).length === boxes.length) {
-      setTimeout(() => { const btn = findLoginBtn(type); if (btn) btn.click(); }, 0);
+    const codeNow = otpRead(panel);
+    console.log('[OTP] paste-filled, code=', codeNow);
+    if (codeNow.length === boxes.length) {
+      const btn = findLoginBtn(type);
+      console.log('[OTP] paste -> firing btn click, btn=', !!btn);
+      setTimeout(() => { if (btn) btn.click(); else console.warn('[OTP] paste btn not found!'); }, 0);
     }
     return;
   }
@@ -2949,8 +2952,11 @@ function otpBoxOnInput(box, type){
   }
 
   // 最后一格输入满 → 自动登录
-  if (idx === boxes.length - 1 && otpRead(panel).length === boxes.length) {
-    setTimeout(() => { const btn = findLoginBtn(type); if (btn) btn.click(); }, 0);
+  const codeNow = otpRead(panel);
+  if (idx === boxes.length - 1 && codeNow.length === boxes.length) {
+    const btn = findLoginBtn(type);
+    console.log('[OTP] last box filled, code=', codeNow, 'btn=', !!btn);
+    setTimeout(() => { if (btn) btn.click(); else console.warn('[OTP] last-box btn not found!'); }, 0);
   }
 }
 function otpBoxOnKeydown(box, e, type){
