@@ -945,6 +945,14 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 /* 电脑端深色模式：指示器反色 */
 html.dark-mode .banner-arrow { background: rgba(255,255,255,.28); color: #fff; }
 html.dark-mode .banner-arrow:hover { background: rgba(255,255,255,.45); }
+
+/* ======== 游客模式示例数据标记 ======== */
+.guest-sample-tag {
+  position: absolute; right: 8px; bottom: 8px;
+  font-size: 10px; padding: 2px 7px; border-radius: 9px;
+  background: var(--border); color: var(--text-secondary);
+  pointer-events: none; opacity: .75; user-select: none;
+}
 html.dark-mode .banner-dot { background: rgba(255,255,255,.3); }
 html.dark-mode .banner-dot.active { background: #fff; }
 
@@ -3750,8 +3758,50 @@ function hideMainApp(){
 }
 
 // ======== 游客模式 ========
+// 示例数据：3 个项目，带多账户 + 回本流水 + 加仓，让游客直观看到产品效果
+function _guestSampleProjects() {
+  const d = new Date();
+  const daysAgo = n => { const x = new Date(d); x.setDate(x.getDate() - n); return x.toISOString().slice(0,10); };
+  return [{
+    id: 'demo-p1', name: 'XX分红项目', logo: '', note: '示例项目：早期红利型',
+    principal: 30000, created_at: daysAgo(30),
+    users: [
+      { id: 'u1', name: '张三', principal: 10000, onboard_date: daysAgo(30), note: '',
+        prices: [ { id:'r1', date:daysAgo(20), price:1500 }, { id:'r2', date:daysAgo(10), price:2200 } ],
+        topups: [ { id:'t1', date:daysAgo(5), amount:3000 } ] },
+      { id: 'u2', name: '李四', principal: 10000, onboard_date: daysAgo(28), note: '',
+        prices: [ { id:'r3', date:daysAgo(15), price:1800 } ],
+        topups: [] },
+      { id: 'u3', name: '王五', principal: 10000, onboard_date: daysAgo(25), note: '',
+        prices: [ { id:'r4', date:daysAgo(12), price:2000 }, { id:'r5', date:daysAgo(3), price:1500 } ],
+        topups: [ { id:'t2', date:daysAgo(1), amount:5000 } ] },
+    ]
+  },{
+    id: 'demo-p2', name: 'YY社区项目', logo: '', note: '示例项目：稳定收益型',
+    principal: 15000, created_at: daysAgo(14),
+    users: [
+      { id: 'u4', name: '赵六', principal: 8000, onboard_date: daysAgo(14), note: '',
+        prices: [ { id:'r6', date:daysAgo(7), price:1200 }, { id:'r7', date:daysAgo(1), price:800 } ],
+        topups: [] },
+      { id: 'u5', name: '钱七', principal: 7000, onboard_date: daysAgo(14), note: '',
+        prices: [ { id:'r8', date:daysAgo(5), price:900 } ],
+        topups: [] },
+    ]
+  },{
+    id: 'demo-p3', name: 'ZZ游戏项目', logo: '', note: '示例项目：刚上车，尚未回本',
+    principal: 8000, created_at: daysAgo(7),
+    users: [
+      { id: 'u6', name: '孙八', principal: 5000, onboard_date: daysAgo(7), note: '',
+        prices: [], topups: [] },
+      { id: 'u7', name: '周九', principal: 3000, onboard_date: daysAgo(6), note: '',
+        prices: [ { id:'r9', date:daysAgo(2), price:300 } ],
+        topups: [ { id:'t3', date:daysAgo(3), amount:2000 } ] },
+    ]
+  }];
+}
+
 function enterGuestMode() {
-  confirmAction('游客浏览', '如果不登录您的操作将受限：仅可查看公共项目、公告与市场价，所有个人数据写入操作将被禁用。确定继续？', () => {
+  confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？', () => {
     guestMode = true;
     currentUserId = null;
     currentUserEmail = '';
@@ -3760,52 +3810,57 @@ function enterGuestMode() {
     sessionToken = '';
     // 游客身份持久化（刷新后保持游客模式）
     localStorage.setItem('jy_guest', '1');
+    // 注入示例数据（游客无法写入，完全只读展示）
+    projects = _guestSampleProjects();
     // 进入主界面
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
-    document.getElementById('welcomeEmail').textContent = '游客浏览';
-    // 强制切到公共项目 tab（游客只允许看公共项目）
-    listTab = 'public';
-    switchListTab('public');
-    // 隐藏/禁用所有非公共 tab
-    _guestApplyRestrictions();
-    // 渲染公开数据
+    // 顶部欢迎语 + 登录按钮
+    const welcome = document.getElementById('welcomeEmail');
+    if (welcome) welcome.textContent = '游客浏览（示例数据）';
+    // 游客顶部显示「登录 / 注册」按钮
+    let guestLoginBtn = document.getElementById('guestLoginBtn');
+    if (!guestLoginBtn) {
+      guestLoginBtn = document.createElement('button');
+      guestLoginBtn.id = 'guestLoginBtn';
+      guestLoginBtn.className = 'btn btn-sm';
+      guestLoginBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;margin-left:4px;cursor:pointer;display:none';
+      guestLoginBtn.textContent = '登录 / 注册';
+      guestLoginBtn.onclick = () => {
+        guestMode = false;
+        localStorage.removeItem('jy_guest');
+        projects = [];
+        document.getElementById('mainApp').style.display='none';
+        document.getElementById('loginWrap').style.display='flex';
+        const btn = document.getElementById('guestLoginBtn'); if (btn) btn.remove();
+      };
+      document.querySelector('.header-actions').appendChild(guestLoginBtn);
+    }
+    guestLoginBtn.style.display = 'inline-flex';
+    // 隐藏管理员入口 / 下载 APP 按钮
+    const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = 'none';
+    const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = 'none';
+    // 保持默认 tab（mine = 我的项目），和正常用户一样
+    listTab = 'mine';
+    switchListTab('mine');
+    // 渲染所有模块（和正常用户一致）
     renderHomeTop();
     renderNoticeTab();
     renderPublicProjects();
     renderBanners();
-    // 手机端隐藏底部导航其他 tab
-    _guestMobileNav();
-    toast('已进入游客模式，仅可浏览公共数据', 'info');
+    // 标记所有示例卡片（右下角加淡灰"示例数据"小标）
+    setTimeout(() => {
+      document.querySelectorAll('#projectList .card').forEach(c => {
+        if (!c.querySelector('.guest-sample-tag')) {
+          const tag = document.createElement('span');
+          tag.className = 'guest-sample-tag';
+          tag.textContent = '示例数据';
+          c.appendChild(tag);
+        }
+      });
+    }, 50);
+    toast('已进入游客模式，可浏览示例数据体验完整界面', 'info');
   }, '确定浏览', '', false);
-}
-
-// 游客模式：顶部/底部导航、非公共区块隐藏/禁用
-function _guestApplyRestrictions() {
-  // 桌面端 tab-switch：隐藏 我的项目 / 市场价 / 我的
-  const desktopBtns = ['tabBtnMine', 'tabBtnMarket', 'tabBtnMe'];
-  desktopBtns.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-  // 游客模式顶部显示"登录"按钮（替代欢迎语旁空白）
-  let guestLoginBtn = document.getElementById('guestLoginBtn');
-  if (!guestLoginBtn) {
-    guestLoginBtn = document.createElement('button');
-    guestLoginBtn.id = 'guestLoginBtn';
-    guestLoginBtn.className = 'btn btn-sm';
-    guestLoginBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;margin-left:auto;cursor:pointer;display:none';
-    guestLoginBtn.textContent = '登录 / 注册';
-    guestLoginBtn.onclick = () => { guestMode = false; localStorage.removeItem('jy_guest'); document.getElementById('mainApp').style.display='none'; document.getElementById('loginWrap').style.display='flex'; };
-    document.querySelector('.header-actions').appendChild(guestLoginBtn);
-  }
-  guestLoginBtn.style.display = 'inline-flex';
-  // 隐藏下载 APP 按钮
-  const dlBtn = document.getElementById('headerDlAppBtn');
-  if (dlBtn) dlBtn.style.display = 'none';
-}
-
-// 游客模式：手机端底部导航只保留公共项目 tab
-function _guestMobileNav() {
-  const ids = ['bnavMine', 'bnavMarket', 'bnavMe'];
-  ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
 }
 
 // 退出游客模式时恢复所有 UI
@@ -3813,13 +3868,13 @@ function _guestCleanup() {
   if (!guestMode) return;
   guestMode = false;
   localStorage.removeItem('jy_guest');
-  // 恢复桌面 tab 按钮
-  ['tabBtnMine', 'tabBtnMarket', 'tabBtnMe'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
-  // 恢复手机底部 nav
-  ['bnavMine', 'bnavMarket', 'bnavMe'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+  // 恢复管理员按钮 / 下载 APP 按钮
+  const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = '';
+  const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = '';
   // 移除登录按钮
-  const btn = document.getElementById('guestLoginBtn');
-  if (btn) btn.remove();
+  const btn = document.getElementById('guestLoginBtn'); if (btn) btn.remove();
+  // 移除示例数据标记
+  document.querySelectorAll('.guest-sample-tag').forEach(t => t.remove());
 }
 
 // 全局游客拦截：所有写入操作前调用，返回 true 表示已拦截（toast 已弹），调用方应中止操作
@@ -4458,11 +4513,6 @@ let listTab = 'mine';  // 默认页签：我的项目（主菜单）
 // [修复] 用户是否在本次进入主界面后手动切换过页签
 let userPickedTab = false;
 function switchListTab(tab) {
-  // 游客模式只允许切到 public / notice 两个 tab
-  if (guestMode && tab !== 'public' && tab !== 'notice') {
-    guestBlocked('访问该模块');
-    return;
-  }
   userPickedTab = true;  // [修复] 任何路径进入本函数都算用户手动切页签（顶部tab/底部nav/横幅跳notice）
   // 若在平台管理页：先退出管理页（隐藏管理区、恢复顶部横幅、消费入栈历史），再正常切页签
   if (onAdminPage) {
