@@ -3648,7 +3648,7 @@ async function checkAuth(){
     try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
     currentUserId = null; currentUserEmail = ''; isAdmin = false; projects = [];
     document.getElementById('bootLoading').style.display = 'none';
-    enterGuestMode();
+    _enterGuestModeCore();  // 刷新恢复：直接进入，不再弹确认框
     return;
   }
   const hasToken = tryInstantLogin();
@@ -3805,87 +3805,92 @@ function _guestSampleProjects() {
   }];
 }
 
-function enterGuestMode() {
-  confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？', async () => {
-    // ===== 关键前置：同步清掉上一个登录用户的所有 auth 痕迹，防止 tryInstantLogin() 抢跑设回身份 =====
-    try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
-    try {
-      // 清掉本地缓存 projects（若 currentUserId 还有值）
-      if (currentUserId) localStorage.removeItem(cacheKeyProjects(currentUserId));
-    } catch (e) {}
-    try { sb.auth.signOut(); } catch (e) {}
+// 游客模式核心逻辑（无确认弹窗，刷新恢复路径直接调用）
+async function _enterGuestModeCore() {
+  // ===== 关键前置：同步清掉上一个登录用户的所有 auth 痕迹，防止 tryInstantLogin() 抢跑设回身份 =====
+  try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
+  try {
+    // 清掉本地缓存 projects（若 currentUserId 还有值）
+    if (currentUserId) localStorage.removeItem(cacheKeyProjects(currentUserId));
+  } catch (e) {}
+  try { sb.auth.signOut(); } catch (e) {}
 
-    guestMode = true;
-    currentUserId = null;
-    currentUserEmail = '';
-    isAdmin = false;
-    loginToken = '';
-    sessionToken = '';
-    // 游客身份持久化（刷新后保持游客模式）
-    localStorage.setItem('jy_guest', '1');
-    // 注入示例数据（游客无法写入，完全只读展示）
-    projects = _guestSampleProjects();
-    // 进入主界面
-    document.getElementById('loginWrap').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
-    // 顶部欢迎语 + 登录按钮
-    const welcome = document.getElementById('welcomeEmail');
-    if (welcome) welcome.textContent = '游客浏览（示例数据）';
-    // 游客顶部显示「登录 / 注册」按钮
-    let guestLoginBtn = document.getElementById('guestLoginBtn');
-    if (!guestLoginBtn) {
-      guestLoginBtn = document.createElement('button');
-      guestLoginBtn.id = 'guestLoginBtn';
-      guestLoginBtn.className = 'btn btn-sm';
-      guestLoginBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;margin-left:4px;cursor:pointer;display:none';
-      guestLoginBtn.textContent = '登录 / 注册';
-      guestLoginBtn.onclick = () => {
-        guestMode = false;
-        localStorage.removeItem('jy_guest');
-        projects = [];
-        document.getElementById('mainApp').style.display='none';
-        document.getElementById('loginWrap').style.display='flex';
-        const btn = document.getElementById('guestLoginBtn'); if (btn) btn.remove();
-      };
-      document.querySelector('.header-actions').appendChild(guestLoginBtn);
-    }
-    guestLoginBtn.style.display = 'inline-flex';
-    // 隐藏管理员入口 / 下载 APP 按钮
-    const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = 'none';
-    const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = 'none';
-    // ===== 关键：先 fetch 公开数据（这些表全员可读），再 render =====
-    try {
-      await Promise.all([
-        (async () => { try { await loadBanners(); console.log('[guest] banners loaded', banners.length); } catch(e) { console.warn('[guest] banners fail:', e.message); banners = []; } })(),
-        (async () => { try { await loadPublicProjects(); console.log('[guest] public loaded', publicProjects.length); } catch(e) { console.warn('[guest] public fail:', e.message); publicProjects = []; } })(),
-        (async () => { try { await loadAnnouncements(); console.log('[guest] ann loaded', announcements.length); } catch(e) { console.warn('[guest] ann fail:', e.message); announcements = []; } })(),
-        (async () => { try { await loadMarketPrices(); console.log('[guest] market loaded', marketPrices.length); } catch(e) { console.warn('[guest] market fail:', e.message); marketPrices = []; } })(),
-      ]);
-    } catch(e) { console.warn('[guest] fetch all fail:', e); }
-    // 保持默认 tab（mine = 我的项目），和正常用户一样
-    listTab = 'mine';
-    switchListTab('mine');
-    // 渲染所有模块（switchListTab 不会自动触发 renderProjectGrid / renderNoticeTab）
-    renderProjectGrid();     // 我的项目（示例数据）
-    renderHomeTop();         // 顶部横幅状态（公告 tab 隐藏判定）
-    renderNoticeTab();       // 公告 tab 列表
-    renderPublicProjects();  // 公共项目 tab 列表
-    renderMarketPage();      // 市场价 tab
-    renderBanners();         // 轮播图
-    renderMeAdmin();         // 我的 tab（清空上一个登录用户的邮箱/角色/管理入口）
-    // 标记所有示例卡片（右下角加淡灰"示例数据"小标）
-    setTimeout(() => {
-      document.querySelectorAll('#projectList .card').forEach(c => {
-        if (!c.querySelector('.guest-sample-tag')) {
-          const tag = document.createElement('span');
-          tag.className = 'guest-sample-tag';
-          tag.textContent = '示例数据';
-          c.appendChild(tag);
-        }
-      });
-    }, 50);
-    toast('已进入游客模式，可浏览示例数据体验完整界面', 'info');
-  }, '确定浏览', '', false);
+  guestMode = true;
+  currentUserId = null;
+  currentUserEmail = '';
+  isAdmin = false;
+  loginToken = '';
+  sessionToken = '';
+  // 游客身份持久化（刷新后保持游客模式）
+  localStorage.setItem('jy_guest', '1');
+  // 注入示例数据（游客无法写入，完全只读展示）
+  projects = _guestSampleProjects();
+  // 进入主界面
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  // 顶部欢迎语 + 登录按钮
+  const welcome = document.getElementById('welcomeEmail');
+  if (welcome) welcome.textContent = '游客浏览（示例数据）';
+  // 游客顶部显示「登录 / 注册」按钮
+  let guestLoginBtn = document.getElementById('guestLoginBtn');
+  if (!guestLoginBtn) {
+    guestLoginBtn = document.createElement('button');
+    guestLoginBtn.id = 'guestLoginBtn';
+    guestLoginBtn.className = 'btn btn-sm';
+    guestLoginBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;margin-left:4px;cursor:pointer;display:none';
+    guestLoginBtn.textContent = '登录 / 注册';
+    guestLoginBtn.onclick = () => {
+      guestMode = false;
+      localStorage.removeItem('jy_guest');
+      projects = [];
+      document.getElementById('mainApp').style.display='none';
+      document.getElementById('loginWrap').style.display='flex';
+      const btn = document.getElementById('guestLoginBtn'); if (btn) btn.remove();
+    };
+    document.querySelector('.header-actions').appendChild(guestLoginBtn);
+  }
+  guestLoginBtn.style.display = 'inline-flex';
+  // 隐藏管理员入口 / 下载 APP 按钮
+  const admBtn = document.getElementById('headerAdminBtn'); if (admBtn) admBtn.style.display = 'none';
+  const dlBtn = document.getElementById('headerDlAppBtn'); if (dlBtn) dlBtn.style.display = 'none';
+  // ===== 关键：先 fetch 公开数据（这些表全员可读），再 render =====
+  try {
+    await Promise.all([
+      (async () => { try { await loadBanners(); console.log('[guest] banners loaded', banners.length); } catch(e) { console.warn('[guest] banners fail:', e.message); banners = []; } })(),
+      (async () => { try { await loadPublicProjects(); console.log('[guest] public loaded', publicProjects.length); } catch(e) { console.warn('[guest] public fail:', e.message); publicProjects = []; } })(),
+      (async () => { try { await loadAnnouncements(); console.log('[guest] ann loaded', announcements.length); } catch(e) { console.warn('[guest] ann fail:', e.message); announcements = []; } })(),
+      (async () => { try { await loadMarketPrices(); console.log('[guest] market loaded', marketPrices.length); } catch(e) { console.warn('[guest] market fail:', e.message); marketPrices = []; } })(),
+    ]);
+  } catch(e) { console.warn('[guest] fetch all fail:', e); }
+  // 保持默认 tab（mine = 我的项目），和正常用户一样
+  listTab = 'mine';
+  switchListTab('mine');
+  // 渲染所有模块（switchListTab 不会自动触发 renderProjectGrid / renderNoticeTab）
+  renderProjectGrid();     // 我的项目（示例数据）
+  renderHomeTop();         // 顶部横幅状态（公告 tab 隐藏判定）
+  renderNoticeTab();       // 公告 tab 列表
+  renderPublicProjects();  // 公共项目 tab 列表
+  renderMarketPage();      // 市场价 tab
+  renderBanners();         // 轮播图
+  renderMeAdmin();         // 我的 tab（清空上一个登录用户的邮箱/角色/管理入口）
+  // 标记所有示例卡片（右下角加淡灰"示例数据"小标）
+  setTimeout(() => {
+    document.querySelectorAll('#projectList .card').forEach(c => {
+      if (!c.querySelector('.guest-sample-tag')) {
+        const tag = document.createElement('span');
+        tag.className = 'guest-sample-tag';
+        tag.textContent = '示例数据';
+        c.appendChild(tag);
+      }
+    });
+  }, 50);
+}
+
+// 登录页按钮入口：带二次确认后进入游客模式
+function enterGuestMode() {
+  confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？',
+    async () => { await _enterGuestModeCore(); toast('已进入游客模式，可浏览示例数据体验完整界面', 'info'); },
+    '确定浏览', '', false);
 }
 
 // 退出游客模式时恢复所有 UI
