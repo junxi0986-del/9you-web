@@ -3905,8 +3905,8 @@ function _guestSampleProjects() {
       projPrincipal += principal;
       const priceCount = rand(0, 3);
       const prices = [];
-      // 利润约束：累计回本 - 本金 ≤ 6000，即 sum(prices) ≤ principal + 6000
-      const maxRecover = principal + 6000;
+      // 利润约束：累计回本 - 本金 ≤ 6000，且累计回本总额硬上限 10000（模拟数据不得超过 10000）
+      const maxRecover = Math.min(principal + 6000, 10000);
       let recovered = 0;
       for (let r = 0; r < priceCount; r++) {
         const remaining = maxRecover - recovered;
@@ -3930,10 +3930,14 @@ function _guestSampleProjects() {
         prices, topups
       });
     }
+    const projName = pickName();
+    const pb = (Array.isArray(publicProjects) && publicProjects.length > 0)
+      ? publicProjects.find(x => x && x.name === projName)
+      : null;
     projects.push({
       id: 'demo-p-' + p,
-      name: pickName(),
-      logo: '',
+      name: projName,
+      logo: pb ? (pb.logo || '') : '',   // 从同名公共项目同步 logo，避免游客卡片无 logo
       note: '游客示例数据',
       principal: projPrincipal,
       created_at: daysAgo(rand(5, 30)),
