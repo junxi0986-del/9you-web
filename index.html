@@ -2931,32 +2931,24 @@ function otpBoxOnInput(box, type){
   if (raw !== box.value) box.value = raw;
   if (!raw) return;
 
-  // 多字符（粘贴/自动填充整段）→ 分发到所有格子
+  // 多字符（粘贴/自动填充整段）→ 分发到所有格子，满 6 自动登录
   if (raw.length > 1) {
     boxes.forEach((b, j) => { b.value = raw[j] || ''; });
     const nextIdx = Math.min(raw.length - 1, boxes.length - 1);
     if (boxes[nextIdx]) boxes[nextIdx].focus();
-    const codeNow = otpRead(panel);
-    console.log('[OTP] paste-filled, code=', codeNow);
-    if (codeNow.length === boxes.length) {
+    if (otpRead(panel).length === boxes.length) {
       const btn = findLoginBtn(type);
-      console.log('[OTP] paste -> firing btn click, btn=', !!btn);
-      setTimeout(() => { if (btn) btn.click(); else console.warn('[OTP] paste btn not found!'); }, 0);
+      if (btn) setTimeout(() => btn.click(), 0);
     }
     return;
   }
 
-  // 单格输入 → 跳格
+  // 单格输入 → 跳格 + 最后一格满 6 自动登录
   if (idx < boxes.length - 1) {
     boxes[idx + 1].focus();
-  }
-
-  // 最后一格输入满 → 自动登录
-  const codeNow = otpRead(panel);
-  if (idx === boxes.length - 1 && codeNow.length === boxes.length) {
+  } else if (idx === boxes.length - 1 && otpRead(panel).length === boxes.length) {
     const btn = findLoginBtn(type);
-    console.log('[OTP] last box filled, code=', codeNow, 'btn=', !!btn);
-    setTimeout(() => { if (btn) btn.click(); else console.warn('[OTP] last-box btn not found!'); }, 0);
+    if (btn) setTimeout(() => btn.click(), 0);
   }
 }
 function otpBoxOnKeydown(box, e, type){
