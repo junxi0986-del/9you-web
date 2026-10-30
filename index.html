@@ -1339,12 +1339,12 @@ html.in-app #loginWrap {
       <div class="form-group" id="otpGroup" style="display:none">
         <label>验证码</label>
         <div style="display:flex;gap:6px" id="otpBoxes">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位" oninput="otpBoxOnInput(this,'email')" onkeydown="otpBoxOnKeydown(this,event,'email')">
         </div>
       </div>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
@@ -1371,12 +1371,12 @@ html.in-app #loginWrap {
       <div class="form-group" id="phoneOtpGroup" style="display:none">
         <label>验证码</label>
         <div style="display:flex;gap:6px" id="phoneOtpBoxes">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位">
-          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="验证码第1位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第2位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第3位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第4位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第5位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="验证码第6位" oninput="otpBoxOnInput(this,'phone')" onkeydown="otpBoxOnKeydown(this,event,'phone')">
         </div>
       </div>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;align-items:center">
@@ -2907,67 +2907,97 @@ function maskEmail(v){
   return local + domain;
 }
 
-/* ---------- 通用：容器内 6 格验证码（解决多组 .otp-box 与全局 getOtpCode/Enter 的冲突） ---------- */
-// [需求一] 读取某个容器内的验证码（不影响全局 getOtpCode）
+/* ---------- 通用：容器内 6 格验证码 ---------- */
 function otpRead(container){
   if (!container) return '';
   return [...container.querySelectorAll('.otp-box')].map(b => b.value.trim()).join('');
 }
-// [需求一] 为容器内 .otp-box 接线：自动跳格/退格/粘贴分发（与原邮箱登录 IIFE 同逻辑），
-// Enter 时 stopPropagation 防止全局回车误触 supabaseSignIn，并执行 onEnter
+// 面板映射：type → { panelId, loginFn }
+const OTP_PANELS = {
+  email: { panelId: 'otpBoxes', loginFn: 'supabaseSignIn' },
+  phone: { panelId: 'phoneOtpBoxes', loginFn: 'phoneSignIn' }
+};
+// [内联 oninput 核心函数] 100% 可靠（HTML 属性绑定，不依赖 addEventListener 时机）
+// 职责：数字校验、单格跳格、粘贴整段分发、6 位满自动 click 登录按钮
+function otpBoxOnInput(box, type){
+  const panel = document.getElementById(OTP_PANELS[type].panelId);
+  if (!panel) return;
+  const boxes = [...panel.querySelectorAll('.otp-box')];
+  const idx = boxes.indexOf(box);
+  if (idx < 0) return;
+
+  // 只保留数字
+  const raw = (box.value || '').replace(/\D/g, '');
+  if (raw !== box.value) box.value = raw;
+  if (!raw) return;
+
+  // 多字符（粘贴/自动填充整段）→ 分发到所有格子
+  if (raw.length > 1) {
+    boxes.forEach((b, j) => { b.value = raw[j] || ''; });
+    const nextIdx = Math.min(raw.length - 1, boxes.length - 1);
+    if (boxes[nextIdx]) boxes[nextIdx].focus();
+    // 粘贴满 6 位 → 自动登录
+    if (otpRead(panel).length === boxes.length) {
+      setTimeout(() => { const btn = findLoginBtn(type); if (btn) btn.click(); }, 0);
+    }
+    return;
+  }
+
+  // 单格输入 → 跳格
+  if (idx < boxes.length - 1) {
+    boxes[idx + 1].focus();
+  }
+
+  // 最后一格输入满 → 自动登录
+  if (idx === boxes.length - 1 && otpRead(panel).length === boxes.length) {
+    setTimeout(() => { const btn = findLoginBtn(type); if (btn) btn.click(); }, 0);
+  }
+}
+function otpBoxOnKeydown(box, e, type){
+  const panel = document.getElementById(OTP_PANELS[type].panelId);
+  if (!panel) return;
+  const boxes = [...panel.querySelectorAll('.otp-box')];
+  const idx = boxes.indexOf(box);
+  if (idx < 0) return;
+  if (e.key === 'Backspace' && !box.value && idx > 0) {
+    e.preventDefault();
+    boxes[idx - 1].focus();
+  } else if (e.key === 'ArrowLeft' && idx > 0) {
+    e.preventDefault(); boxes[idx - 1].focus();
+  } else if (e.key === 'ArrowRight' && idx < boxes.length - 1) {
+    e.preventDefault(); boxes[idx + 1].focus();
+  } else if (e.key === 'Enter') {
+    e.preventDefault(); e.stopPropagation();
+    const code = otpRead(panel);
+    if (code.length === boxes.length) { const btn = findLoginBtn(type); if (btn) btn.click(); }
+  } else if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
+    // 手动支持粘贴：让 input 事件在 paste 后自然触发 otpBoxOnInput 的多字符分支
+    setTimeout(() => otpBoxOnInput(box, type), 0);
+  }
+}
+function findLoginBtn(type){
+  const paneId = type === 'email' ? 'emailLoginPane' : 'phoneLoginPane';
+  const pane = document.getElementById(paneId);
+  if (!pane) return null;
+  return pane.querySelector('button[onclick*="' + OTP_PANELS[type].loginFn + '"], button.btn-primary');
+}
+// 登录失败时重置 OTP 面板（清空所有格、移除错误样式、聚焦第一格）
+function otpReset(panelId){
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.querySelectorAll('.otp-box').forEach(b => { b.value = ''; b.classList.remove('otp-error'); });
+  const first = panel.querySelector('.otp-box');
+  if (first) first.focus();
+}
+// [已简化] otpWire 不再负责核心交互（oninput/onkeydown 已内联到 HTML 属性），
+// 仅做：focus 时 select 内容 + paste 事件分发（内联 oninput 已处理多字符）
 function otpWire(container, onEnter){
   if (!container) return;
   const boxes = [...container.querySelectorAll('.otp-box')];
   if (!boxes.length || container.__otpWired) return;
   container.__otpWired = true;
-  const focusAt = i => { const b = boxes[Math.max(0, Math.min(boxes.length - 1, i))]; if (b) { b.focus(); b.select(); } };
-  const fillAll = digits => {
-    boxes.forEach((b, j) => { b.value = digits[j] || ''; });
-    focusAt(Math.min(digits.length, boxes.length - 1));
-  };
-  // [修复] 自动触发登录：优先找同一登录面板里的「登录按钮」并 click，
-  // 保证和用户手动点按钮行为完全一致（绕过 getOtpCode 容器查询、isAgreed 状态等中间状态差异）；
-  // 找不到按钮时兜底调 onEnter 回调
-  const fireLogin = () => {
-    // 往上爬找到所属登录面板（emailLoginPane / phoneLoginPane），然后找里面的 .btn-primary
-    let pane = container;
-    while (pane && !pane.classList.contains('login-card') && !/LoginPane/.test(pane.id)) {
-      pane = pane.parentElement;
-    }
-    const btn = pane ? pane.querySelector('button.btn-primary, button[onclick*="SignIn"], button[onclick*="signIn"]') : null;
-    if (btn) btn.click();
-    else if (onEnter) onEnter();
-  };
-  boxes.forEach((box, i) => {
-    box.addEventListener('input', () => {
-      const v = box.value.replace(/\D/g, '');
-      if (v.length > 1) {
-        fillAll(v.slice(0, boxes.length));
-        // 粘贴/多字符输入后若填满，自动触发登录
-        if (otpRead(container).length === boxes.length) { setTimeout(fireLogin, 0); }
-        return;
-      }
-      box.value = v;
-      if (v && i < boxes.length - 1) focusAt(i + 1);
-      // 最后一格输入了数字 → 6 位已齐，自动触发登录，省去再点一次按钮
-      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length) {
-        setTimeout(fireLogin, 0);
-      }
-    });
-    box.addEventListener('keydown', e => {
-      if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
-      else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); focusAt(i - 1); }
-      else if (e.key === 'ArrowRight' && i < boxes.length - 1) { e.preventDefault(); focusAt(i + 1); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (onEnter) onEnter(); }
-    });
-    box.addEventListener('paste', e => {
-      e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
-      const digits = text.replace(/\D/g, '').slice(0, boxes.length);
-      if (digits) fillAll(digits);
-    });
-    box.addEventListener('focus', () => box.select());
-  });
+  // focus 时选中全部内容，方便覆盖输入
+  boxes.forEach(box => box.addEventListener('focus', () => { try { box.select(); } catch(e) {} }));
 }
 // [需求一] 发送按钮倒计时（60 秒，结束后恢复文案；不影响邮箱登录原有倒计时）
 function otpCountdown(btn, sec, defaultText){
@@ -3046,7 +3076,10 @@ async function phoneSignIn(){
   if (!/^\d{6}$/.test(token)) return toast('请输入完整的6位数字验证码', 'warn');
   if (!isAgreed()) return toast('请先阅读并勾选同意《用户协议》和《隐私政策》', 'warn');
   const { data, error } = await sb.auth.verifyOtp({ phone, token, type: 'sms' });
-  if (error) return toast('登录失败：' + authError(error.message), 'error');
+  if (error){
+    otpReset('phoneOtpBoxes');
+    return toast('登录失败：' + authError(error.message), 'error');
+  }
   await afterLogin(data.user);
   await ensurePhoneBound(data.user);  // 手机登录必有手机号，直接放行
   showMainApp();
@@ -3381,35 +3414,9 @@ async function confirmChangeEmail(){
   refreshSettings();
 }
 
-/* ---------- [需求一] 验证码框接线：邮箱登录面板 + 手机登录面板 ---------- */
-// 两个面板互斥显示（display:none），各自独立接线，互不干扰
+/* ---------- [需求一] 验证码框接线：仅做 focus select；核心 oninput/onkeydown 已内联到 HTML ---------- */
 otpWire(document.getElementById('otpBoxes'), supabaseSignIn);
 otpWire(document.getElementById('phoneOtpBoxes'), phoneSignIn);
-
-// [终极兜底] 全局 event delegation：监听 document 的 input 事件，
-// 检查当前激活的 otp 面板是否已满 6 位，满了就 click 登录按钮。
-// 硬编码两个面板的映射关系，避免 parentElement 爬取在不同 DOM 结构下失效。
-document.addEventListener('input', (e) => {
-  const t = e.target;
-  if (!t || !t.classList || !t.classList.contains('otp-box')) return;
-  // 硬编码映射：面板 id → 所属登录面板 id → 登录按钮选择器
-  const EMAIL_PANEL = 'otpBoxes', EMAIL_LOGIN_PANE = 'emailLoginPane', EMAIL_BTN = 'supabaseSignIn';
-  const PHONE_PANEL = 'phoneOtpBoxes', PHONE_LOGIN_PANE = 'phoneLoginPane', PHONE_BTN = 'phoneSignIn';
-  // 找 t 所属的面板
-  const panel = t.id === EMAIL_PANEL || t.closest('#' + EMAIL_PANEL) ? EMAIL_PANEL
-              : t.id === PHONE_PANEL || t.closest('#' + PHONE_PANEL) ? PHONE_PANEL
-              : null;
-  if (!panel) return;
-  const code = otpRead(document.getElementById(panel));
-  if (code.length !== 6) return;
-  const isEmail = panel === EMAIL_PANEL;
-  const paneId = isEmail ? EMAIL_LOGIN_PANE : PHONE_LOGIN_PANE;
-  const loginFn = isEmail ? EMAIL_BTN : PHONE_BTN;
-  const pane = document.getElementById(paneId);
-  if (!pane) return;
-  const btn = pane.querySelector('button[onclick*="' + loginFn + '"], button.btn-primary');
-  if (btn) { setTimeout(() => btn.click(), 0); }
-});
 
 /* ---------- 用户协议 / 隐私政策全文 ---------- */
 const AGREEMENT_HTML = `
@@ -3604,7 +3611,10 @@ async function supabaseSignIn(){
   if(!/^\d{6}$/.test(token)) return toast("请输入完整的6位数字验证码","warn");
   if(!isAgreed()) return toast("请先阅读并勾选同意《用户协议》和《隐私政策》","warn");
   const {data,error} = await sb.auth.verifyOtp({ email, token, type: 'email' });
-  if(error) return toast("登录失败："+authError(error.message),"error");
+  if(error){
+    otpReset('otpBoxes');  // 失败清空全部 + 聚焦第一格
+    return toast("登录失败："+authError(error.message),"error");
+  }
   await afterLogin(data.user);
   await ensurePhoneBound(data.user);  // [需求二] 无手机号弹提示，绑定或暂不后继续
   showMainApp();
