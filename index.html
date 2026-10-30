@@ -3891,6 +3891,8 @@ function enterGuestMode() {
   confirmAction('游客浏览', '如果不登录您的操作将受限：可查看完整界面与示例数据，但所有新增/编辑/删除/保存等写入操作将被禁用。确定继续？',
     async () => { await _enterGuestModeCore(); toast('已进入游客模式，可浏览示例数据体验完整界面', 'info'); },
     '确定浏览', '', false);
+  // 保险：点取消后彻底清掉 jy_guest，防止下次刷新又弹同一个确认框形成死循环
+  confirmCancelHook = () => { localStorage.removeItem('jy_guest'); };
 }
 
 // 退出游客模式时恢复所有 UI
@@ -5187,6 +5189,7 @@ function handleRowAction(uidx, sel){
 
 /* ---------- 新增 / 编辑项目 ---------- */
 function openProjectModal(id) {
+  if (guestBlocked(id ? '编辑项目' : '新增项目')) return;
   setError('pf-name', false);
   const sel = document.getElementById('pf-name-sel');
   const inp = document.getElementById('pf-name');
@@ -5282,6 +5285,7 @@ function share_packPrice(r) {
 }
 
 function openShareProjectModal() {
+  if (guestBlocked('分享项目')) return;
   if (projects.length === 0) { toast('暂无可分享的项目，请先新增项目', 'warn'); return; }
   const sel = document.getElementById('sp-project');
   sel.innerHTML = projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}（${p.users.length} 账户）</option>`).join('');
@@ -5700,6 +5704,7 @@ async function billApplyConvertOne(recId) {
 // 全部确认：每笔按各自匹配的品名/数量分别写回，未选品名或数量非整数的跳过并提示
 let billAllConverting = false;
 async function billApplyConvertAll() {
+  if (guestBlocked('写入出货数量')) return;
   if (billAllConverting) return;
   billAllConverting = true;
   const btn = document.querySelector('button[onclick="billApplyConvertAll()"]');
@@ -5996,6 +6001,7 @@ async function saveBillImage() {
 
 // 删除项目（连同其下所有用户及价格记录）
 function deleteProject(id) {
+  if (guestBlocked('删除项目')) return;
   const p = getProject(id);
   if (!p) return;
   const userCount = p.users.length;
@@ -6150,6 +6156,7 @@ function deletePublicProject(id) {
 
 /* ---------- 新增 / 编辑账户 ---------- */
 function openUserModal(id, forcedProjectId) {
+  if (guestBlocked(id !== undefined && id !== null && id !== '' ? '编辑账户' : '添加账户')) return;
   const editIdx = (id === undefined || id === null || id === '') ? -1 : Number(id);  // 行序号定位（账户ID可留空）
   setError('uf-uid', false); setError('uf-name', false);
   setError('uf-principal', false); setError('uf-date', false);
@@ -6247,6 +6254,7 @@ async function saveUser(keepOpen) {
 
 // 删除账户（连同其所有价格记录）；按行序号定位，删除后序号前移需清空勾选
 function deleteUser(idx) {
+  if (guestBlocked('删除账户')) return;
   const p = getProject(currentProjectId);
   if (!p) return;
   const i = Number(idx);
@@ -6325,6 +6333,7 @@ function updateQtyAmount() {
 }
 
 async function openPriceModal(idx, preferMp) {
+  if (guestBlocked('新增回本金额')) return;
   const p = getProject(currentProjectId);
   if (!p) return;
   setError('pr-date', false); setError('pr-price', false);
@@ -6432,6 +6441,7 @@ let qaMode = 'qty';  // 快捷录入方式：qty=出货数量（默认，按市�
 
 // 打开弹窗：填充我的项目下拉（按创建时间正序），默认时间=当前
 async function openQuickAmountModal() {
+  if (guestBlocked('新增回本金额')) return;
   if (!projects.length) return toast('请先创建项目并添加账户', 'warn');
   setError('qa-date', false); setError('qa-qty', false); setError('qa-mp', false); setError('qa-price', false);
   setError('qa-customRate', false);
@@ -7940,6 +7950,7 @@ function deleteTopup(topupId) {
 // 打开加仓弹窗
 let topupUserIdx = null;
 function openTopupModal(uidx) {
+  if (guestBlocked('添加加仓金额')) return;
   topupUserIdx = Number(uidx);
   const p = getProject(currentProjectId);
   const u = p && p.users[topupUserIdx];
