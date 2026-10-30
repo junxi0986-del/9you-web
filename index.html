@@ -3540,38 +3540,20 @@ function cap_reset() {
   handle.addEventListener('pointerup', finish);
   handle.addEventListener('pointercancel', finish);
 })();
-// ---------- 6格验证码输入：自动跳格 / 退格回退 / 粘贴与自动填充整段分发 ----------
-function getOtpCode(){ return [...document.querySelectorAll('.otp-box')].map(b => b.value.trim()).join(''); }
-(function(){
-  const boxes = [...document.querySelectorAll('.otp-box')];
-  if (!boxes.length) return;
-  const focusAt = i => { const b = boxes[Math.max(0, Math.min(boxes.length - 1, i))]; if (b) { b.focus(); b.select(); } };
-  const fillAll = digits => {
-    boxes.forEach((b, j) => { b.value = digits[j] || ''; });
-    focusAt(Math.min(digits.length, boxes.length - 1));
-  };
-  boxes.forEach((box, i) => {
-    box.addEventListener('input', () => {
-      const v = box.value.replace(/\D/g, '');
-      if (v.length > 1) { fillAll(v.slice(0, boxes.length)); return; }  // iOS 自动填充/键盘粘贴整段验证码
-      box.value = v;
-      if (v && i < boxes.length - 1) focusAt(i + 1);
-    });
-    box.addEventListener('keydown', e => {
-      if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
-      else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); focusAt(i - 1); }
-      else if (e.key === 'ArrowRight' && i < boxes.length - 1) { e.preventDefault(); focusAt(i + 1); }
-      // Enter 交给全局 keydown 处理（会调用 supabaseSignIn），此处不重复触发
-    });
-    box.addEventListener('paste', e => {
-      e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
-      const digits = text.replace(/\D/g, '').slice(0, boxes.length);
-      if (digits) fillAll(digits);
-    });
-    box.addEventListener('focus', () => box.select());
-  });
-})();
+// ---------- 6格验证码输入（全局 getOtpCode 改为容器隔离查询，避免两个面板 12 格拼在一起） ----------
+// 兼容老调用：不传容器时优先读当前可见面板，都不可见时返回空串
+function getOtpCode(container){
+  if (container) return otpRead(container);
+  const emailC = document.getElementById('otpBoxes');
+  const phoneC = document.getElementById('phoneOtpBoxes');
+  const emailVisible = emailC && emailC.offsetParent !== null;
+  const phoneVisible = phoneC && phoneC.offsetParent !== null;
+  if (emailVisible) return otpRead(emailC);
+  if (phoneVisible) return otpRead(phoneC);
+  return '';
+}
+// [已废弃] 全局 IIFE 自动跳格：与 otpWire 容器隔离方案冲突（两个面板 12 格被混到同一 boxes 数组），
+// 现在每个面板的 otp-box 由各自的 otpWire 独立接线（邮箱面板 otpBoxes / 手机面板 phoneOtpBoxes）
 
 // 验证码校验登录
 async function supabaseSignIn(){
