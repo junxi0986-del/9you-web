@@ -3388,21 +3388,26 @@ otpWire(document.getElementById('phoneOtpBoxes'), phoneSignIn);
 
 // [终极兜底] 全局 event delegation：监听 document 的 input 事件，
 // 检查当前激活的 otp 面板是否已满 6 位，满了就 click 登录按钮。
-// 好处：不依赖 otpWire 初始化时机、不会因 DOM 重建丢失监听器。
+// 硬编码两个面板的映射关系，避免 parentElement 爬取在不同 DOM 结构下失效。
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (!t || !t.classList || !t.classList.contains('otp-box')) return;
-  // 找到所属面板
-  const box = t;
-  const panel = box.closest('#otpBoxes, #phoneOtpBoxes');
+  // 硬编码映射：面板 id → 所属登录面板 id → 登录按钮选择器
+  const EMAIL_PANEL = 'otpBoxes', EMAIL_LOGIN_PANE = 'emailLoginPane', EMAIL_BTN = 'supabaseSignIn';
+  const PHONE_PANEL = 'phoneOtpBoxes', PHONE_LOGIN_PANE = 'phoneLoginPane', PHONE_BTN = 'phoneSignIn';
+  // 找 t 所属的面板
+  const panel = t.id === EMAIL_PANEL || t.closest('#' + EMAIL_PANEL) ? EMAIL_PANEL
+              : t.id === PHONE_PANEL || t.closest('#' + PHONE_PANEL) ? PHONE_PANEL
+              : null;
   if (!panel) return;
-  const code = otpRead(panel);
+  const code = otpRead(document.getElementById(panel));
   if (code.length !== 6) return;
-  // 6 位齐了 — 找面板所属的 loginPane 并 click 登录按钮
-  let parent = panel.parentElement;
-  while (parent && !/LoginPane/.test(parent.id)) parent = parent.parentElement;
-  if (!parent) return;
-  const btn = parent.querySelector('button[onclick*="supabaseSignIn"], button[onclick*="phoneSignIn"], button.btn-primary');
+  const isEmail = panel === EMAIL_PANEL;
+  const paneId = isEmail ? EMAIL_LOGIN_PANE : PHONE_LOGIN_PANE;
+  const loginFn = isEmail ? EMAIL_BTN : PHONE_BTN;
+  const pane = document.getElementById(paneId);
+  if (!pane) return;
+  const btn = pane.querySelector('button[onclick*="' + loginFn + '"], button.btn-primary');
   if (btn) { setTimeout(() => btn.click(), 0); }
 });
 
