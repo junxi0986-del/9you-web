@@ -5,7 +5,7 @@
    - APK 安装包：不缓存（由系统 DownloadManager 下载，避免占空间/下到旧包）
    - 其他静态资源（图标/CSS/JS等）：缓存优先，未命中走网络并写入缓存
    更新代码后无需手动改版本：HTML 网络优先即自动生效 */
-const CACHE_NAME = 'jiuyou-cache-v3';
+const CACHE_NAME = 'jiuyou-cache-v4';
 
 /* 预缓存资源：核心页面 + 图标 + 清单（单个失败不阻塞安装） */
 const PRECACHE_URLS = [

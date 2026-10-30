@@ -9770,7 +9770,7 @@ function closeSplashAd() {
   // 注册 Service Worker（需 HTTPS 或 localhost）
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js').catch(function (err) {
+      navigator.serviceWorker.register('/sw.js?v=21d8664').catch(function (err) {
         console.warn('[PWA] Service Worker 注册失败：', err);
       });
     });
