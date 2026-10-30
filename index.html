@@ -2741,6 +2741,46 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// [修复] APP 内跳外部站点再返回会要求重新登录：WebView 重建时 sb-auth-token 偶发丢失，
+// 额外存一份会话备份，冷启动发现主键缺失就回填（限制 30 天，避免恢复过期/串号会话）
+const AUTH_BACKUP_KEY = 'jy_auth_backup';
+const AUTH_BACKUP_TS_KEY = 'jy_auth_backup_ts';
+const AUTH_BACKUP_MAX_AGE = 30 * 24 * 3600 * 1000;  // 备份最长有效期 30 天
+function saveAuthBackup() {
+  try {
+    if (localStorage.getItem('jy_guest') === '1') return;   // 游客态不备份
+    const raw = localStorage.getItem('sb-auth-token');
+    if (!raw) return;
+    localStorage.setItem(AUTH_BACKUP_KEY, raw);
+    localStorage.setItem(AUTH_BACKUP_TS_KEY, String(Date.now()));
+  } catch (e) {}
+}
+function clearAuthBackup() {
+  try { localStorage.removeItem(AUTH_BACKUP_KEY); localStorage.removeItem(AUTH_BACKUP_TS_KEY); } catch (e) {}
+}
+function restoreAuthBackup() {
+  try {
+    if (localStorage.getItem('jy_guest') === '1') return false;  // 游客态绝不恢复登录会话
+    if (localStorage.getItem('sb-auth-token')) return false;     // 主键还在，无需恢复
+    const raw = localStorage.getItem(AUTH_BACKUP_KEY);
+    if (!raw) return false;
+    const ts = parseInt(localStorage.getItem(AUTH_BACKUP_TS_KEY) || '0', 10);
+    if (!ts || Date.now() - ts > AUTH_BACKUP_MAX_AGE) { clearAuthBackup(); return false; }
+    const s = JSON.parse(raw);
+    const at = s && (s.access_token || (s.data && s.data.access_token));
+    const rt = s && (s.refresh_token || (s.data && s.data.refresh_token));
+    if (!rt) { clearAuthBackup(); return false; }
+    localStorage.setItem('sb-auth-token', raw);
+    console.log('[auth] 已从本地备份恢复登录会话');
+    // 备份可能是在 SDK 读取存储之后才回填的，显式交给 SDK 保证内存态同步
+    setTimeout(() => {
+      try { sb.auth.setSession({ access_token: at, refresh_token: rt }).catch(() => {}); } catch (e) {}
+    }, 0);
+    return true;
+  } catch (e) { return false; }
+}
+restoreAuthBackup();  // 必须在 authWarmup() 之前执行，否则 SDK 已经读过空存储
+
 // [任务四] 脚本一执行就启动 getSession，广告展示期间把这次网络往返提前做掉
 let authWarmupPromise = null;
 function authWarmup() {
@@ -3540,6 +3580,7 @@ async function supabaseSignIn(){
   toast("登录成功","success");
 }
 async function supabaseLogout(){
+  clearAuthBackup();  // [修复] 主动登出：清掉会话备份，防止下次启动被恢复
   if (currentUserId) { try { localStorage.removeItem(cacheKeyProjects(currentUserId)); } catch (e) {} }  // [任务五] 主动登出：清掉本账号缓存
   await sb.auth.signOut();
   currentUserId = null;
@@ -3558,6 +3599,7 @@ let authReady = false;  // 标记首次 checkAuth 是否已完成，避免 onAut
 // [B] SIGNED_OUT 清理逻辑抽为独立函数（onAuthStateChange 回调内只做同步派发，
 // 真正的清理放到下一宏任务，避免回调持有 auth 锁时其内部请求与 SDK 互等死锁）
 function handleSignedOutCleanup() {
+  clearAuthBackup();  // [修复] 会话失效：备份一并清掉，避免下次启动恢复无效会话
   if (currentUserId) { try { localStorage.removeItem(cacheKeyProjects(currentUserId)); } catch (e) {} }  // [任务五] 会话失效：清缓存
   currentUserId = null;
   currentUserEmail = '';
@@ -3570,6 +3612,10 @@ function handleSignedOutCleanup() {
   hideMainApp();
 }
 sb.auth.onAuthStateChange((event, session) => {
+  // [修复] 会话变更时同步刷新本地备份，APP 内跳外站返回/刷新后可据此恢复登录态
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
+    saveAuthBackup();
+  }
   // TOKEN_REFRESHED：令牌自动刷新成功，用户无感知，无需操作
   // SIGNED_IN：会话恢复或登录成功（首次 checkAuth 已处理登录后的跳转，这里仅处理刷新场景）
   if(event === 'SIGNED_IN' && authReady && session && !currentUserId){
@@ -3861,6 +3907,7 @@ function _guestSampleProjects() {
 async function _enterGuestModeCore() {
   // ===== 关键前置：同步清掉上一个登录用户的所有 auth 痕迹，防止 tryInstantLogin() 抢跑设回身份 =====
   try { localStorage.removeItem('sb-auth-token'); } catch (e) {}
+  clearAuthBackup();  // [修复] 进入游客态：备份一并清掉，防止退出游客时恢复上一位用户的会话造成串号
   try {
     // 清掉本地缓存 projects（若 currentUserId 还有值）
     if (currentUserId) localStorage.removeItem(cacheKeyProjects(currentUserId));
@@ -4655,9 +4702,17 @@ function openOfficialSite(e, url, purposeText) {
 }
 function openOfficialMarket(e) { openOfficialSite(e, OFFICIAL_MARKET_URL, '查看市场价'); }
 function openOfficialProjects(e) { openOfficialSite(e, OFFICIAL_PROJECTS_URL, ''); }
+// [修复] APP 内打开外部站：优先开新窗口，避免当前页被卸载导致返回时 WebView 重建、需要重新登录；
+// 壳 APP 不支持多窗口（window.open 返回 null）时才兜底当前页跳转
+function _openExternalSite(url) {
+  try {
+    const w = window.open(url, '_blank', 'noopener');
+    if (w) return;
+  } catch (e) {}
+  location.href = url;
+}
 function doOpenOfficialSite(url) {
-  if (/JiyouApp/i.test(navigator.userAgent)) location.href = url;
-  else window.open(url, '_blank', 'noopener');
+  _openExternalSite(url);
 }
 
 // 跳转官方宣传站（关于我们）：先二次确认，再按环境打开（浏览器新标签 / APP 内当前页跳转）
@@ -4671,8 +4726,7 @@ function openAboutSite() {
   );
 }
 function doOpenPromoSite() {
-  if (/JiyouApp/i.test(navigator.userAgent)) location.href = PROMO_SITE_URL;
-  else window.open(PROMO_SITE_URL, '_blank', 'noopener');
+  _openExternalSite(PROMO_SITE_URL);
 }
 // [需求] 进入统计页/设置页/群聊页/平台管理页等二级页面时：顶部页签与底部导航全部取消选中
 // （清 active 类、手机端图标换回未选中图、液态玻璃高亮块淡出）；退出时由 updateListTabUI 按 listTab 恢复
