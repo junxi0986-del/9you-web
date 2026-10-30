@@ -2922,7 +2922,12 @@ function otpCountdown(btn, sec, defaultText){
 }
 
 /* ---------- [需求一] 登录页：邮箱 / 手机号模式切换 ---------- */
+const PHONE_LOGIN_MAINTENANCE = true;  // 手机号登录维护开关：true = 禁用（仅保留邮箱登录）
+const PHONE_LOGIN_MAINTENANCE_MSG = '手机号登录功能维护中，请切换其他登录方式';
 function switchLoginMode(mode){
+  if (mode === 'phone' && PHONE_LOGIN_MAINTENANCE) {
+    return toast(PHONE_LOGIN_MAINTENANCE_MSG, 'warn');
+  }
   const emailOn = mode === 'email';
   document.getElementById('emailLoginPane').style.display = emailOn ? '' : 'none';
   document.getElementById('phoneLoginPane').style.display = emailOn ? 'none' : '';
@@ -2944,6 +2949,7 @@ function switchLoginMode(mode){
 
 /* ---------- [需求一] 手机号登录：发送短信验证码（先过滑动拼图） ---------- */
 function sendPhoneLoginCode(){
+  if (PHONE_LOGIN_MAINTENANCE) return toast(PHONE_LOGIN_MAINTENANCE_MSG, 'warn');
   const input = document.getElementById('loginPhone');
   const phone = normalizePhone(input.value);
   input.value = phone;
@@ -2969,6 +2975,7 @@ async function doSendPhoneLoginCode(){
 }
 // [需求一] 手机号验证码校验登录
 async function phoneSignIn(){
+  if (PHONE_LOGIN_MAINTENANCE) return toast(PHONE_LOGIN_MAINTENANCE_MSG, 'warn');
   const phoneInput = document.getElementById('loginPhone');
   const phone = phoneE164(phoneInput.value);
   const token = otpRead(document.getElementById('phoneOtpBoxes'));
