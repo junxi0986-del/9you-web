@@ -901,15 +901,17 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 }
 .banner-slide {
   flex: 0 0 100%; height: 100%; position: relative;
-  display: flex; align-items: center; justify-content: center;
   overflow: hidden; background: var(--card-bg);
 }
-.banner-slide img {
-  width: 100%; height: 100%;
-  object-fit: contain; display: block; background: var(--card-bg);
-  user-select: none; -webkit-user-drag: none; pointer-events: none;
+/* 用 background-image + background-size:contain 替代 img + object-fit —— 跨浏览器 100% 可靠 */
+.banner-img-fill {
+  position: absolute; inset: 0;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  -webkit-user-drag: none;
 }
-.banner-slide.has-link img { pointer-events: auto; cursor: pointer; }
+.banner-slide.has-link .banner-img-fill { cursor: pointer; }
 .banner-arrow {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 36px; height: 36px; border-radius: 50%; border: none;
@@ -932,13 +934,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   cursor: pointer; transition: background .2s, transform .2s;
 }
 .banner-dot.active { background: #fff; transform: scale(1.25); }
-/* 移动端：完全隐藏箭头（手指滑），容器高度由图片自然撑开（无 aspect-ratio），指示器缩小 */
+/* 移动端：完全隐藏箭头（手指滑），保持容器固定比例 */
 @media (max-width: 600px) {
   .banner-arrow { display: none !important; }
-  .banner-viewport { aspect-ratio: unset; }
-  .banner-track { height: auto; }
-  .banner-slide { height: auto; }
-  .banner-slide img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+  .banner-viewport { aspect-ratio: 16 / 9; }
   .banner-dots { bottom: 6px; gap: 5px; }
   .banner-dot { width: 6px; height: 6px; }
   .banner-carousel { border-radius: 10px; }
@@ -1389,7 +1388,8 @@ html.in-app #loginWrap {
     </label>
 
     <!-- 关于我们：卡片底部文字链，二次确认后跳转官方宣传站 -->
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <a href="javascript:void(0)" onclick="event.preventDefault();enterGuestMode()" style="display:inline-block;padding:6px 12px;font-size:12px;color:var(--text-secondary);text-decoration:none;border:1px solid var(--border);border-radius:14px;transition:all .15s" onmouseover="this.style.color='var(--primary)';this.style.borderColor='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='var(--border)'">暂不登录（游客浏览）</a>
       <a href="javascript:void(0)" onclick="event.preventDefault();openAboutSite()" style="display:inline-block;padding:6px 12px;font-size:12px;color:var(--primary);text-decoration:none">关于我们</a>
     </div>
   </div>
@@ -3631,6 +3631,14 @@ async function checkAuth(){
   document.getElementById('bootLoading').style.display = 'flex';
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('mainApp').style.display = 'none';
+  // ====== 游客模式恢复：之前点过「暂不登录」的用户刷新后保持游客身份 ======
+  const hasToken = tryInstantLogin();
+  if (!hasToken && localStorage.getItem('jy_guest') === '1') {
+    // 直接进游客模式，跳过登录检查
+    document.getElementById('bootLoading').style.display = 'none';
+    enterGuestMode();
+    return;
+  }
   try {
     const instant = tryInstantLogin();
     if (instant) {
@@ -3738,6 +3746,87 @@ function hideMainApp(){
   const og = document.getElementById('otpGroup');  // 重置登录页验证码输入区为隐藏
   if (og) og.style.display = 'none';
   userPickedTab = false;  // [修复] 退出登录/被踢下线/checkAuth 失败后复位，下次进入恢复默认页签
+  _guestCleanup();
+}
+
+// ======== 游客模式 ========
+function enterGuestMode() {
+  confirmAction('游客浏览', '如果不登录您的操作将受限：仅可查看公共项目、公告与市场价，所有个人数据写入操作将被禁用。确定继续？', () => {
+    guestMode = true;
+    currentUserId = null;
+    currentUserEmail = '';
+    isAdmin = false;
+    loginToken = '';
+    sessionToken = '';
+    // 游客身份持久化（刷新后保持游客模式）
+    localStorage.setItem('jy_guest', '1');
+    // 进入主界面
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('welcomeEmail').textContent = '游客浏览';
+    // 强制切到公共项目 tab（游客只允许看公共项目）
+    listTab = 'public';
+    switchListTab('public');
+    // 隐藏/禁用所有非公共 tab
+    _guestApplyRestrictions();
+    // 渲染公开数据
+    renderHomeTop();
+    renderNoticeTab();
+    renderPublicProjects();
+    renderBanners();
+    // 手机端隐藏底部导航其他 tab
+    _guestMobileNav();
+    toast('已进入游客模式，仅可浏览公共数据', 'info');
+  }, '确定浏览', '', false);
+}
+
+// 游客模式：顶部/底部导航、非公共区块隐藏/禁用
+function _guestApplyRestrictions() {
+  // 桌面端 tab-switch：隐藏 我的项目 / 市场价 / 我的
+  const desktopBtns = ['tabBtnMine', 'tabBtnMarket', 'tabBtnMe'];
+  desktopBtns.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  // 游客模式顶部显示"登录"按钮（替代欢迎语旁空白）
+  let guestLoginBtn = document.getElementById('guestLoginBtn');
+  if (!guestLoginBtn) {
+    guestLoginBtn = document.createElement('button');
+    guestLoginBtn.id = 'guestLoginBtn';
+    guestLoginBtn.className = 'btn btn-sm';
+    guestLoginBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;margin-left:auto;cursor:pointer;display:none';
+    guestLoginBtn.textContent = '登录 / 注册';
+    guestLoginBtn.onclick = () => { guestMode = false; localStorage.removeItem('jy_guest'); document.getElementById('mainApp').style.display='none'; document.getElementById('loginWrap').style.display='flex'; };
+    document.querySelector('.header-actions').appendChild(guestLoginBtn);
+  }
+  guestLoginBtn.style.display = 'inline-flex';
+  // 隐藏下载 APP 按钮
+  const dlBtn = document.getElementById('headerDlAppBtn');
+  if (dlBtn) dlBtn.style.display = 'none';
+}
+
+// 游客模式：手机端底部导航只保留公共项目 tab
+function _guestMobileNav() {
+  const ids = ['bnavMine', 'bnavMarket', 'bnavMe'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+}
+
+// 退出游客模式时恢复所有 UI
+function _guestCleanup() {
+  if (!guestMode) return;
+  guestMode = false;
+  localStorage.removeItem('jy_guest');
+  // 恢复桌面 tab 按钮
+  ['tabBtnMine', 'tabBtnMarket', 'tabBtnMe'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+  // 恢复手机底部 nav
+  ['bnavMine', 'bnavMarket', 'bnavMe'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+  // 移除登录按钮
+  const btn = document.getElementById('guestLoginBtn');
+  if (btn) btn.remove();
+}
+
+// 全局游客拦截：所有写入操作前调用，返回 true 表示已拦截（toast 已弹），调用方应中止操作
+function guestBlocked(opName = '该操作') {
+  if (!guestMode) return false;
+  toast(`游客模式下无法${opName}，请先登录`, 'warn');
+  return true;
 }
 
 // =========云端读写函数（替代localStorage）=========
@@ -3764,6 +3853,8 @@ let lastSyncedSnapshot = null;
 // silent 为 true 时不弹"已同步"提示（由操作本身的成功提示代替，避免双重弹窗）
 // silent 不影响冲突检测
 async function saveCloudData(silent = false){
+  // 游客模式不允许任何写入 user_data
+  if (guestBlocked('保存项目数据')) return;
   const jsonStr = JSON.stringify(projects);
   // [G] 保存前先读取云端 content，与本机快照对比，识别其他标签页/设备的写入
   let remote;
@@ -3929,6 +4020,7 @@ async function upsertAnnouncementRow(id, title, content){
   return error;
 }
 async function deleteAnnouncementRow(id){
+  if (guestBlocked('删除公告')) return '游客模式不允许操作';
   const {error} = await sb.from("announcements").delete().eq("id", id);
   return error;
 }
@@ -3956,10 +4048,12 @@ async function loadBanners(){
   }
 }
 async function upsertBannerRow(row){
+  if (guestBlocked('编辑轮播图')) return '游客模式不允许操作';
   const {error} = await sb.from("banners").upsert(row);
   return error;
 }
 async function deleteBannerRow(id){
+  if (guestBlocked('删除轮播图')) return '游客模式不允许操作';
   const {error} = await sb.from("banners").delete().eq("id", id);
   return error;
 }
@@ -4364,6 +4458,11 @@ let listTab = 'mine';  // 默认页签：我的项目（主菜单）
 // [修复] 用户是否在本次进入主界面后手动切换过页签
 let userPickedTab = false;
 function switchListTab(tab) {
+  // 游客模式只允许切到 public / notice 两个 tab
+  if (guestMode && tab !== 'public' && tab !== 'notice') {
+    guestBlocked('访问该模块');
+    return;
+  }
   userPickedTab = true;  // [修复] 任何路径进入本函数都算用户手动切页签（顶部tab/底部nav/横幅跳notice）
   // 若在平台管理页：先退出管理页（隐藏管理区、恢复顶部横幅、消费入栈历史），再正常切页签
   if (onAdminPage) {
@@ -5181,6 +5280,7 @@ function share_parseCode(raw) {
 }
 
 async function importSharedProject() {
+  if (guestBlocked('导入项目')) return;
   const payload = share_parseCode(document.getElementById('pf-import').value);
   if (!payload) { toast('分享码无效，请确认已完整复制粘贴', 'error'); return; }
   const isMulti = Array.isArray(payload.list);  // 全部分享码：多个项目打包
@@ -7985,7 +8085,7 @@ function renderBanners() {
     const name = b.name || '';
     const click = hasLink ? `onclick="bannerClick('${escapeHtml(name).replace(/'/g, "&#39;")}','${escapeHtml(b.link_url.trim()).replace(/'/g, "&#39;")}')"` : '';
     return `<div class="banner-slide ${hasLink ? 'has-link' : ''}" ${click}>
-      <img src="${escapeHtml(b.image_url)}" alt="轮播图${i+1}${name ? ' ' + escapeHtml(name) : ''}" draggable="false">
+      <div class="banner-img-fill" style="background-image:url('${escapeHtml(b.image_url).replace(/'/g, "&#39;")}')" aria-label="轮播图${i+1}${name ? ' ' + escapeHtml(name) : ''}" role="img"></div>
     </div>`;
   }).join('');
   dots.innerHTML = banners.map((_, i) =>
@@ -8587,6 +8687,7 @@ async function saveMyName() {
 /* ---------- 数据备份：清空 ---------- */
 // 清空所有数据（需输入「清空」二次确认，防误删）
 function clearAllData() {
+  if (guestBlocked('清空数据')) return;
   confirmAction('清空所有数据', '确定清空所有项目和账户数据吗？此操作不可恢复！', async () => {
     projects = [];
     await saveCloudData(true);
@@ -9107,6 +9208,7 @@ function chat_renderAll() {
 
 // 发送文字消息（乐观更新 → 写库 → 去重）
 async function chat_send() {
+  if (guestBlocked('发送群聊消息')) return;
   const input = document.getElementById('chatText');
   const text = input.value.trim();
   if (!text || !chatState.projectId) return;
