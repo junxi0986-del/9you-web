@@ -2925,19 +2925,34 @@ function otpWire(container, onEnter){
     boxes.forEach((b, j) => { b.value = digits[j] || ''; });
     focusAt(Math.min(digits.length, boxes.length - 1));
   };
+  // [修复] 自动触发登录：优先找同一登录面板里的「登录按钮」并 click，
+  // 保证和用户手动点按钮行为完全一致（绕过 getOtpCode 容器查询、isAgreed 状态等中间状态差异）；
+  // 找不到按钮时兜底调 onEnter 回调
+  const fireLogin = () => {
+    // 往上爬找到所属登录面板（emailLoginPane / phoneLoginPane），然后找里面的 .btn-primary
+    let pane = container;
+    while (pane && !pane.classList.contains('login-card') && !/LoginPane/.test(pane.id)) {
+      pane = pane.parentElement;
+    }
+    const btn = pane ? pane.querySelector('button.btn-primary, button[onclick*="SignIn"], button[onclick*="signIn"]') : null;
+    if (btn) btn.click();
+    else if (onEnter) onEnter();
+  };
   boxes.forEach((box, i) => {
     box.addEventListener('input', () => {
       const v = box.value.replace(/\D/g, '');
       if (v.length > 1) {
         fillAll(v.slice(0, boxes.length));
-        // 粘贴/多字符输入后若填满，自动触发登录（与单格逐位输入保持一致）
-        if (otpRead(container).length === boxes.length && onEnter) onEnter();
+        // 粘贴/多字符输入后若填满，自动触发登录
+        if (otpRead(container).length === boxes.length) { setTimeout(fireLogin, 0); }
         return;
       }
       box.value = v;
       if (v && i < boxes.length - 1) focusAt(i + 1);
       // 最后一格输入了数字 → 6 位已齐，自动触发登录，省去再点一次按钮
-      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length && onEnter) onEnter();
+      else if (v && i === boxes.length - 1 && otpRead(container).length === boxes.length) {
+        setTimeout(fireLogin, 0);
+      }
     });
     box.addEventListener('keydown', e => {
       if (e.key === 'Backspace' && !box.value && i > 0) focusAt(i - 1);
