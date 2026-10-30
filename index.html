@@ -3790,8 +3790,18 @@ function _guestSampleProjects() {
       projPrincipal += principal;
       const priceCount = rand(0, 3);
       const prices = [];
+      // 利润约束：累计回本 - 本金 ≤ 6000，即 sum(prices) ≤ principal + 6000
+      const maxRecover = principal + 6000;
+      let recovered = 0;
       for (let r = 0; r < priceCount; r++) {
-        prices.push({ id: 'r-' + p + '-' + u + '-' + r, date: daysAgo(rand(1, 25)), price: rand(50, 5000) });  // 单价 ≤ 5000
+        const remaining = maxRecover - recovered;
+        if (remaining <= 0) break;
+        // 每条 price 不低于 50、不超过 5000、不超过剩余空间
+        const minPrice = Math.min(50, remaining);
+        const maxPrice = Math.min(5000, remaining);
+        const price = rand(minPrice, Math.max(minPrice, maxPrice));
+        recovered += price;
+        prices.push({ id: 'r-' + p + '-' + u + '-' + r, date: daysAgo(rand(1, 25)), price });
       }
       const topupCount = rand(0, 2);
       const topups = [];
