@@ -477,7 +477,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 .progress-text.normal { color: var(--primary); }
 
 /* 用户操作按钮组 */
-.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+/* 账户操作按钮分组：台账操作（左）与账户操作（右）视觉拉开 */
+.actions-btns .act-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.actions-btns .act-user  { margin-left: auto; border-left: 1px dashed var(--border); padding-left: 8px; }   /* 账户操作组推到最右，加细分隔 */
 /* [需求] 电脑端操作列改为下拉框（手机端卡片视图仍显示按钮，见 600px 媒体查询） */
 /* 账户行操作下拉：继承全局磨砂玻璃，仅覆写尺寸/圆角/最大宽度 */
 .actions-select { padding: 6px 28px 6px 10px; font-size: 12px; border-radius: var(--radius-sm, 10px); max-width: 150px; }
@@ -783,9 +786,11 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   th, td { padding: 8px 10px; font-size: 12px; }
   .row-actions { flex-wrap: wrap; gap: 4px; }
   .row-actions .btn { padding: 5px 8px; font-size: 12px; }
-  /* [需求] 手机端卡片视图：隐藏下拉框，恢复四个操作按钮 */
+  /* [需求] 手机端卡片视图：隐藏下拉框，恢复操作按钮分组左右摆放 */
   .actions-select { display: none; }
-  .actions-btns { display: flex; }
+  .actions-btns { display: flex; width: 100%; gap: 6px; }
+  .actions-btns .act-group { flex-wrap: nowrap; }   /* 每组内按钮不换行，避免挤压到三行 */
+  .actions-btns .act-user  { margin-left: auto; border-left: 1px dashed var(--border); padding-left: 6px; }
 
   /* 表格保持可读宽度，在手机上横向滑动查看 */
   .table-wrap { -webkit-overflow-scrolling: touch; }
@@ -5331,10 +5336,17 @@ function renderDetail() {
             <option value="delete" class="opt-danger">删除</option>
           </select>
           <div class="row-actions actions-btns">
-            <button class="btn btn-sm btn-outline" onclick="openPriceModal(${uidx})">添加回本</button>
-            <button class="btn btn-sm btn-outline" onclick="openTopupModal(${uidx})">添加加仓</button>
-            <button class="btn btn-sm btn-outline" onclick="openLedger(${uidx})">台账</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteUser(${uidx})">删除</button>
+            <!-- 台账操作组：账户台账流水相关 -->
+            <div class="act-group act-ledger">
+              <button class="btn btn-sm btn-outline" onclick="openPriceModal(${uidx})">添加回本</button>
+              <button class="btn btn-sm btn-outline" onclick="openTopupModal(${uidx})">添加加仓</button>
+              <button class="btn btn-sm btn-outline" onclick="openLedger(${uidx})">台账</button>
+            </div>
+            <!-- 账户操作组：账户本身的增删改 -->
+            <div class="act-group act-user">
+              <button class="btn btn-sm btn-outline" onclick="openUserModal(${uidx})">编辑</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteUser(${uidx})">删除</button>
+            </div>
           </div>
         </td>
       </tr>`;
