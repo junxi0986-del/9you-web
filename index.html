@@ -1091,6 +1091,12 @@ html.dark-mode .banner-dot.active { background: #fff; }
   .st-filter { flex: 1; min-width: 0; }
   .st-dd { flex: 1; min-width: 0; }
   .st-dd-btn { max-width: none; min-width: 0; }
+  /* 当日明细筛选条：与顶部 stats-filters 同样的均分策略 */
+  .st-day-head { align-items: stretch; row-gap: 8px; }
+  .st-day-tools { flex: 1 1 100%; margin-left: 0; }
+  .st-filter-sm { flex: 1; min-width: 0; }
+  .st-dd-sm { flex: 1; min-width: 0; }
+  .st-dd-sm .st-dd-btn { max-width: none; min-width: 0; }
 }
 @media (max-width: 600px) {
   /* 月历紧凑：字号 10~12px、金额 9~10px，保证 7 列不挤 */
@@ -8088,7 +8094,7 @@ function deleteTopup(topupId) {
   u.topups = u.topups || [];
   const t = u.topups.find(x => x.id === topupId);
   if (!t) return;
-  confirmAction('删除加仓记录', `确定删除 ${u.name} 在 ${fmtDateTime(t.date)} 的加仓记录（${fmtMoney(t.amount)} 元）吗？<br>本金会相应减少 ${fmtMoney(t.amount)} 元。`, async () => {
+  confirmAction('删除加仓记录', `确定删除 ${u.name} 在 ${fmtDateTime(t.date)} 的加仓记录（${fmtMoney(t.amount)} 元）吗？本金会相应减少 ${fmtMoney(t.amount)} 元。`, async () => {
     const refund = Number(t.amount || 0);
     u.topups = u.topups.filter(x => x.id !== topupId);
     u.principal = round3(Math.max(0, Number(u.principal) - refund));
