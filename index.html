@@ -479,7 +479,8 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
 /* 用户操作按钮组 */
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 /* [需求] 电脑端操作列改为下拉框（手机端卡片视图仍显示按钮，见 600px 媒体查询） */
-.actions-select { padding: 6px 28px 6px 10px; font-size: 12px; border-radius: var(--radius-sm, 10px); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); max-width: 150px; cursor: pointer; }
+/* 账户行操作下拉：继承全局磨砂玻璃，仅覆写尺寸/圆角/最大宽度 */
+.actions-select { padding: 6px 28px 6px 10px; font-size: 12px; border-radius: var(--radius-sm, 10px); max-width: 150px; }
 .actions-select .opt-danger { color: #e53935; font-weight: 600; }
 .actions-btns { display: none; }
 
@@ -1001,10 +1002,20 @@ html.dark-mode .banner-dot.active { background: #fff; }
 .st-dd { position: relative; }
 .st-dd-btn {
   position: relative; width: 100%; min-width: 124px; max-width: 170px; text-align: left;
-  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--select-border);
+  /* 复用全局 select 的磨砂玻璃视觉：底色 + 渐变层 + 模糊 + 投影，自绘 caret 保持占位 */
+  background-color: var(--select-bg);
+  background-image: var(--select-grad);
+  background-repeat: no-repeat; background-position: 0 0; background-size: 100% 100%;
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: var(--select-shadow);
+  color: var(--text);
   border-radius: 10px; font-size: 12px; font-family: inherit; line-height: 1.25;
   padding: 7px 26px 7px 10px; cursor: pointer; overflow: hidden;
 }
+.st-dd-btn:hover { border-color: var(--primary); }
+.st-dd-btn:focus, .st-dd-btn:focus-visible { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.16), var(--select-shadow); }
 .st-dd-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-dd-caret { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 10px; }
 .st-dd-menu {
@@ -1201,8 +1212,7 @@ html.dark-mode .project-card.pub-starred { background: rgba(59,130,246,.14); }
 .ec-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
 .ec-toolbar select {
   flex: 1; max-width: 240px; min-height: 38px; padding: 7px 10px;
-  border: 1px solid var(--border); border-radius: 9px;
-  background: var(--input-bg); color: var(--text); font-size: 13px;
+  font-size: 13px;   /* 其他属性（磨砂玻璃/圆角/阴影）由全局 select {} 统一 */
 }
 .ec-stats { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .ec-stat {
