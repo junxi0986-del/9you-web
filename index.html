@@ -83,7 +83,7 @@ if (/JiyouApp\//.test(navigator.userAgent)) document.documentElement.classList.a
   --row-hover: rgba(37,99,235,.05);     /* 表格行悬停背景 */
   --done-bg: rgba(34,197,94,.08);       /* 已回本行背景 */
   --done-bg-strong: rgba(34,197,94,.18);  /* 已回本行悬停 / 徽章背景 */
-  --selected-bg: rgba(59,130,246,.10);  /* 批量勾选行背景 */
+  --selected-bg: rgba(59,130,246,.10);  /* 星标（收藏）公共项目卡片背景 */
   --danger-soft: rgba(220,38,38,.08);   /* 危险按钮悬停背景 */
   /* 群聊气泡配色（浅色模式） */
   --chat-bubble-me: #2563eb;      /* 自己的气泡：品牌蓝 */
@@ -274,10 +274,11 @@ body {
 /* 标题左侧竖排：标题 + 欢迎邮箱（邮箱显示在标题下方） */
 .header-left { display: flex; flex-direction: column; min-width: 0; }
 .header-left .welcome-email { font-size: 12px; color: rgba(255,255,255,.8); margin: 3px 0 0 46px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* [新按钮] header 下载 App 按钮：半透明白底适配蓝色渐变 header；与标题区左右横向并排；显隐完全交给 JS */
+/* [新按钮] header 下载 App 按钮：半透明白底适配蓝色渐变 header；[需求] 靠右摆放，与标题之间由 flex 留白隔开 */
 .header-dl-app {
   display: none;
-  flex-shrink: 0;          /* 与 .header-left 并排：不被压缩，标题区 min-width:0 可收缩、邮箱省略号截断 */
+  margin-left: auto;       /* 右对齐：吸收左侧剩余空间，不再紧贴标题 */
+  flex-shrink: 0;
   white-space: nowrap;
   justify-content: center;
   min-height: 38px;
@@ -509,6 +510,10 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   justify-content: center; align-items: center; padding: 16px;
 }
 .modal-mask.show { display: flex; }
+/* [需求] 弹窗打开时锁定背景滚动，防止在遮罩下上下滚动页面。
+   必须同时锁 html 根节点：html 上有 overflow-x:hidden，body 单独设置 overflow:hidden 不会生效，
+   页面实际滚动容器仍是 html（这就是之前锁不住的原因） */
+html.modal-open, body.modal-open { overflow: hidden; }
 .modal {
   background: var(--card-bg); color: var(--text); border-radius: 12px; width: 100%;
   max-width: 460px; max-height: 90vh; overflow-y: auto;
@@ -631,22 +636,6 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   #projectGrid .pc-foot, #publicProjectGrid .pc-foot { flex-wrap: wrap; }
   #projectGrid .pc-foot .btn, #publicProjectGrid .pc-foot .btn { flex: 1; padding: 5px 6px; font-size: 11px; white-space: nowrap; }
 }
-
-/* ========== 批量操作 ========== */
-.user-table th.chk, .user-table td.chk { display: none; }   /* 非批量模式隐藏勾选列 */
-.user-table.batching th.chk, .user-table.batching td.chk { display: table-cell; }
-.user-table td.chk input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; }
-.user-table tr.row-selected { background: #eff6ff !important; }
-
-/* 批量操作浮动工具条 */
-#batchBar {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 90;
-  display: none; align-items: center; flex-wrap: wrap; justify-content: center; gap: 10px;
-  max-width: calc(100vw - 24px); padding: 10px 14px;
-  background: #1e293b; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
-}
-#batchBar.show { display: flex; }
-#batchBar .cnt { color: #fff; font-size: 13px; }
 
 /* 列表数据加载中：圆圈旋转 + 文案（数据渲染后由各 render 函数替换消失） */
 .list-loading { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 16px; color: var(--text-secondary); font-size: 13px; }
@@ -848,9 +837,6 @@ td .cell-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; m
   .user-table td.td-block::before, .user-table td.td-progress::before, .user-table td.td-actions::before { display: block; margin-bottom: 5px; }
   .user-table .cell-sub { max-width: 100%; white-space: normal; }
   .user-table td[colspan] { display: block; text-align: center; padding: 24px 0; }
-  /* 批量模式：勾选列在手机上作为卡片内的一行展示 */
-  .user-table.batching td.chk { display: flex; }
-  #batchBar { bottom: 10px; padding: 8px 10px; }
 
   .modal-foot .btn { flex: 1; justify-content: center; }
   .breadcrumb { font-size: 12px; }
@@ -1042,17 +1028,19 @@ html.dark-mode .banner-dot.active { background: #fff; }
 .st-sec-hint { font-size: 12px; color: var(--text-secondary); }
 /* 月历：7 列等宽，周日开头 */
 .st-cal-head, .st-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-/* [需求] 日历左右月份切换箭头：仅可在有数据的月份间切换，边界置灰 */
-.st-cal-nav { display: flex; align-items: stretch; gap: 6px; }
-.st-cal-main { flex: 1 1 auto; min-width: 0; }
+/* [需求] 月份切换置于日历上方居中（‹ 2026年11月 ›），仅可在有数据的月份间切换，边界置灰 */
+.st-cal-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 8px; }
+.st-cal-main { min-width: 0; }
+.st-cal-month { min-width: 118px; text-align: center; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: .5px; }
 .st-cal-arrow {
-  flex: 0 0 auto; width: 34px; min-height: 44px; padding: 0;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--card-bg); color: var(--primary);
-  font-size: 22px; line-height: 1; font-weight: 700;
+  flex: 0 0 auto; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: 50%;
+  background: var(--input-bg); color: var(--primary);
+  font-size: 18px; line-height: 1; font-weight: 700;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  transition: transform .15s ease, opacity .15s ease;
+  transition: transform .15s ease, opacity .15s ease, background .15s ease;
 }
+.st-cal-arrow:not(:disabled):hover { background: var(--card-bg); }
 .st-cal-arrow:not(:disabled):active { transform: scale(.92); }
 .st-cal-arrow:disabled { opacity: .3; cursor: not-allowed; }
 .st-cal-head { margin: 4px 0; }
@@ -1082,9 +1070,10 @@ html.dark-mode .banner-dot.active { background: #fff; }
   .st-pie-center, .st-mbar-amt { opacity: 1 !important; transition: none !important; }
 }
 /* 当日明细：左组（标题+筛选下拉）与右组（汇总数字）解耦 */
-.st-day-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.st-day-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+/* [需求] 标题左对齐、筛选下拉右对齐，两者分别贴住行的两端，不再紧挨着 */
 .st-day-head-left { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
-.st-day-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.st-day-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
 /* 明细栏紧凑项目筛选下拉（右对齐浮层，避免窄屏溢出） */
 .st-dd-sm .st-dd-btn { height: 30px; padding: 0 26px 0 10px; font-size: 12px; max-width: 150px; min-width: 96px; border-radius: 8px; }
 .st-dd-sm .st-dd-menu { right: 0; left: auto; top: calc(100% + 4px); min-width: 180px; max-width: 72vw; max-height: 260px; overflow-y: auto; z-index: 30; }
@@ -1108,7 +1097,7 @@ html.dark-mode .banner-dot.active { background: #fff; }
   .st-filter { flex: 1; min-width: 0; }
   .st-dd { flex: 1; min-width: 0; }
   .st-dd-btn { max-width: none; min-width: 0; }
-  /* 当日明细筛选条：标题+下拉紧挨着，汇总独立一行 */
+  /* 当日明细筛选条：标题左对齐、下拉右对齐，汇总独立一行 */
   .st-day-head { align-items: stretch; row-gap: 8px; }
   .st-day-head-left { flex: 1 1 100%; align-items: flex-start; flex-wrap: wrap; }
   .st-day-total { flex: 1 1 100%; text-align: left; padding-top: 2px; border-top: 1px dashed var(--border); margin-top: 2px; }  /* 汇总独立成第二行 */
@@ -1435,7 +1424,7 @@ html.in-app #loginWrap {
       <h1 id="headerTitle"><img src="logo.jpg" class="header-logo" alt="logo">项目跟踪管理平台</h1>
       <span class="welcome-email" id="welcomeEmail"></span>
     </div>
-    <!-- [新按钮] 手机浏览器未安装 App 时显示：安卓下载 APK / iOS 打开安装教程（显隐由底部 PWA IIFE 控制） -->
+    <!-- [需求] 下载 App 按钮右对齐（不贴标题），显隐由底部 PWA IIFE 控制 -->
     <button id="headerDlAppBtn" class="btn btn-sm header-dl-app"
             onclick="headerDownloadApp()" style="display:none">📲 下载 App</button>
     <div class="header-actions">
@@ -1790,7 +1779,6 @@ html.in-app #loginWrap {
       <h2 style="font-size:16px;font-weight:600">账户列表 <span style="font-size:12px;color:var(--text-secondary);font-weight:400">共 <b id="userCount">0</b> 人</span></h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input type="text" class="search-input" id="userSearch" placeholder="🔍 搜索姓名 / 账户ID / 备注" oninput="onUserSearchInput()">
-        <button class="btn btn-outline btn-sm" id="batchToggleBtn" onclick="toggleBatchMode()">批量操作</button>
         <button class="btn btn-primary btn-sm" onclick="openUserModal()">＋ 添加账户</button>
       </div>
     </div>
@@ -1799,7 +1787,6 @@ html.in-app #loginWrap {
         <table class="user-table" id="userTable">
           <thead>
             <tr>
-              <th class="chk" style="width:40px"><input type="checkbox" id="chkAll" onclick="toggleSelectAll(this.checked)"></th>
               <th style="width:50px">#</th>
               <th>账户ID</th>
               <th>姓名</th>
@@ -1887,17 +1874,19 @@ html.in-app #loginWrap {
     <!-- 回本日历（按月时）/ 月度回本柱状图（全部统计时，点柱查看当月明细） -->
     <div class="table-card st-section">
       <div class="st-sec-head">
-        <h3 class="st-sec-title">📅 <span id="stMonthTitle">回本日历</span></h3>
+        <h3 class="st-sec-title" id="stCalTitle">📅 回本日历</h3>
         <span class="st-sec-hint" id="stCalHint">点击日期查看当日明细</span>
       </div>
-      <!-- 周日开头：日 一 二 三 四 五 六，与 new Date(y,m-1,1).getDay() 对齐 -->
+      <!-- [需求] 月份切换从日历左右两侧移出，改在日历上方居中：‹ 2026年11月 › -->
       <div class="st-cal-nav" id="stCalNav">
         <button type="button" class="st-cal-arrow" id="stPrevMonth" onclick="stStepMonth(-1)" aria-label="上一月" title="上一月">‹</button>
-        <div class="st-cal-main">
-          <div class="st-cal-head"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
-          <div class="st-cal" id="stCalGrid"></div>
-        </div>
+        <span class="st-cal-month" id="stMonthTitle">回本日历</span>
         <button type="button" class="st-cal-arrow" id="stNextMonth" onclick="stStepMonth(1)" aria-label="下一月" title="下一月">›</button>
+      </div>
+      <!-- 周日开头：日 一 二 三 四 五 六，与 new Date(y,m-1,1).getDay() 对齐 -->
+      <div class="st-cal-main" id="stCalMain">
+        <div class="st-cal-head"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="st-cal" id="stCalGrid"></div>
       </div>
       <!-- [全部统计] 月度回本柱状图容器 -->
       <div id="stBarHost" style="display:none"></div>
@@ -2460,38 +2449,6 @@ html.in-app #loginWrap {
   </div>
 </div>
 
-<!-- ========== 批量添加回本金额弹窗 ========== -->
-<div role="dialog" aria-modal="true" class="modal-mask" id="batchPriceModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>批量添加回本金额</h3>
-      <button class="modal-close" onclick="closeModal('batchPriceModal')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>已选账户</label>
-        <input type="text" id="bp-users" readonly>
-      </div>
-      <div class="form-group">
-        <label>录入时间<span class="req">*</span></label>
-        <input type="datetime-local" id="bp-date" step="60">
-        <div class="form-tip">默认当前时间，不能晚于现在</div>
-        <div class="form-error">请选择不晚于当前时间的时间</div>
-      </div>
-      <div class="form-group">
-        <label>回本金额（元）<span class="req">*</span></label>
-        <input type="number" id="bp-price" placeholder="请输入回本金额" min="0.01" step="0.01">
-        <div class="form-tip">每位选中的账户都会各自添加一笔相同金额的记录</div>
-        <div class="form-error">请输入大于 0 的回本金额</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('batchPriceModal')">取消</button>
-      <button class="btn btn-primary" onclick="saveBatchPrice()">保存</button>
-    </div>
-  </div>
-</div>
-
 <!-- iOS 描述文件安装教程弹窗（三步引导） -->
 <div role="dialog" aria-modal="true" class="modal-mask" id="iosGuideModal">
   <div class="modal" style="max-width:400px">
@@ -2709,14 +2666,6 @@ html.in-app #loginWrap {
       <button class="btn btn-primary" onclick="saveBanner()">保存</button>
     </div>
   </div>
-</div>
-
-<!-- 批量操作浮动工具条 -->
-<div id="batchBar">
-  <span class="cnt">已选 <b id="batchCount">0</b> 人</span>
-  <button class="btn btn-sm btn-primary" onclick="openBatchPriceModal()">批量添加回本金额</button>
-  <button class="btn btn-sm btn-danger-solid" onclick="batchDeleteUsers()">批量删除</button>
-  <button class="btn btn-sm btn-ghost" style="color:#cbd5e1" onclick="toggleBatchMode()">退出批量</button>
 </div>
 
 <!-- ========== 滑动拼图人机验证弹窗（发送验证码前） ========== -->
@@ -4409,6 +4358,22 @@ function toast(msg, type = '') {
 // [T] 焦点管理：记录每个弹窗打开前的触发元素，关闭时归还
 const modalLastFocus = new Map();
 const modalFocusableSel = 'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+// [需求] 背景滚动锁定：真正滚动的容器是 html，必须锁 html（body 上设置 overflow:hidden 不生效）；
+// 桌面端同时补偿滚动条宽度，避免加锁瞬间页面横向位移
+function lockBackgroundScroll() {
+  const root = document.documentElement;
+  if (root.classList.contains('modal-open')) return;
+  const sbw = window.innerWidth - root.clientWidth;
+  if (sbw > 0) root.style.paddingRight = sbw + 'px';
+  root.classList.add('modal-open');
+  document.body.classList.add('modal-open');
+}
+function unlockBackgroundScroll() {
+  const root = document.documentElement;
+  root.classList.remove('modal-open');
+  document.body.classList.remove('modal-open');
+  root.style.paddingRight = '';
+}
 // 通用弹窗开关（第二参数 triggerEl 可选，现有单参数调用无需改动）
 function openModal(id, triggerEl) {
   const el = document.getElementById(id);
@@ -4419,6 +4384,7 @@ function openModal(id, triggerEl) {
   if (cur && cur.tagName && cur.tagName !== 'BODY' && cur.tagName !== 'HTML') ae = cur;
   modalLastFocus.set(id, triggerEl || ae);
   el.classList.add('show');
+  lockBackgroundScroll();
   // [T] 打开后把焦点移到第一个可交互元素（延迟到渲染完成）
   const first = el.querySelector(modalFocusableSel);
   if (first) setTimeout(() => { try { first.focus(); } catch (e) {} }, 0);
@@ -4440,6 +4406,8 @@ function headerDownloadApp() {
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
+  // [需求] 仅在没有任何弹窗显示时才恢复背景滚动
+  if (!document.querySelector('.modal-mask.show')) unlockBackgroundScroll();
   // 关闭今日明细弹窗时停止实时时钟，避免空转
   if (id === 'todayListModal' && todayClockTimer) { clearInterval(todayClockTimer); todayClockTimer = null; }
   // [T] 焦点归还给触发元素
@@ -4520,6 +4488,7 @@ document.querySelectorAll('.modal-mask').forEach(m => {
     if (savingModals.has(m.id)) return;
     if (m.querySelector('input:not([type=hidden]), textarea, select')) return;
     m.classList.remove('show');
+    if (!document.querySelector('.modal-mask.show')) unlockBackgroundScroll();
   });
 });
 
@@ -4535,7 +4504,6 @@ document.addEventListener('keydown', e => {
   else if (shown('annModal')) { e.preventDefault(); saveAnnouncement(); }
   else if (shown('userModal')) { e.preventDefault(); saveUser(); }
   else if (shown('priceModal')) { e.preventDefault(); savePrice(); }
-  else if (shown('batchPriceModal')) { e.preventDefault(); saveBatchPrice(); }
   else if (shown('confirmModal')) { e.preventDefault(); document.getElementById('confirmOkBtn').click(); }
   else if (t && (t.id === 'loginEmail' || t.classList.contains('otp-box'))) { e.preventDefault(); t.id === 'loginEmail' ? sendLoginCode() : supabaseSignIn(); }  // 登录框：邮箱回车发验证码，验证码回车直接登录
   else if (t && t.id === 'userSearch') { e.preventDefault(); t.blur(); }  // 搜索框回车仅收起键盘
@@ -4629,7 +4597,6 @@ function showPage(page, opts) {
     homeSummaryShouldAnimate = !!(currentProjectId || wasOnBill) && !wasOnStats;
     if (!silent) histConsume();  // 若详情页/账单页历史已入栈，程序内返回时同步消费，保证返回手势语义一致
     currentProjectId = null;
-    batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 返回列表时退出批量模式
     if (!silent) renderProjectGrid();  // [12] silent 时跳过整表渲染（紧接着列表会被隐藏）
   } else if (page !== 'bill' && page !== 'stats') {
     if (!silent) renderDetail();
@@ -5098,7 +5065,8 @@ function renderProjectGrid() {
       : // 仍有未回本账户：显示回本项目利润金额，点击查看回本曲线
         `<div class="summary-card" onclick="openEarnChart()" style="cursor:pointer" title="点击查看回本曲线"><div class="label">回本项目利润 📈</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${gDoneProfit}" data-decimals="2">0</span><small>元</small></div></div>`}`;
   // [P] 依据标记决定是否播放；消费后立即复位
-  animateCountUps('#homeSummary', !homeSummaryShouldAnimate);
+  // [需求] 滚动数字动画每天仅播放一次：当天已播过则直接显示最终值
+  animateCountUps('#homeSummary', !(homeSummaryShouldAnimate && countUpDailyGate('home')));
   homeSummaryShouldAnimate = false;
 
   // ---- 公共项目区（全员可见，管理员显示管理按钮） ----
@@ -5164,6 +5132,20 @@ function renderProjectGrid() {
 // 渲染一次后自动复位；切页签、数据刷新等场景直接显示最终值，不再从 0 重播
 let homeSummaryShouldAnimate = false;
 
+// [需求] 滚动数字动画每天只播放一次：按容器分别记录「上次播放日期」，
+// 当天已播过返回 false（调用方直接落最终值），避免每次切页/进项目都重播
+function countUpDailyGate(key) {
+  try {
+    const k = 'jy_countup_' + key;
+    const today = nowLocal().slice(0, 10);
+    if (localStorage.getItem(k) === today) return false;
+    localStorage.setItem(k, today);
+    return true;
+  } catch (e) {
+    return true;  // localStorage 不可用时按未播过处理（不影响数据）
+  }
+}
+
 // 统计数字滚动动画：从 0 缓动滚动到目标值（约 0.9 秒，ease-out）
 // container：指定要查找 .count-up 元素的容器选择器，默认首页汇总区
 // skip：true 时不播动画，直接把最终值写入 textContent
@@ -5205,7 +5187,6 @@ function enterProject(id) {
   currentProjectId = id;
   detailAnimate = true;  // 进入项目时为汇总数字播放滚动动画
   document.getElementById('userSearch').value = '';  // 进入项目时清空搜索
-  batchMode = false; selectedUserIdx.clear(); updateBatchUI();  // 重置批量操作状态
   showPage('detail');
   histPush('detail');  // 详情页入栈：浏览器返回键/手机侧滑可回到列表
 }
@@ -5223,7 +5204,7 @@ function debounce(fn, ms) {
 const onUserSearchInput = debounce(() => renderDetail(), 150);
 
 // [Q] 详情表格分批渲染：首屏上限 100 行，点击「显示更多」翻倍；
-// 搜索关键字变化时回到 100。勾选状态存 selectedUserIdx（按 uidx），翻页天然保持
+// 搜索关键字变化时回到 100。翻页天然保持
 let detailRowLimit = 100;
 let detailLastKw = '';
 function detailShowMore() { detailRowLimit *= 2; renderDetail(); }
@@ -5263,17 +5244,18 @@ function renderDetail() {
       : `<div class="summary-card"><div class="label">利润</div><div class="value" style="color:var(--success)">${fmtMoney(totalProfit)}<small>元</small></div></div>`}
     <div class="summary-card"><div class="label">已回本 / 未回本</div><div class="value"><span class="count-up" style="color:var(--success)" data-target="${doneCount}" data-decimals="0">${doneCount.toLocaleString('zh-CN')}</span><small>人 / </small><span class="count-up" data-target="${userCount - doneCount}" data-decimals="0">${(userCount - doneCount).toLocaleString('zh-CN')}</span><small>人</small></div></div>`;
   // 仅进入项目时播放滚动动画，搜索等重渲染直接显示最终值
-  if (detailAnimate) { detailAnimate = false; animateCountUps('#detailSummary'); }
+  // [需求] 每天仅播放一次：当天已播过则直接显示最终值，切换项目不再重复滚动
+  if (detailAnimate) {
+    detailAnimate = false;
+    animateCountUps('#detailSummary', !countUpDailyGate('detail'));
+  }
 
   document.getElementById('userCount').textContent = userCount;
-
-  // 批量模式：显示/隐藏勾选列
-  document.getElementById('userTable').classList.toggle('batching', batchMode);
 
   // 用户列表表格
   const tbody = document.getElementById('userTableBody');
   if (p.users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-secondary);padding:36px">暂无账户，点击「＋ 添加账户」开始记录</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-secondary);padding:36px">暂无账户，点击「＋ 添加账户」开始记录</td></tr>';
     return;
   }
 
@@ -5292,14 +5274,8 @@ function renderDetail() {
   // 搜索时显示「筛选数 / 总数」
   document.getElementById('userCount').textContent = kw ? `${list.length} / ${userCount}` : userCount;
 
-  // 同步全选框状态（全选 / 部分选中 / 未选）
-  const allSel = list.length > 0 && list.every(({ uidx }) => selectedUserIdx.has(uidx));
-  const chkAll = document.getElementById('chkAll');
-  chkAll.checked = allSel;
-  chkAll.indeterminate = !allSel && list.some(({ uidx }) => selectedUserIdx.has(uidx));
-
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-secondary);padding:36px">没有符合搜索条件的账户</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-secondary);padding:36px">没有符合搜索条件的账户</td></tr>';
     return;
   }
 
@@ -5313,8 +5289,7 @@ function renderDetail() {
     const pc = progressClass(progress, isDone);
 
     return `
-      <tr class="${isDone ? 'row-done' : ''} ${selectedUserIdx.has(uidx) ? 'row-selected' : ''}">
-        <td class="chk" data-label="选择"><input type="checkbox" ${selectedUserIdx.has(uidx) ? 'checked' : ''} onclick="toggleSelect(${uidx}, this.checked)"></td>
+      <tr class="${isDone ? 'row-done' : ''}">
         <td data-label="序号">${idx + 1}</td>
         <td data-label="账户ID" style="font-size:12px;color:var(--text-secondary)">${escapeHtml(u.id || '')}</td>  <!-- [A] id 缺失留空，不渲染 undefined -->
         <td data-label="姓名" class="td-block">
@@ -5358,8 +5333,8 @@ function renderDetail() {
         </td>
       </tr>`;
   }).join('') + (list.length > shown.length
-    // [Q] 剩余行入口：点击后行数翻倍重渲；勾选状态由 selectedUserIdx 保持
-    ? `<tr><td colspan="11" style="text-align:center;padding:12px"><button class="btn btn-outline" onclick="detailShowMore()">显示更多（剩余 ${list.length - shown.length} 人）</button></td></tr>`
+    // [Q] 剩余行入口：点击后行数翻倍重渲
+    ? `<tr><td colspan="10" style="text-align:center;padding:12px"><button class="btn btn-outline" onclick="detailShowMore()">显示更多（剩余 ${list.length - shown.length} 人）</button></td></tr>`
     : '');
 }
 
@@ -6439,7 +6414,7 @@ async function saveUser(keepOpen) {
   } finally { unlock(); }
 }
 
-// 删除账户（连同其所有价格记录）；按行序号定位，删除后序号前移需清空勾选
+// 删除账户（连同其所有价格记录）；按行序号定位
 function deleteUser(idx) {
   if (guestBlocked('删除账户')) return;
   const p = getProject(currentProjectId);
@@ -6449,10 +6424,8 @@ function deleteUser(idx) {
   if (!u) return;
   confirmAction('删除账户', `确定删除账户「${u.name}」${u.id ? `（ID：${u.id}）` : ''}吗？其名下 ${u.prices.length} 条回本记录将一并清除，此操作不可恢复！`, async () => {
     p.users.splice(i, 1);
-    selectedUserIdx.clear();
     await saveCloudData(true);
     renderDetail();
-    updateBatchUI();
     toast('账户已删除', 'success');
   });
 }
@@ -7391,8 +7364,9 @@ function stRenderAll() {
   const scope = stScope();
   stLastRows = stCollect(scope);
   const allMode = stMonth === ST_ALL;
-  // 全部模式：日历导航隐藏、月度柱状图容器显示；按月模式反之
+  // 全部模式：日历导航 + 日历主体隐藏，月度柱状图显示；按月模式反之
   document.getElementById('stCalNav').style.display = allMode ? 'none' : '';
+  document.getElementById('stCalMain').style.display = allMode ? 'none' : '';
   document.getElementById('stBarHost').style.display = allMode ? '' : 'none';
   if (allMode) { stRenderAllView(); return; }
   document.getElementById('stCurveTitle').textContent = '📈 回本曲线';
@@ -7424,7 +7398,7 @@ function stRenderAllView() {
     const m = r.date.slice(0, 7);
     monthMap.set(m, (monthMap.get(m) || 0) + r.price);
   });
-  document.getElementById('stMonthTitle').textContent = '月度回本（全部月份）';
+  document.getElementById('stCalTitle').textContent = '📅 月度回本（全部月份）';
   document.getElementById('stCalHint').textContent = '点击柱子查看当月全部明细';
   stRenderMonthBars(monthMap);
   stUpdateMonthArrows();
@@ -7736,6 +7710,7 @@ function stRenderCalendar(dayMap) {
   const firstWd = new Date(y, m - 1, 1).getDay();  // 0=周日 → 前置空列数
   const dim = new Date(y, m, 0).getDate();         // 当月天数
   const today = nowLocal().slice(0, 10);
+  document.getElementById('stCalTitle').textContent = '📅 回本日历';
   document.getElementById('stMonthTitle').textContent = ecMonthLabel(stMonth);
   document.getElementById('stCalHint').textContent = '点击日期查看当日明细';
   let html = '';
@@ -8181,116 +8156,6 @@ async function saveTopup() {
     if (document.getElementById('ledgerModal')?.classList.contains('show')) renderLedger();
     toast(`已为 ${u.name} 加仓 ${fmtMoney(amt)} 元，本金更新为 ${fmtMoney(u.principal)}`, 'success');
   } finally { unlock(); }
-}
-
-/* ---------- 批量操作 ---------- */
-let batchMode = false;                 // 是否处于批量操作模式
-const selectedUserIdx = new Set();     // 已勾选的账户行序号（账户ID可留空，改用行序号定位）
-
-// 进入 / 退出批量操作模式
-function toggleBatchMode() {
-  batchMode = !batchMode;
-  selectedUserIdx.clear();
-  updateBatchUI();
-  if (currentProjectId) renderDetail();
-}
-
-// 勾选 / 取消勾选单个账户（按行序号）
-function toggleSelect(idx, checked) {
-  const i = Number(idx);
-  checked ? selectedUserIdx.add(i) : selectedUserIdx.delete(i);
-  updateBatchUI();
-  renderDetail();
-}
-
-// 全选 / 全不选（仅针对当前搜索结果中的账户，按行序号）
-function toggleSelectAll(checked) {
-  const p = getProject(currentProjectId);
-  if (!p) return;
-  const kw = document.getElementById('userSearch').value.trim().toLowerCase();
-  p.users.forEach((u, i) => {
-    const hit = kw
-      ? (u.name || '').toLowerCase().includes(kw) ||  // [6] 同 renderDetail，name 缺失不崩
-        (u.id || '').toLowerCase().includes(kw) ||  // [A] 同 renderDetail，id 缺失不崩
-        (u.remark || '').toLowerCase().includes(kw)
-      : true;
-    if (hit) { checked ? selectedUserIdx.add(i) : selectedUserIdx.delete(i); }
-  });
-  renderDetail();
-}
-
-// 更新批量工具条与切换按钮状态
-function updateBatchUI() {
-  const btn = document.getElementById('batchToggleBtn');
-  if (btn) {
-    btn.textContent = batchMode ? '退出批量' : '批量操作';
-    btn.classList.toggle('btn-danger', batchMode);
-    btn.classList.toggle('btn-outline', !batchMode);
-  }
-  document.getElementById('batchCount').textContent = selectedUserIdx.size;
-  document.getElementById('batchBar').classList.toggle('show', batchMode && selectedUserIdx.size > 0);
-}
-
-/* ---------- 批量添加回本金额 ---------- */
-function openBatchPriceModal() {
-  if (!selectedUserIdx.size) { toast('请先勾选要操作的账户', 'warn'); return; }
-  const p = getProject(currentProjectId);
-  document.getElementById('bp-users').value =
-    p.users.filter((u, i) => selectedUserIdx.has(i)).map(u => u.name).join('、');
-  setError('bp-date', false); setError('bp-price', false);
-  document.getElementById('bp-date').value = nowLocal();
-  document.getElementById('bp-price').value = '';
-  openModal('batchPriceModal');
-  document.getElementById('bp-price').focus();
-}
-
-async function saveBatchPrice() {
-  if (bpSaving) return;  // 弱网防重复提交
-  const p = getProject(currentProjectId);
-  if (!p) return;
-  const date = document.getElementById('bp-date').value;
-  const price = parseFloat(document.getElementById('bp-price').value);
-
-  // 表单验证：时间不晚于当前，金额必须为正数
-  let ok = true;
-  ok = setError('bp-date', !date || date > nowLocal()) && ok;
-  ok = setError('bp-price', !(price > 0)) && ok;
-  if (!ok) return;
-  if (selectedUserIdx.size === 0) return toast('请先勾选要添加的账户', 'warn');
-
-  bpSaving = true;
-  const unlock = lockModalButtons('batchPriceModal', '保存中…');
-  try {
-    // 为每位选中的账户单独添加一条记录
-    let n = 0;
-    p.users.forEach((u, i) => {
-      if (selectedUserIdx.has(i)) { u.prices.push({ id: uid(), date, price }); n++; }
-    });
-    await saveCloudData(true);
-    closeModal('batchPriceModal');
-    renderDetail();
-    toast(`已为 ${n} 位账户各添加一笔回本金额`, 'success');
-  } finally {
-    bpSaving = false;
-    unlock();
-  }
-}
-let bpSaving = false;  // 批量录入保存进行中锁
-
-/* ---------- 批量删除账户 ---------- */
-function batchDeleteUsers() {
-  const p = getProject(currentProjectId);
-  if (!p || !selectedUserIdx.size) return;
-  const targets = p.users.filter((u, i) => selectedUserIdx.has(i));
-  const priceCount = targets.reduce((s, u) => s + u.prices.length, 0);
-  confirmAction('批量删除账户', `确定删除选中的 ${targets.length} 位账户吗？其名下共 ${priceCount} 条回本记录将一并清除，此操作不可恢复！`, async () => {
-    p.users = p.users.filter((u, i) => !selectedUserIdx.has(i));
-    selectedUserIdx.clear();
-    await saveCloudData(true);
-    renderDetail();
-    updateBatchUI();
-    toast(`已删除 ${targets.length} 位账户`, 'success');
-  });
 }
 
 /* ---------- 深色模式切换（手动偏好存 localStorage，失败时降级 cookie；未手动设置时跟随系统） ---------- */
@@ -8740,8 +8605,13 @@ function sellIdPrompt(r) {
       </div>
     </div>`;
   layer.style.display = 'flex';
+  lockBackgroundScroll();
 }
-function closeSellPick() { const l = document.getElementById('sellPickLayer'); if (l) l.style.display = 'none'; }
+function closeSellPick() {
+  const l = document.getElementById('sellPickLayer');
+  if (l) l.style.display = 'none';
+  if (!document.querySelector('.modal-mask.show')) unlockBackgroundScroll();
+}
 
 // 跳转到对应项目的「添加回本金额」，默认出货数量模式（数量 × 今日市场价自动算金额）
 async function jumpToSellBill(pid, uidx, mpName) {
