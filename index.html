@@ -1081,9 +1081,10 @@ html.dark-mode .banner-dot.active { background: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .st-pie-center, .st-mbar-amt { opacity: 1 !important; transition: none !important; }
 }
-/* 当日明细 */
-.st-day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-.st-day-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* 当日明细：左组（标题+筛选下拉）与右组（汇总数字）解耦 */
+.st-day-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.st-day-head-left { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+.st-day-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* 明细栏紧凑项目筛选下拉（右对齐浮层，避免窄屏溢出） */
 .st-dd-sm .st-dd-btn { height: 30px; padding: 0 26px 0 10px; font-size: 12px; max-width: 150px; min-width: 96px; border-radius: 8px; }
 .st-dd-sm .st-dd-menu { right: 0; left: auto; top: calc(100% + 4px); min-width: 180px; max-width: 72vw; max-height: 260px; overflow-y: auto; z-index: 30; }
@@ -1107,12 +1108,14 @@ html.dark-mode .banner-dot.active { background: #fff; }
   .st-filter { flex: 1; min-width: 0; }
   .st-dd { flex: 1; min-width: 0; }
   .st-dd-btn { max-width: none; min-width: 0; }
-  /* 当日明细筛选条：与顶部 stats-filters 同样的均分策略 */
+  /* 当日明细筛选条：标题+下拉紧挨着，汇总独立一行 */
   .st-day-head { align-items: stretch; row-gap: 8px; }
-  .st-day-tools { flex: 1 1 100%; margin-left: 0; }
-  .st-filter-sm { flex: 1; min-width: 0; }
-  .st-dd-sm { flex: 1; min-width: 0; }
-  .st-dd-sm .st-dd-btn { max-width: none; min-width: 0; }
+  .st-day-head-left { flex: 1 1 100%; align-items: flex-start; flex-wrap: wrap; }
+  .st-day-total { flex: 1 1 100%; text-align: left; padding-top: 2px; border-top: 1px dashed var(--border); margin-top: 2px; }  /* 汇总独立成第二行 */
+  /* 下拉保留自己的最小宽度，flex-shrink 允许在极窄屏微调，不再被强行挤到 min-width:0 */
+  .st-filter-sm { flex: 0 1 auto; min-width: 88px; max-width: none; }
+  .st-dd-sm { flex: 0 1 auto; min-width: 96px; max-width: none; }
+  .st-dd-sm .st-dd-btn { max-width: none; min-width: 96px; }
 }
 @media (max-width: 600px) {
   /* 月历紧凑：字号 10~12px、金额 9~10px，保证 7 列不挤 */
@@ -1903,23 +1906,27 @@ html.in-app #loginWrap {
     <!-- 当日明细 -->
     <div class="table-card st-section st-section-last">
       <div class="st-day-head">
-        <h3 class="st-sec-title" id="stDayTitle">—</h3>
-        <div class="st-day-tools">
-          <!-- [需求] 明细类型筛选（全部 / 仅回本 / 仅加仓） -->
-          <select class="st-filter st-filter-sm" id="stTypeSel" aria-label="明细类型筛选" onchange="stSwitchDetailType(this.value)">
-            <option value="all">全部类型</option>
-            <option value="earn">仅回本</option>
-            <option value="topup">仅加仓</option>
-          </select>
-          <!-- [需求] 明细按项目筛选：仅作用于下方明细列表，不影响上方曲线/日历/柱图 -->
-          <div class="st-dd st-dd-sm" id="stDetailDD">
-            <button type="button" class="st-dd-btn" onclick="stDetailDDToggle(event)">
-              <span class="st-dd-label" id="stDetailLabel">全部项目</span><span class="st-dd-caret">▾</span>
-            </button>
-            <div class="st-dd-menu" id="stDetailMenu"></div>
+        <!-- 左组：标题 + 明细筛选下拉（紧贴标题，为同一视觉组） -->
+        <div class="st-day-head-left">
+          <h3 class="st-sec-title" id="stDayTitle">—</h3>
+          <div class="st-day-tools">
+            <!-- [需求] 明细类型筛选（全部 / 仅回本 / 仅加仓） -->
+            <select class="st-filter st-filter-sm" id="stTypeSel" aria-label="明细类型筛选" onchange="stSwitchDetailType(this.value)">
+              <option value="all">全部类型</option>
+              <option value="earn">仅回本</option>
+              <option value="topup">仅加仓</option>
+            </select>
+            <!-- [需求] 明细按项目筛选：仅作用于下方明细列表，不影响上方曲线/日历/柱图 -->
+            <div class="st-dd st-dd-sm" id="stDetailDD">
+              <button type="button" class="st-dd-btn" onclick="stDetailDDToggle(event)">
+                <span class="st-dd-label" id="stDetailLabel">全部项目</span><span class="st-dd-caret">▾</span>
+              </button>
+              <div class="st-dd-menu" id="stDetailMenu"></div>
+            </div>
           </div>
-          <b class="st-day-total" id="stDayTotal"></b>
         </div>
+        <!-- 右组：当日汇总数字（独立，与筛选控件解耦） -->
+        <b class="st-day-total" id="stDayTotal"></b>
       </div>
       <table class="st-table">
         <thead>
