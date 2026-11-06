@@ -215,7 +215,7 @@ th, tbody tr, .empty {
 
 /* 步骤1：html 层也裁掉横向溢出——body 的裁剪在部分移动 WebView 中不能阻止
    「文档横向可滚动范围」因位移动画被撑大，html+body 双保险 */
-html { overflow-x: hidden; }
+html { overflow-x: hidden; scrollbar-gutter: stable; }
 
 body {
   font-family: -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -260,7 +260,9 @@ body {
   margin-bottom: 24px;
   transition: box-shadow .3s ease;
 }
-.header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; }
+.header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; height: 36px; line-height: 36px; overflow: hidden; }
+/* 无 logo 时的 emoji 兜底：占位大小与 .header-logo 一致，保持 h1 高度统一 */
+.header-logo-fallback { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.2); margin-right: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 .header-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; margin-right: 10px; background: #fff; flex-shrink: 0; }
 .login-logo { width: 44px; height: 44px; margin-right: 8px; }
 .header h1 span { opacity: .85; font-size: 13px; font-weight: 400; margin-left: 8px; }
@@ -700,8 +702,9 @@ html.modal-open, body.modal-open { overflow: hidden; }
 
   .container { padding: 12px 10px 84px; }  /* 底部留出导航栏高度 */
   .header { padding: 14px 16px; border-radius: 8px; }
-  .header h1 { font-size: 17px; }
-  .header h1 span { display: block; margin: 4px 0 0; }  /* 副标题换行显示 */
+  .header h1 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 副标题保持 inline 不换行，避免 list↔detail 切换时 h1 高度跳动；超长项目名优先被截断 */
+  .header h1 span { display: inline; margin: 0; flex-shrink: 0; }
   .header-actions { width: 100%; }
   .header-actions .btn { flex: 1; justify-content: center; padding: 8px 4px; }
 
@@ -5213,9 +5216,11 @@ function renderDetail() {
   const p = getProject(currentProjectId);
   if (!p) { showPage('list'); return; }
 
-  document.getElementById('headerTitle').innerHTML = `${p.logo
-    ? `<img src="${p.logo}" style="width:20px;height:20px;border-radius:5px;object-fit:cover;flex-shrink:0;vertical-align:-4px;margin-right:7px">`
-    : '📁'} ${escapeHtml(p.name)}<span>项目详情</span>`;
+  // 统一 logo 尺寸：和首页保持同一套 .header-logo class（36x36 圆形），避免切换时 header 高度跳动
+  const img = p.logo
+    ? `<img src="${p.logo}" class="header-logo" alt="">`
+    : `<span class="header-logo-fallback">📁</span>`;
+  document.getElementById('headerTitle').innerHTML = `${img}${escapeHtml(p.name)}<span>项目详情</span>`;
   document.getElementById('crumbProjectName').textContent = p.name;
   document.getElementById('detailProjectName').textContent = p.name;
   document.getElementById('detailProjectRemark').textContent = p.remark || '暂无备注';
